@@ -1,0 +1,568 @@
+name: CAPE
+version: $SERVICE_TAG
+description: Provides dynamic malware analysis through sandboxing.
+
+accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)
+rejects: empty|metadata/.*
+
+stage: CORE
+category: Dynamic Analysis
+
+file_required: true
+timeout: 800
+disable_cache: false
+
+enabled: false
+is_external: false
+licence_count: 0
+
+config:
+# See README for in-depth descriptions of configuration values
+  # CAPE host configurations
+
+  remote_host_details:
+    hosts:
+      - ip: "127.0.0.1"
+        port: 8090
+        api_key: "sample_api_token"
+
+  connection_timeout_in_seconds: 30
+  rest_timeout_in_seconds: 120
+  connection_attempts: 3
+
+  # CAPE victim configurations
+  allowed_images: []
+  # This is used if the "auto" specific image will select multiple images and you want to override it with less images
+  auto_architecture:
+    win:
+      x64: []
+      x86: []
+    ub:
+      x64: []
+      x86: []
+
+  # CAPE analysis configurations
+  max_file_size: 80000000
+  default_analysis_timeout_in_seconds: 150
+  max_dll_exports_exec: 5
+  machinery_supports_memory_dumps: false
+  reboot_supported: false
+
+  # CAPE reporting configurations
+  recursion_limit: 10000
+  max_report_size: 275000000
+
+  # INetSim specifications
+  random_ip_range: 192.0.2.0/24
+
+  # Assemblyline service specifications
+  dedup_similar_percent: 40
+
+  # Since Windows 10x64 is not supported by the CAPE monitor, but a lot of malware samples only run on Windows 10x64,
+  # we want a service-level variable that will submit files to Windows 10x64 without the CAPE monitor, in
+  # order to still catch network IOCs
+  no_monitor_for_win10x64: false
+
+submission_params:
+  - default: 0
+    name: analysis_timeout_in_seconds
+    type: int
+    value: 0
+
+  # value = auto + auto_all + all + allowed_images
+  # This has the third-highest precedence when submitting a file
+  - default: "auto"
+    name: specific_image
+    type: list
+    value: "auto"
+    list: ["auto", "auto_all", "all"]
+
+  - default: ""
+    name: dll_function
+    type: str
+    value: ""
+
+  - default: false
+    name: dump_memory
+    type: bool
+    value: false
+
+  - default: true
+    name: force_sleepskip
+    type: bool
+    value: true
+
+  - default: false
+    name: no_monitor
+    type: bool
+    value: false
+
+  - default: true
+    name: simulate_user
+    type: bool
+    value: true
+
+  - default: true
+    name: sysmon_enabled
+    type: bool
+    value: true
+
+  - default: false
+    name: take_screenshots
+    type: bool
+    value: false
+
+  - default: false
+    name: reboot
+    type: bool
+    value: false
+
+  - default: ""
+    name: arguments
+    type: str
+    value: ""
+
+  - default: ""
+    name: custom_options
+    type: str
+    value: ""
+
+  - default: ""
+    name: clock
+    type: str
+    value: ""
+
+  - default: ""
+    name: package
+    type: str
+    value: ""
+
+  - default: ""
+    name: specific_machine
+    type: str
+    value: ""
+
+  - default: 134217728
+    name: max_total_size_of_uploaded_files
+    type: int
+    value: 134217728
+
+  - default: "none"
+    name: platform
+    type: list
+    value: "none"
+    list: ["none", "windows", "linux"]
+
+  # https://capev2.readthedocs.io/en/latest/installation/host/routing.html?highlight=per-analysis
+  - default: "none"
+    name: routing
+    type: list
+    value: none
+    list: ["none", "inetsim", "drop", "internet", "tor", "vpn"]
+
+heuristics:
+  - heur_id: 1
+    attack_id: [T1190, T1212, T1082, T1211, T1068]
+    name: Exploit
+    score: 250
+    signature_score_map:
+      queries_programs: 10
+    filetype: '*'
+    description: Exploits an known software vulnerability or security flaw.
+
+  - heur_id: 2
+    attack_id: T1059.001
+    name: PowerShell
+    score: 500
+    signature_score_map:
+      suspicious_powershell: 250
+    filetype: '*'
+    description: Leverages Powershell to attack Windows operating systems.
+
+  - heur_id: 3
+    attack_id: T1059
+    name: Hacking tool
+    score: 750
+    filetype: '*'
+    description: Programs designed to crack or break computer and network security measures.
+
+  - heur_id: 4
+    attack_id: T1112
+    name: Locker
+    score: 100
+    filetype: '*'
+    description: Prevents access to system data and files.
+
+  - heur_id: 5
+    attack_id: T1518.001
+    name: Anti-analysis
+    score: 250
+    filetype: '*'
+    description: Constructed to conceal or obfuscate itself to prevent analysis.
+
+  - heur_id: 6
+    attack_id: T1106
+    name: Suspicious PDF API
+    score: 100
+    filetype: '*'
+    description: Makes PDF API calls not consistent with expected/standard behaviour.
+
+  - heur_id: 7
+    attack_id: T1106
+    name: Suspicious Android API
+    score: 250
+    filetype: '*'
+    description: Makes Android API calls not consistent with expected/standard behaviour.
+
+  - heur_id: 8
+    attack_id: [T1518.001, T1562.001]
+    name: Anti-antivirus
+    score: 250
+    signature_score_map:
+      antiav_servicestop: 25
+    filetype: '*'
+    description: Attempts to conceal itself from detection by anti-virus.
+
+  - heur_id: 9
+    attack_id: [T1497, T1007]
+    name: Anti-vm
+    score: 250
+    signature_score_map:
+      antivm_generic_cpu: 10
+      antivm_generic_disk: 100
+      antivm_vbox_keys: 100
+    filetype: '*'
+    description: Attempts to detect if it is being run in virtualized environment.
+
+  - heur_id: 10
+    attack_id: [T1057, T1518.001]
+    name: Anti-debug
+    score: 100
+    filetype: '*'
+    description: Attempts to detect if it is being debugged.
+
+  - heur_id: 11
+    name: Worm
+    score: 250
+    filetype: '*'
+    description: Attempts to replicate itself in order to spread to other systems.
+
+  - heur_id: 12
+    attack_id: T1526
+    name: Cloud
+    score: 100
+    filetype: '*'
+    description: Makes connection to cloud service.
+
+  - heur_id: 13
+    name: Virus
+    score: 250
+    filetype: '*'
+    description: Malicious software program
+
+  - heur_id: 14
+    name: Suspicious Office
+    score: 100
+    signature_score_map:
+      creates_doc: 10
+    filetype: '*'
+    description: Makes API calls not consistent with expected/standard behaviour
+
+  - heur_id: 15
+    attack_id: T1486
+    name: Ransomware
+    score: 250
+    filetype: '*'
+    description: Designed to block access to a system until a sum of money is paid.
+
+  - heur_id: 16
+    attack_id: [T1547.001, T1546.010, T1098]
+    name: Persistence
+    score: 250
+    signature_score_map:
+      creates_shortcut: 10
+      creates_exe: 10
+      persistence_ads: 10
+      deletes_executed_files: 100
+      privilege_luid_check: 10
+    filetype: '*'
+    description: Technique used to maintain presence in system(s) across interruptions that could cut off access.
+
+  - heur_id: 17
+    attack_id: T1055
+    name: Injection
+    score: 250
+    signature_score_map:
+      allocates_rwx: 10
+      hollowshunter_exe: 1000
+      hollowshunter_dll: 100
+      injection_resumethread: 100
+    filetype: '*'
+    description: Hide executable code in another process or within the malicious process after unpacking iteself.
+
+  - heur_id: 18
+    name: Dropper
+    score: 100
+    filetype: '*'
+    description: Trojan that drops additional malware on an affected system.
+
+  - heur_id: 19
+    attack_id: T1059
+    name: Suspicious Execution Chain
+    score: 250
+    signature_score_map:
+      uses_windows_utilities: 10
+    filetype: '*'
+    description: Command shell or script process was created by unexpected parent process.
+
+  - heur_id: 20
+    name: Trojan
+    score: 250
+    filetype: '*'
+    description: Presents itself as legitimate in attempt to infiltrate a system.
+
+  - heur_id: 21
+    attack_id: T1219
+    name: RAT
+    score: 250
+    filetype: '*'
+    description: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.
+
+  - heur_id: 22
+    attack_id: T1071
+    name: C2
+    score: 250
+    signature_score_map:
+      dead_host: 10  # This signature ranges from 2-8 -> 100-1000
+      network_icmp: 10
+      network_http_post: 10
+      network_http: 10
+      network_cnc_http: 200
+      multiple_useragents: 100
+    filetype: '*'
+    description: Communicates with a server controlled by a malicious actor.
+
+  - heur_id: 23
+    attack_id: [T1090, T1090.003]
+    name: Tor
+    score: 250
+    signature_score_map:
+      network_torgateway: 500
+    filetype: '*'
+    description: Installs/Leverages Tor to enable anonymous communication.
+
+  - heur_id: 24
+    name: Web Mail
+    score: 100
+    filetype: '*'
+    description: Connects to smtp.[domain] for possible spamming or data exfiltration.
+
+  - heur_id: 25
+    attack_id: T1497
+    name: Anti-sandbox
+    score: 250
+    signature_score_map:
+      antisandbox_idletime: 10
+      antisandbox_foregroundwindows: 10
+    filetype: '*'
+    description: Attempts to detect if it is in a sandbox.
+
+  - heur_id: 26
+    attack_id: [T1036, T1564.001, T1070]
+    name: Stealth
+    score: 250
+    signature_score_map:
+      reads_user_agent: 10
+    filetype: '*'
+    description: Leverages/modifies internal processes and settings to conceal itself.
+
+  - heur_id: 27
+    attack_id: T1027.002
+    name: Packer
+    score: 100
+    signature_score_map:
+      suspicious_process: 500  # This signature is a 2 -> 100
+    filetype: '*'
+    description: Compresses, encrypts, and/or modifies a malicious file's format.
+
+  - heur_id: 28
+    name: Banker
+    score: 250
+    filetype: '*'
+    description: Designed to gain access to confidential information stored or processed through online banking.
+
+  - heur_id: 29
+    name: Point-of-sale
+    score: 250
+    filetype: '*'
+    description: Steals information related to financial transactions, including credit card information.
+
+  - heur_id: 30
+    attack_id: T1562.001
+    name: Bypass
+    score: 250
+    filetype: '*'
+    description: Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)
+
+  - heur_id: 31
+    name: Crash
+    score: 10
+    filetype: '*'
+    description: Attempts to crash the system.
+
+  - heur_id: 32
+    name: IM
+    score: 100
+    filetype: '*'
+    description: Leverages instant-messaging.
+
+  - heur_id: 33
+    attack_id: T1014
+    name: Rootkit
+    score: 250
+    filetype: '*'
+    description: Designed to provide continued privileged access to a system while actively hiding its presence.
+
+  - heur_id: 34
+    name: Adware
+    score: 100
+    filetype: '*'
+    description: Displays unwanted, unsolicited advertisements.
+
+  - heur_id: 35
+    attack_id: [T1003, T1005]
+    name: Infostealer
+    score: 250
+    filetype: '*'
+    description: Collects and disseminates information such as login details, usernames, passwords, etc.
+
+  - heur_id: 36
+    attack_id: T1047
+    name: WMI
+    score: 250
+    signature_score_map:
+      office_uses_wmi: 250  # This signature is a 5 -> 750
+    filetype: '*'
+    description: Leverages Windows Management Instrumentation (WMI) to gather information and/or execute a process.
+
+  - heur_id: 37
+    attack_id: [T1071, T1129]
+    name: Downloader
+    score: 250
+    filetype: '*'
+    description: Trojan that downloads / installs files.
+
+  - heur_id: 38
+    name: DynDNS
+    score: 100
+    filetype: '*'
+    description: Utilizes dynamic DNS.
+
+  - heur_id: 39
+    name: BOT
+    score: 250
+    filetype: '*'
+    description: Appears to be a bot or exhibits bot-like behaviour.
+
+  - heur_id: 40
+    name: Rop
+    score: 500
+    filetype: '*'
+    description: Exploits trusted programs to execute malicious code from memory to evade data execution prevention.
+
+  - heur_id: 41
+    name: Fraud
+    score: 250
+    filetype: '*'
+    description: Presents itself as a legitimate program and/or facilitates fraudulent activity.
+
+  - heur_id: 42
+    name: URLshort
+    score: 100
+    filetype: '*'
+    description: Leverages URL shortening to obfuscate malicious destination.
+
+  - heur_id: 43
+    attack_id: T1497
+    name: Anti-emulation
+    score: 250
+    filetype: '*'
+    description: Detects the presence of an emulator.
+
+  - heur_id: 44
+    name: Cryptocurrency
+    score: 100
+    filetype: '*'
+    description: Facilitates mining of cryptocurrency.
+
+  - heur_id: 45
+    name: Bind
+    score: 100
+    filetype: '*'
+    description: Allows a resource to be sent or received across a network.
+
+  - heur_id: 46
+    name: Suspicious DLL
+    score: 250
+    filetype: '*'
+    description: Attempts to load DLL that is inconsistent with expected/standard behaviour.
+
+  - heur_id: 1000
+    name: Domain detected
+    score: 10
+    filetype: '*'
+    description: CAPE detected Domains
+
+  - heur_id: 1002
+    name: HTTP/HTTPS detected
+    score: 10
+    filetype: '*'
+    description: CAPE detected HTTP/HTTPS requests
+
+  - heur_id: 1003
+    name: Access Remote File
+    score: 10
+    filetype: '*'
+    description: CAPE detected an attempt to access a remote file
+
+  - heur_id: 1004
+    name: TCP/UDP Detected
+    score: 10
+    filetype: '*'
+    description: CAPE detected traffic made over TCP/UDP
+
+  - heur_id: 1005
+    name: Non-HTTP Traffic over HTTP ports
+    score: 10
+    filetype: '*'
+    description: CAPE detected non-HTTP traffic being made over HTTP ports (80, 443)
+
+  - heur_id: 1006
+    name: IOC found in Buffer
+    score: 500
+    filetype: '*'
+    description: CAPE detected an IOC found in a buffer, either encrypted or decrypted
+
+  - heur_id: 1007
+    name: Suspicious User Agent
+    score: 1
+    filetype: '*'
+    description: CAPE detected a suspicious user agent used for HTTP calls
+
+  - heur_id: 1008
+    name: AntiVirus Hit
+    score: 1000
+    filetype: '*'
+    description: AntiVirus hit. File is infected.
+
+  - heur_id: 9999
+    name: Unknown
+    score: 0
+    filetype: '*'
+    description: Unknown signature detected by CAPE
+
+docker_config:
+  allow_internet_access: true
+  image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
+  cpu_cores: 0.5
+  ram_mb: 2000

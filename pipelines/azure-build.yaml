@@ -1,0 +1,65 @@
+name: build
+
+variables:
+  - group: unittest-samples
+  - name: self_location
+    value: "self_location"
+  - name: full_self_location
+    value: "$(Agent.BuildDirectory)/$(self_location)"
+  - name: samples_location
+    value: "samples_location"
+  - name: full_samples_location
+    value: "$(Agent.BuildDirectory)/$(samples_location)"
+
+resources:
+  repositories:
+  - repository: unittest-samples
+    type: github
+    name: $(unittest_samples_repository)
+    ref: main
+    endpoint: github-repo-sa
+    trigger: none
+
+trigger:
+  tags:
+    include: ["v*"]
+pr: none
+
+pool:
+  vmImage: "ubuntu-20.04"
+
+stages:
+  - stage: deploy
+    jobs:
+      - job: deploy
+        displayName: Deploy containers to dockerhub
+        variables:
+          - group: deployment-information
+        steps:
+          - task: Docker@2
+            displayName: Login to docker hub
+            inputs:
+              command: login
+              containerRegistry: dockerhub
+          - checkout: self
+            fetchDepth: 1
+            path: $(self_location)
+          - checkout: unittest-samples
+            fetchDepth: 1
+            path: $(samples_location)
+          - script: |
+              export TAG=${BUILD_SOURCEBRANCH#"refs/tags/v"}
+              if [[ "$TAG" == *stable* ]]; then export BUILD_TYPE=stable; else export BUILD_TYPE=latest; fi
+              docker build --build-arg version=$TAG --build-arg branch=$BUILD_TYPE -t cccs/${BUILD_REPOSITORY_NAME##*/}:$TAG -t cccs/${BUILD_REPOSITORY_NAME##*/}:$BUILD_TYPE -f ./Dockerfile .
+            workingDirectory: $(full_self_location)
+            displayName: Build containers
+          - script: |
+              [ ! -d "$(pwd)/tests" ] && echo "No tests found" && exit
+              export TAG=${BUILD_SOURCEBRANCH#"refs/tags/v"}
+              if [[ "$TAG" == *stable* ]]; then export BUILD_TYPE=stable; else export BUILD_TYPE=latest; fi
+              [ -f "$(pwd)/tests/requirements.txt" ] && docker run -e FULL_SELF_LOCATION=/opt/al_service -e FULL_SAMPLES_LOCATION=/opt/samples -v /usr/share/ca-certificates/mozilla:/usr/share/ca-certificates/mozilla -v $(pwd)/tests/:/opt/al_service/tests/ -v ${FULL_SAMPLES_LOCATION}:/opt/samples cccs/${BUILD_REPOSITORY_NAME##*/}:$BUILD_TYPE bash -c 'pip install -U -r tests/requirements.txt; pytest -p no:cacheprovider -vv' && exit
+              docker run -e FULL_SELF_LOCATION=/opt/al_service -e FULL_SAMPLES_LOCATION=/opt/samples -v /usr/share/ca-certificates/mozilla:/usr/share/ca-certificates/mozilla -v $(pwd)/tests/:/opt/al_service/tests/ -v ${FULL_SAMPLES_LOCATION}:/opt/samples cccs/${BUILD_REPOSITORY_NAME##*/}:$BUILD_TYPE bash -c 'pytest -p no:cacheprovider -vv'
+            workingDirectory: $(full_self_location)
+            displayName: Test containers
+          - script: docker push cccs/${BUILD_REPOSITORY_NAME##*/} --all-tags
+            displayName: Deploy to Docker Hub
