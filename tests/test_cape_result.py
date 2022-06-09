@@ -1,7 +1,7 @@
 import os
 import json
 import pytest
-from test_cape_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality, dummy_result_class_instance
+from test_cape_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality
 
 
 class TestCapeResult:
@@ -1432,7 +1432,7 @@ class TestCapeResult:
 
         ]
     )
-    def test_convert_sysmon_network(sysmon, actual_network, correct_network, dummy_result_class_instance, mocker):
+    def test_convert_sysmon_network(sysmon, actual_network, correct_network):
         from cape.cape_result import convert_sysmon_network
         safelist = {}
         convert_sysmon_network(sysmon, actual_network, safelist)

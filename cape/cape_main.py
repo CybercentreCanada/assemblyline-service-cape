@@ -32,7 +32,7 @@ from assemblyline.common.exceptions import RecoverableError, ChainException
 
 from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
     SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS
-from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+# from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
 HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
@@ -617,7 +617,7 @@ class CAPE(ServiceBase):
                                      headers=cape_task.auth_header, timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to submit a file {cape_task.file}")
+                                       f"trying to submit a file {cape_task.file}")
         except requests.ConnectionError:
             raise Exception(f"Unable to reach the CAPE nest while trying to submit a file {cape_task.file}")
         if resp.status_code != 200:
@@ -667,7 +667,7 @@ class CAPE(ServiceBase):
                         temp_report.write(chunk)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the report for task {cape_task.id}")
+                                       f"trying to query the report for task {cape_task.id}")
         except requests.ConnectionError:
             raise Exception(f"Unable to reach the CAPE nest while trying to query the report for "
                             f"task {cape_task.id}")
@@ -715,7 +715,7 @@ class CAPE(ServiceBase):
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the pcap for task {cape_task.id}")
+                                       f"trying to query the pcap for task {cape_task.id}")
         except requests.ConnectionError:
             raise Exception(f"Unable to reach the CAPE nest while trying to query the pcap for task {cape_task.id}")
         pcap_data: Optional[bytes] = None
@@ -740,7 +740,7 @@ class CAPE(ServiceBase):
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"({cape_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the task {cape_task.id}")
+                                       f"trying to query the task {cape_task.id}")
         except requests.ConnectionError:
             raise Exception(f"Unable to reach the CAPE nest while trying to query the task {cape_task.id}")
         task_dict: Optional[Dict[str, Any]] = None
@@ -772,7 +772,7 @@ class CAPE(ServiceBase):
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to delete task {cape_task.id}")
+                                       f"trying to delete task {cape_task.id}")
         except requests.ConnectionError:
             raise Exception(f"Unable to reach the CAPE nest while trying to delete task {cape_task.id}")
         if resp.status_code == 500 and \
@@ -832,7 +832,7 @@ class CAPE(ServiceBase):
 
         if number_of_unavailable_hosts == number_of_hosts:
             raise CapeHostsUnavailable(f"Failed to reach any of the hosts "
-                                         f"at {[host['ip'] + ':' + str(host['port']) for host in hosts_copy]}")
+                                       f"at {[host['ip'] + ':' + str(host['port']) for host in hosts_copy]}")
 
     def check_dropped(self, cape_task: CapeTask) -> None:
         """
@@ -1118,7 +1118,8 @@ class CAPE(ServiceBase):
         no_monitor = self.request.get_param("no_monitor")
 
         # If the user didn't select no_monitor, but at the service level we want no_monitor on Windows 10x64, then:
-        if not no_monitor and self.config.get("no_monitor_for_win10x64", False) and kwargs.get("tags", {}) == "win10x64":
+        if not no_monitor and self.config.get("no_monitor_for_win10x64", False) and \
+            kwargs.get("tags", {}) == "win10x64":
             no_monitor = True
 
         custom_options = self.request.get_param("custom_options")
