@@ -30,24 +30,24 @@ from assemblyline.common.identify_defaults import type_to_extension, trusted_mim
 from assemblyline.common.exceptions import RecoverableError, ChainException
 # from assemblyline.odm.models.ontology.types.sandbox import Sandbox
 
-from cuckoo.cuckoo_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
+from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
     SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS
-from cuckoo.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
 HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
 
-CUCKOO_API_SUBMIT = "tasks/create/file"
-CUCKOO_API_QUERY_TASK = "tasks/view/%s"
-CUCKOO_API_DELETE_TASK = "tasks/delete/%s"
-CUCKOO_API_QUERY_REPORT = "tasks/report/%s"
-CUCKOO_API_QUERY_PCAP = "pcap/get/%s"
-CUCKOO_API_QUERY_MACHINES = "machines/list"
-CUCKOO_API_QUERY_HOST = "cuckoo/status"
-CUCKOO_API_REBOOT_TASK = "tasks/reboot/%s"
+CAPE_API_SUBMIT = "tasks/create/file"
+CAPE_API_QUERY_TASK = "tasks/view/%s"
+CAPE_API_DELETE_TASK = "tasks/delete/%s"
+CAPE_API_QUERY_REPORT = "tasks/report/%s"
+CAPE_API_QUERY_PCAP = "pcap/get/%s"
+CAPE_API_QUERY_MACHINES = "machines/list"
+CAPE_API_QUERY_HOST = "cape/status"
+CAPE_API_REBOOT_TASK = "tasks/reboot/%s"
 
-CUCKOO_POLL_DELAY = 5
+CAPE_POLL_DELAY = 5
 GUEST_VM_START_TIMEOUT = 360  # Give the VM at least 6 minutes to start up
 REPORT_GENERATION_TIMEOUT = 420  # Give the analysis at least 7 minutes to generate the report
 ANALYSIS_TIMEOUT = 150
@@ -99,22 +99,22 @@ MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 
-class CuckooTimeoutException(Exception):
+class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
     pass
 
 
-class MissingCuckooReportException(Exception):
+class MissingCapeReportException(Exception):
     """Exception class for missing reports"""
     pass
 
 
-class CuckooProcessingException(Exception):
+class CapeProcessingException(Exception):
     """Exception class for processing errors"""
     pass
 
 
-class CuckooVMBusyException(Exception):
+class CapeVMBusyException(Exception):
     """Exception class for busy VMs"""
     pass
 
@@ -124,18 +124,18 @@ class ReportSizeExceeded(Exception):
     pass
 
 
-class CuckooHostsUnavailable(Exception):
+class CapeHostsUnavailable(Exception):
     """Exception class for when the service cannot reach the hosts"""
     pass
 
 
 class AnalysisTimeoutExceeded(Exception):
-    """Exception class for when Cuckoo is not able to complete analysis before the service times out"""
+    """Exception class for when CAPE is not able to complete analysis before the service times out"""
     pass
 
 
 class AnalysisFailed(Exception):
-    """Exception class for when Cuckoo is not able to analyze the task"""
+    """Exception class for when CAPE is not able to analyze the task"""
     pass
 
 
@@ -150,7 +150,7 @@ def _retry_on_none(result) -> bool:
 
 
 """
-    The following parameters are available for customization before sending a task to the cuckoo server:
+    The following parameters are available for customization before sending a task to the CAPE server:
 
     * ``file`` *(required)* - sample file (multipart encoded file content)
     * ``package`` *(optional)* - analysis package to be used for the analysis
@@ -162,9 +162,9 @@ def _retry_on_none(result) -> bool:
 """
 
 
-class CuckooTask(dict):
+class CapeTask(dict):
     def __init__(self, sample: str, host_details: Dict[str, Any], **kwargs) -> None:
-        super(CuckooTask, self).__init__()
+        super(CapeTask, self).__init__()
         self.file = sample
         self.update(kwargs)
         self.id: Optional[int] = None
@@ -172,13 +172,13 @@ class CuckooTask(dict):
         self.errors: List[str] = []
         self.auth_header = host_details["auth_header"]
         self.base_url = f"http://{host_details['ip']}:{host_details['port']}"
-        self.submit_url = f"{self.base_url}/{CUCKOO_API_SUBMIT}"
-        self.query_task_url = f"{self.base_url}/{CUCKOO_API_QUERY_TASK}"
-        self.delete_task_url = f"{self.base_url}/{CUCKOO_API_DELETE_TASK}"
-        self.query_report_url = f"{self.base_url}/{CUCKOO_API_QUERY_REPORT}"
-        self.query_pcap_url = f"{self.base_url}/{CUCKOO_API_QUERY_PCAP}"
-        self.query_machines_url = f"{self.base_url}/{CUCKOO_API_QUERY_MACHINES}"
-        self.reboot_task_url = f"{self.base_url}/{CUCKOO_API_REBOOT_TASK}"
+        self.submit_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
+        self.query_task_url = f"{self.base_url}/{CAPE_API_QUERY_TASK}"
+        self.delete_task_url = f"{self.base_url}/{CAPE_API_DELETE_TASK}"
+        self.query_report_url = f"{self.base_url}/{CAPE_API_QUERY_REPORT}"
+        self.query_pcap_url = f"{self.base_url}/{CAPE_API_QUERY_PCAP}"
+        self.query_machines_url = f"{self.base_url}/{CAPE_API_QUERY_MACHINES}"
+        self.reboot_task_url = f"{self.base_url}/{CAPE_API_REBOOT_TASK}"
 
 
 class SubmissionThread(Thread):
@@ -200,9 +200,9 @@ class SubmissionThread(Thread):
 
 # noinspection PyBroadException
 # noinspection PyGlobalUndefined
-class Cuckoo(ServiceBase):
+class CAPE(ServiceBase):
     def __init__(self, config: Optional[Dict] = None) -> None:
-        super(Cuckoo, self).__init__(config)
+        super(CAPE, self).__init__(config)
         self.file_name: Optional[str] = None
         self.file_res: Optional[Result] = None
         self.request: Optional[ServiceRequest] = None
@@ -237,12 +237,12 @@ class Cuckoo(ServiceBase):
         except ServiceAPIError as e:
             self.log.warning(f"Couldn't retrieve safelist from service: {e}. Continuing without it..")
 
-        self.log.debug("Cuckoo started!")
+        self.log.debug("CAPE started!")
 
     # noinspection PyTypeChecker
     def execute(self, request: ServiceRequest) -> None:
         if not len(self.hosts):
-            raise CuckooHostsUnavailable(
+            raise CapeHostsUnavailable(
                 "All hosts are unavailable at the moment, as determined by a previous execution.")
 
         self.request = request
@@ -256,7 +256,7 @@ class Cuckoo(ServiceBase):
 
         self.file_res = request.result
 
-        # Poorly name var to track keyword arguments to pass into cuckoo's 'submit' function
+        # Poorly name var to track keyword arguments to pass into CAPE's 'submit' function
         kwargs: Dict[str, Any] = {}
 
         # Remove leftover files in the /tmp dir from previous executions
@@ -304,7 +304,7 @@ class Cuckoo(ServiceBase):
                 submission_specific_kwargs = kwargs.copy()
                 parent_section = ResultSection(f"Analysis Environment Target: {relevant_image}")
                 self.file_res.add_section(parent_section)
-                so = SandboxOntology(sandbox_name="Cuckoo Sandbox")
+                so = SandboxOntology(sandbox_name="CAPE Sandbox")
                 # self.sandbox_ontologies.append(so)
                 submission_specific_kwargs["tags"] = relevant_image
                 thr = SubmissionThread(
@@ -320,7 +320,7 @@ class Cuckoo(ServiceBase):
             parent_section = ResultSection(
                 f"Analysis Environment Target: {relevant_images_keys[0]}")
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="Cuckoo Sandbox")
+            so = SandboxOntology(sandbox_name="CAPE Sandbox")
             # self.sandbox_ontologies.append(so)
             kwargs["tags"] = relevant_images_keys[0]
             hosts = [host for host in self.hosts if host["ip"] in relevant_images[relevant_images_keys[0]]]
@@ -329,7 +329,7 @@ class Cuckoo(ServiceBase):
             parent_section = ResultSection(
                 f"Analysis Environment Target: {next(iter(hosts_with_platform))}")
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="Cuckoo Sandbox")
+            so = SandboxOntology(sandbox_name="CAPE Sandbox")
             # self.sandbox_ontologies.append(so)
             hosts = [host for host in self.hosts if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]]
             self._general_flow(kwargs, file_ext, parent_section, hosts, so)
@@ -347,7 +347,7 @@ class Cuckoo(ServiceBase):
                     "Analysis Environment Target: First Machine Available")
                 hosts = self.hosts
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="Cuckoo Sandbox")
+            so = SandboxOntology(sandbox_name="CAPE Sandbox")
             # self.sandbox_ontologies.append(so)
             self._general_flow(kwargs, file_ext, parent_section, hosts, so)
 
@@ -376,9 +376,9 @@ class Cuckoo(ServiceBase):
                       hosts: List[Dict[str, Any]], so: SandboxOntology, reboot: bool = False, parent_task_id: int = 0,
                       resubmit: bool = False) -> None:
         """
-        This method contains the general flow of a task: submitting a file to Cuckoo and generating an Assemblyline
+        This method contains the general flow of a task: submitting a file to CAPE and generating an Assemblyline
         report
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :param file_ext: The file extension of the file to be submitted
         :param parent_section: The overarching result section detailing what image this task is being sent to
@@ -400,19 +400,19 @@ class Cuckoo(ServiceBase):
             self._set_task_parameters(kwargs, file_ext, parent_section)
             host_to_use = self._determine_host_to_use(hosts)
 
-        cuckoo_task = CuckooTask(self.file_name, host_to_use, **kwargs)
+        cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
         if parent_task_id:
-            cuckoo_task.id = parent_task_id
+            cape_task.id = parent_task_id
 
         try:
             start_time = time()
-            self.submit(self.request.file_contents, cuckoo_task, parent_section, reboot)
+            self.submit(self.request.file_contents, cape_task, parent_section, reboot)
 
-            if cuckoo_task.id:
-                self._generate_report(file_ext, cuckoo_task, parent_section, so)
+            if cape_task.id:
+                self._generate_report(file_ext, cape_task, parent_section, so)
             else:
-                raise Exception(f"Task ID is None. File failed to be submitted to the Cuckoo nest at "
+                raise Exception(f"Task ID is None. File failed to be submitted to the CAPE nest at "
                                 f"{host_to_use['ip']}.")
         except AnalysisTimeoutExceeded:
             so.update_analysis_metadata(start_time=start_time, end_time=time())
@@ -421,19 +421,19 @@ class Cuckoo(ServiceBase):
         except Exception as e:
             so.update_analysis_metadata(start_time=start_time, end_time=time())
             self.log.error(repr(e))
-            if cuckoo_task and cuckoo_task.id is not None:
-                self.delete_task(cuckoo_task)
+            if cape_task and cape_task.id is not None:
+                self.delete_task(cape_task)
             raise
 
         # If first submission, reboot is always false
         if not reboot and self.config.get("reboot_supported", False):
             reboot = self._determine_if_reboot_required(parent_section)
             if reboot:
-                self._general_flow(kwargs, file_ext, parent_section, [host_to_use], so, reboot, cuckoo_task.id)
+                self._general_flow(kwargs, file_ext, parent_section, [host_to_use], so, reboot, cape_task.id)
 
         # Delete and exit
-        if cuckoo_task and cuckoo_task.id is not None:
-            self.delete_task(cuckoo_task)
+        if cape_task and cape_task.id is not None:
+            self.delete_task(cape_task)
 
         # Two submissions is enough I'd say
         if resubmit:
@@ -449,51 +449,51 @@ class Cuckoo(ServiceBase):
                 self._general_flow(kwargs, file_ext, parent_section, [host_to_use], so, resubmit=True)
                 break
 
-    def submit(self, file_content: bytes, cuckoo_task: CuckooTask, parent_section: ResultSection,
+    def submit(self, file_content: bytes, cape_task: CapeTask, parent_section: ResultSection,
                reboot: bool = False) -> None:
         """
         This method contains the submitting, polling, and report retrieving logic
         :param file_content: The content of the file to be submitted
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param reboot: A boolean indicating that we will be resubmitting a task for reboot analysis
         :return: None
         """
         if not reboot:
             try:
-                """ Submits a new file to Cuckoo for analysis """
-                task_id = self.submit_file(file_content, cuckoo_task)
+                """ Submits a new file to CAPE for analysis """
+                task_id = self.submit_file(file_content, cape_task)
                 if not task_id:
                     self.log.error("Failed to get task for submitted file.")
                     return
                 else:
-                    cuckoo_task.id = task_id
+                    cape_task.id = task_id
             except Exception as e:
-                self.log.error(f"Error submitting to Cuckoo: {safe_str(e)}")
+                self.log.error(f"Error submitting to CAPE: {safe_str(e)}")
                 raise
         else:
-            resp = self.session.get(cuckoo_task.reboot_task_url % cuckoo_task.id, headers=cuckoo_task.auth_header,
+            resp = self.session.get(cape_task.reboot_task_url % cape_task.id, headers=cape_task.auth_header,
                                     timeout=self.timeout)
             if resp.status_code != 200:
                 self.log.warning("Reboot selected, but task could not be rebooted. Moving on...")
                 return
             else:
                 reboot_resp = resp.json()
-                cuckoo_task.id = reboot_resp["reboot_id"]
+                cape_task.id = reboot_resp["reboot_id"]
                 self.log.debug(f"Reboot selected, task {reboot_resp['task_id']} marked for"
                                f" reboot {reboot_resp['reboot_id']}.")
 
-        self.log.debug(f"Submission succeeded. File: {cuckoo_task.file} -- Task {cuckoo_task.id}")
+        self.log.debug(f"Submission succeeded. File: {cape_task.file} -- Task {cape_task.id}")
 
         try:
-            status: Optional[str] = self.poll_started(cuckoo_task)
+            status: Optional[str] = self.poll_started(cape_task)
         except RetryError:
-            self.log.error(f"VM startup timed out or {cuckoo_task.id} was never added to the Cuckoo DB.")
+            self.log.error(f"VM startup timed out or {cape_task.id} was never added to the CAPE DB.")
             status = ANALYSIS_EXCEEDED_TIMEOUT
 
         if status == TASK_STARTED:
             try:
-                status = self.poll_report(cuckoo_task, parent_section)
+                status = self.poll_report(cape_task, parent_section)
             except RetryError:
                 self.log.error("Max retries exceeded for report status.")
                 status = ANALYSIS_EXCEEDED_TIMEOUT
@@ -502,24 +502,24 @@ class Cuckoo(ServiceBase):
             # Add a subsection detailing what's happening and then moving on
             task_timeout_sec = ResultTextSection("Assemblyline Task Timeout Exceeded.")
             task_timeout_sec.add_line(
-                f"The Cuckoo task {cuckoo_task.id} took longer than the Assemblyline's task timeout would allow.")
+                f"The CAPE task {cape_task.id} took longer than the Assemblyline's task timeout would allow.")
             task_timeout_sec.add_line(
-                "This is usually due to an issue on Cuckoo's machinery end."
-                " Contact the Cuckoo administrator for details.")
+                "This is usually due to an issue on CAPE's machinery end."
+                " Contact the CAPE administrator for details.")
             parent_section.add_subsection(task_timeout_sec)
-            cuckoo_task.id = None
+            cape_task.id = None
             raise AnalysisTimeoutExceeded()
         elif status == TASK_MISSING:
-            err_msg = f"Task {cuckoo_task.id} went missing while waiting for Cuckoo to analyze file."
-            cuckoo_task.id = None
+            err_msg = f"Task {cape_task.id} went missing while waiting for CAPE to analyze file."
+            cape_task.id = None
             self.log.error(err_msg)
             raise RecoverableError(err_msg)
         elif status == ANALYSIS_FAILED:
             # Add a subsection detailing what's happening and then moving on
-            analysis_failed_sec = ResultTextSection("Cuckoo Analysis Failed.")
+            analysis_failed_sec = ResultTextSection("CAPE Analysis Failed.")
             analysis_failed_sec.add_line(
-                f"The analysis of Cuckoo task {cuckoo_task.id} has failed."
-                " Contact the Cuckoo administrator for details.")
+                f"The analysis of CAPE task {cape_task.id} has failed."
+                " Contact the CAPE administrator for details.")
             parent_section.add_subsection(analysis_failed_sec)
             raise AnalysisFailed()
 
@@ -527,23 +527,23 @@ class Cuckoo(ServiceBase):
         # Need to kill the container; we're about to go down..
         self.log.debug("Service is being stopped; removing all running containers and metadata..")
 
-    @retry(wait_fixed=CUCKOO_POLL_DELAY * 1000,
-           stop_max_attempt_number=(GUEST_VM_START_TIMEOUT/CUCKOO_POLL_DELAY),
+    @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
+           stop_max_attempt_number=(GUEST_VM_START_TIMEOUT/CAPE_POLL_DELAY),
            retry_on_result=_retry_on_none)
-    def poll_started(self, cuckoo_task: CuckooTask) -> Optional[str]:
+    def poll_started(self, cape_task: CapeTask) -> Optional[str]:
         """
-        This method queries the task on the Cuckoo server, and determines if the task has started
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method queries the task on the CAPE server, and determines if the task has started
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: A string representing the status
         """
-        task_info = self.query_task(cuckoo_task)
+        task_info = self.query_task(cape_task)
         if task_info is None:
             # The API didn't return a task..
             return TASK_MISSING
 
         # Detect if mismatch
-        if task_info["id"] != cuckoo_task.id:
-            self.log.warning(f"Cuckoo returned mismatched task info for task {cuckoo_task.id}. Trying again..")
+        if task_info["id"] != cape_task.id:
+            self.log.warning(f"CAPE returned mismatched task info for task {cape_task.id}. Trying again..")
             return None
 
         if task_info.get("guest", {}).get("status") == TASK_STARTING:
@@ -562,73 +562,73 @@ class Cuckoo(ServiceBase):
 
     # TODO: stop_max_attempt_number definitely should be used, otherwise a container could run until it
     #  hits the preempt limit
-    # TODO: Its value should be x such that x / CUCKOO_POLL_DELAY = 5(?) minutes or 300 seconds
+    # TODO: Its value should be x such that x / CAPE_POLL_DELAY = 5(?) minutes or 300 seconds
     # TODO: do we need retry_on_exception?
-    @retry(wait_fixed=CUCKOO_POLL_DELAY * 1000,
-           stop_max_attempt_number=((GUEST_VM_START_TIMEOUT + REPORT_GENERATION_TIMEOUT)/CUCKOO_POLL_DELAY),
+    @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
+           stop_max_attempt_number=((GUEST_VM_START_TIMEOUT + REPORT_GENERATION_TIMEOUT)/CAPE_POLL_DELAY),
            retry_on_result=_retry_on_none,
            retry_on_exception=_exclude_chain_ex)
-    def poll_report(self, cuckoo_task: CuckooTask, parent_section: ResultSection) -> Optional[str]:
+    def poll_report(self, cape_task: CapeTask, parent_section: ResultSection) -> Optional[str]:
         """
-        This method polls the Cuckoo server for the status of the task, doing so until a report has been generated
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method polls the CAPE server for the status of the task, doing so until a report has been generated
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: A string representing the status
         """
-        task_info = self.query_task(cuckoo_task)
+        task_info = self.query_task(cape_task)
         if task_info is None or task_info == {}:
             # The API didn't return a task..
             return TASK_MISSING
 
         # Detect if mismatch
-        if task_info["id"] != cuckoo_task.id:
-            self.log.warning(f"Cuckoo returned mismatched task info for task {cuckoo_task.id}. Trying again..")
+        if task_info["id"] != cape_task.id:
+            self.log.warning(f"CAPE returned mismatched task info for task {cape_task.id}. Trying again..")
             return None
 
         # Check for errors first to avoid parsing exceptions
         status = task_info["status"]
         if "fail" in status:
-            self.log.error(f"Analysis has failed for task {cuckoo_task.id} due to {task_info['errors']}.")
+            self.log.error(f"Analysis has failed for task {cape_task.id} due to {task_info['errors']}.")
             analysis_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
             return ANALYSIS_FAILED
         elif status == TASK_COMPLETED:
-            self.log.debug(f"Analysis has completed for task {cuckoo_task.id}, waiting on report to be produced.")
+            self.log.debug(f"Analysis has completed for task {cape_task.id}, waiting on report to be produced.")
         elif status == TASK_REPORTED:
-            self.log.debug(f"Cuckoo report generation has completed for task {cuckoo_task.id}.")
+            self.log.debug(f"CAPE report generation has completed for task {cape_task.id}.")
             return status
         else:
-            self.log.debug(f"Waiting for task {cuckoo_task.id} to finish. Current status: {status}.")
+            self.log.debug(f"Waiting for task {cape_task.id} to finish. Current status: {status}.")
 
         return None
 
-    def submit_file(self, file_content: bytes, cuckoo_task: CuckooTask) -> int:
+    def submit_file(self, file_content: bytes, cape_task: CapeTask) -> int:
         """
-        This method submits the file to the Cuckoo server
+        This method submits the file to the CAPE server
         :param file_content: the contents of the file to be submitted
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: an integer representing the task ID
         """
-        self.log.debug(f"Submitting file: {cuckoo_task.file} to server {cuckoo_task.submit_url}")
-        files = {"file": (cuckoo_task.file, file_content)}
+        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
+        files = {"file": (cape_task.file, file_content)}
         try:
-            resp = self.session.post(cuckoo_task.submit_url, files=files, data=cuckoo_task,
-                                     headers=cuckoo_task.auth_header, timeout=self.timeout)
+            resp = self.session.post(cape_task.submit_url, files=files, data=cape_task,
+                                     headers=cape_task.auth_header, timeout=self.timeout)
         except requests.exceptions.Timeout:
-            raise CuckooTimeoutException(f"Cuckoo ({cuckoo_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to submit a file {cuckoo_task.file}")
+            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
+                                         f"trying to submit a file {cape_task.file}")
         except requests.ConnectionError:
-            raise Exception(f"Unable to reach the Cuckoo nest while trying to submit a file {cuckoo_task.file}")
+            raise Exception(f"Unable to reach the CAPE nest while trying to submit a file {cape_task.file}")
         if resp.status_code != 200:
-            self.log.error(f"Failed to submit file {cuckoo_task.file}. Status code: {resp.status_code}")
+            self.log.error(f"Failed to submit file {cape_task.file}. Status code: {resp.status_code}")
 
             if resp.status_code == 500:
                 new_filename = generate_random_words(1)
-                file_ext = cuckoo_task.file.rsplit(".", 1)[-1]
-                cuckoo_task.file = new_filename + "." + file_ext
-                self.log.error(f"Got 500 error from Cuckoo API. This is often caused by non-ascii filenames. "
-                               f"Renaming file to {cuckoo_task.file} and retrying")
+                file_ext = cape_task.file.rsplit(".", 1)[-1]
+                cape_task.file = new_filename + "." + file_ext
+                self.log.error(f"Got 500 error from CAPE API. This is often caused by non-ascii filenames. "
+                               f"Renaming file to {cape_task.file} and retrying")
                 # Raise an exception to force a retry
                 raise RecoverableError("Retrying after 500 error")
             return 0
@@ -644,21 +644,21 @@ class Cuckoo(ServiceBase):
                     return 0
             return task_id
 
-    def query_report(self, cuckoo_task: CuckooTask, fmt: str, params: Optional[Dict[str, str]] = None) -> Any:
+    def query_report(self, cape_task: CapeTask, fmt: str, params: Optional[Dict[str, str]] = None) -> Any:
         """
-        This method retrieves the report from the Cuckoo server
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
-        :param fmt: The report format to retrieve from the Cuckoo server
+        This method retrieves the report from the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
+        :param fmt: The report format to retrieve from the CAPE server
         :param params: The parameters of the report format that we want
         :return: Depending on what is requested, will return a string representing that a JSON report has been
         generated or the bytes of a tarball
         """
-        self.log.debug(f"Querying report for task {cuckoo_task.id} - format: {fmt}")
+        self.log.debug(f"Querying report for task {cape_task.id} - format: {fmt}")
         try:
             # There are edge cases that require us to stream the report to disk
             temp_report = SpooledTemporaryFile()
-            with self.session.get(cuckoo_task.query_report_url % cuckoo_task.id + '/' + fmt, params=params or {},
-                                  headers=cuckoo_task.auth_header, timeout=self.timeout, stream=True) as resp:
+            with self.session.get(cape_task.query_report_url % cape_task.id + '/' + fmt, params=params or {},
+                                  headers=cape_task.auth_header, timeout=self.timeout, stream=True) as resp:
                 if int(resp.headers["Content-Length"]) > self.max_report_size:
                     # BAIL, TOO BIG and there is a strong chance it will crash the Docker container
                     resp.status_code = 413  # Request Entity Too Large
@@ -666,20 +666,20 @@ class Cuckoo(ServiceBase):
                     for chunk in resp.iter_content(chunk_size=8192):
                         temp_report.write(chunk)
         except requests.exceptions.Timeout:
-            raise CuckooTimeoutException(f"Cuckoo ({cuckoo_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the report for task {cuckoo_task.id}")
+            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
+                                         f"trying to query the report for task {cape_task.id}")
         except requests.ConnectionError:
-            raise Exception(f"Unable to reach the Cuckoo nest while trying to query the report for "
-                            f"task {cuckoo_task.id}")
+            raise Exception(f"Unable to reach the CAPE nest while trying to query the report for "
+                            f"task {cape_task.id}")
         if resp.status_code != 200:
             if resp.status_code == 404:
-                self.log.error(f"Task or report not found for task {cuckoo_task.id}.")
-                # most common cause of getting to here seems to be odd/non-ascii filenames, where the cuckoo agent
+                self.log.error(f"Task or report not found for task {cape_task.id}.")
+                # most common cause of getting to here seems to be odd/non-ascii filenames, where the CAPE agent
                 # inside the VM dies
-                raise MissingCuckooReportException("Task or report not found")
+                raise MissingCapeReportException("Task or report not found")
             elif resp.status_code == 413:
-                msg = f"Cuckoo report (type={fmt}) size is {int(resp.headers['Content-Length'])} for task " \
-                      f"#{cuckoo_task.id} which is bigger than the allowed size of {self.max_report_size}"
+                msg = f"CAPE report (type={fmt}) size is {int(resp.headers['Content-Length'])} for task " \
+                      f"#{cape_task.id} which is bigger than the allowed size of {self.max_report_size}"
                 self.log.error(msg)
                 raise ReportSizeExceeded(msg)
             else:
@@ -699,59 +699,59 @@ class Cuckoo(ServiceBase):
 
         # TODO: report_data = b'{}' and b'""' evaluates to true, so that should be added to this check
         if report_data in [None, "", b""]:
-            raise Exception(f"Empty {fmt} report data for task {cuckoo_task.id}")
+            raise Exception(f"Empty {fmt} report data for task {cape_task.id}")
 
         return report_data
 
-    # TODO: This is dead service code for the Assemblyline team's Cuckoo setup, but may prove useful to others.
-    def query_pcap(self, cuckoo_task: CuckooTask) -> bytes:
+    # TODO: This is dead service code for the Assemblyline team's CAPE setup, but may prove useful to others.
+    def query_pcap(self, cape_task: CapeTask) -> bytes:
         """
-        This method retrieves the PCAP file generated by Cuckoo on the Cuckoo server
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method retrieves the PCAP file generated by CAPE on the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: the bytes of the PCAP file
         """
         try:
-            resp = self.session.get(cuckoo_task.query_pcap_url % cuckoo_task.id, headers=cuckoo_task.auth_header,
+            resp = self.session.get(cape_task.query_pcap_url % cape_task.id, headers=cape_task.auth_header,
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
-            raise CuckooTimeoutException(f"Cuckoo ({cuckoo_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the pcap for task {cuckoo_task.id}")
+            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
+                                         f"trying to query the pcap for task {cape_task.id}")
         except requests.ConnectionError:
-            raise Exception(f"Unable to reach the Cuckoo nest while trying to query the pcap for task {cuckoo_task.id}")
+            raise Exception(f"Unable to reach the CAPE nest while trying to query the pcap for task {cape_task.id}")
         pcap_data: Optional[bytes] = None
         if resp.status_code != 200:
             if resp.status_code == 404:
-                self.log.error(f"Task or pcap not found for task {cuckoo_task.id}")
+                self.log.error(f"Task or pcap not found for task {cape_task.id}")
             else:
-                self.log.error(f"Failed to query pcap for task {cuckoo_task.id}. Status code: {resp.status_code}")
+                self.log.error(f"Failed to query pcap for task {cape_task.id}. Status code: {resp.status_code}")
         else:
             pcap_data = resp.content
         return pcap_data
 
     # TODO: Validate that task_id is not None
-    def query_task(self, cuckoo_task: CuckooTask) -> Dict[str, Any]:
+    def query_task(self, cape_task: CapeTask) -> Dict[str, Any]:
         """
-        This method queries the task on the Cuckoo server
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method queries the task on the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: a dictionary containing details about the task, such as its status
         """
         try:
-            resp = self.session.get(cuckoo_task.query_task_url % cuckoo_task.id, headers=cuckoo_task.auth_header,
+            resp = self.session.get(cape_task.query_task_url % cape_task.id, headers=cape_task.auth_header,
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
-            raise CuckooTimeoutException(f"({cuckoo_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to query the task {cuckoo_task.id}")
+            raise CapeTimeoutException(f"({cape_task.base_url}) timed out after {self.timeout}s while "
+                                         f"trying to query the task {cape_task.id}")
         except requests.ConnectionError:
-            raise Exception(f"Unable to reach the Cuckoo nest while trying to query the task {cuckoo_task.id}")
+            raise Exception(f"Unable to reach the CAPE nest while trying to query the task {cape_task.id}")
         task_dict: Optional[Dict[str, Any]] = None
         if resp.status_code != 200:
             if resp.status_code == 404:
                 # Just because the query returns 404 doesn't mean the task doesn't exist, it just hasn't been
                 # added to the DB yet
-                self.log.warning(f"Task not found for task {cuckoo_task.id}")
-                task_dict = {"task": {"status": TASK_MISSING}, "id": cuckoo_task.id}
+                self.log.warning(f"Task not found for task {cape_task.id}")
+                task_dict = {"task": {"status": TASK_MISSING}, "id": cape_task.id}
             else:
-                self.log.error(f"Failed to query task {cuckoo_task.id}. Status code: {resp.status_code}")
+                self.log.error(f"Failed to query task {cape_task.id}. Status code: {resp.status_code}")
         else:
             resp_dict = dict(resp.json())
             task_dict = resp_dict['task']
@@ -759,36 +759,36 @@ class Cuckoo(ServiceBase):
                 self.log.error('Failed to query task. Returned task dictionary is None or empty')
         return task_dict
 
-    # TODO: cuckoo_task.id should be set to None each time, no?
-    @retry(wait_fixed=CUCKOO_POLL_DELAY * 1000, stop_max_attempt_number=2)
-    def delete_task(self, cuckoo_task: CuckooTask) -> None:
+    # TODO: cape_task.id should be set to None each time, no?
+    @retry(wait_fixed=CAPE_POLL_DELAY * 1000, stop_max_attempt_number=2)
+    def delete_task(self, cape_task: CapeTask) -> None:
         """
-        This method tries to delete the task from the Cuckoo server
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method tries to delete the task from the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
         try:
-            resp = self.session.get(cuckoo_task.delete_task_url % cuckoo_task.id, headers=cuckoo_task.auth_header,
+            resp = self.session.get(cape_task.delete_task_url % cape_task.id, headers=cape_task.auth_header,
                                     timeout=self.timeout)
         except requests.exceptions.Timeout:
-            raise CuckooTimeoutException(f"Cuckoo ({cuckoo_task.base_url}) timed out after {self.timeout}s while "
-                                         f"trying to delete task {cuckoo_task.id}")
+            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
+                                         f"trying to delete task {cape_task.id}")
         except requests.ConnectionError:
-            raise Exception(f"Unable to reach the Cuckoo nest while trying to delete task {cuckoo_task.id}")
+            raise Exception(f"Unable to reach the CAPE nest while trying to delete task {cape_task.id}")
         if resp.status_code == 500 and \
                 loads(resp.text).get("message") == "The task is currently being processed, cannot delete":
-            raise Exception(f"The task {cuckoo_task.id} is currently being processed, cannot delete")
+            raise Exception(f"The task {cape_task.id} is currently being processed, cannot delete")
         elif resp.status_code != 200:
-            self.log.error(f"Failed to delete task {cuckoo_task.id}. Status code: {resp.status_code}")
+            self.log.error(f"Failed to delete task {cape_task.id}. Status code: {resp.status_code}")
         else:
-            self.log.debug(f"Deleted task {cuckoo_task.id}.")
-            if cuckoo_task:
-                cuckoo_task.id = None
+            self.log.debug(f"Deleted task {cape_task.id}.")
+            if cape_task:
+                cape_task.id = None
 
     def query_machines(self) -> None:
         """
-        This method queries what machines exist in the Cuckoo configuration on the Cuckoo server
-        This is the initial request to each Cuckoo host.
+        This method queries what machines exist in the CAPE configuration on the CAPE server
+        This is the initial request to each CAPE host.
         :return: None
         """
         number_of_unavailable_hosts = 0
@@ -797,7 +797,7 @@ class Cuckoo(ServiceBase):
 
         for host in hosts_copy:
             for attempt in range(self.connection_attempts):
-                query_machines_url = f"http://{host['ip']}:{host['port']}/{CUCKOO_API_QUERY_MACHINES}"
+                query_machines_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_MACHINES}"
                 try:
                     resp = self.session.get(
                         query_machines_url, headers=host["auth_header"],
@@ -812,8 +812,8 @@ class Cuckoo(ServiceBase):
                     continue
                 except requests.ConnectionError:
                     self.log.error(
-                        f"Unable to reach the Cuckoo nest ({host['ip']}) while trying to query machines. "
-                        f"Be sure to checkout the README and ensure that you have a Cuckoo nest setup outside "
+                        f"Unable to reach the CAPE nest ({host['ip']}) while trying to query machines. "
+                        f"Be sure to checkout the README and ensure that you have a CAPE nest setup outside "
                         f"of Assemblyline first before running the service.")
                     if attempt == self.connection_attempts - 1:
                         number_of_unavailable_hosts += 1
@@ -831,18 +831,18 @@ class Cuckoo(ServiceBase):
                     break
 
         if number_of_unavailable_hosts == number_of_hosts:
-            raise CuckooHostsUnavailable(f"Failed to reach any of the hosts "
+            raise CapeHostsUnavailable(f"Failed to reach any of the hosts "
                                          f"at {[host['ip'] + ':' + str(host['port']) for host in hosts_copy]}")
 
-    def check_dropped(self, cuckoo_task: CuckooTask) -> None:
+    def check_dropped(self, cape_task: CapeTask) -> None:
         """
-        This method retrieves a tarball containing dropped files from the Cuckoo server, and extracts them
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method retrieves a tarball containing dropped files from the CAPE server, and extracts them
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
-        dropped_tar_bytes = self.query_report(cuckoo_task, 'dropped')
+        dropped_tar_bytes = self.query_report(cape_task, 'dropped')
         added_hashes: Set[str] = set()
-        task_dir = os.path.join(self.working_directory, f"{cuckoo_task.id}")
+        task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
         if dropped_tar_bytes is not None:
             try:
                 dropped_tar = tarfile_open(fileobj=BytesIO(dropped_tar_bytes))
@@ -874,16 +874,16 @@ class Cuckoo(ServiceBase):
                         if not is_tag_safelisted(dropped_name, ["file.path"], self.safelist, substring=True) or \
                                 dropped_name.endswith('_info.txt'):
                             # Resubmit
-                            dropped_file_name = f"{cuckoo_task.id}_{dropped_name}"
+                            dropped_file_name = f"{cape_task.id}_{dropped_name}"
                             artifact = {
                                 "name": dropped_file_name,
                                 "path": dropped_file_path,
-                                "description": "Dropped file during Cuckoo analysis.",
+                                "description": "Dropped file during CAPE analysis.",
                                 "to_be_extracted": True
                             }
                             self.artifact_list.append(artifact)
                             self.log.debug(f"Submitted dropped file for analysis for task "
-                                           f"ID {cuckoo_task.id}: {dropped_file_name}")
+                                           f"ID {cape_task.id}: {dropped_file_name}")
             except Exception as e_x:
                 self.log.error(f"Error extracting dropped files: {e_x}")
                 return
@@ -891,7 +891,7 @@ class Cuckoo(ServiceBase):
     def check_powershell(self, task_id: int, parent_section: ResultSection) -> None:
         """
         This method adds powershell files as extracted.
-        :param task_id: An integer representing the Cuckoo Task ID
+        :param task_id: An integer representing the CAPE Task ID
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: None
         """
@@ -908,17 +908,17 @@ class Cuckoo(ServiceBase):
                 artifact = {
                     "name": ps1_file_name,
                     "path": ps1_path,
-                    "description": "Deobfuscated PowerShell script from Cuckoo analysis",
+                    "description": "Deobfuscated PowerShell script from CAPE analysis",
                     "to_be_extracted": True
                 }
                 self.artifact_list.append(artifact)
                 break
 
-    # TODO: This is dead service code for the Assemblyline team's Cuckoo setup, but may prove useful to others.
-    def check_pcap(self, cuckoo_task: CuckooTask, parent_section: ResultSection) -> None:
+    # TODO: This is dead service code for the Assemblyline team's CAPE setup, but may prove useful to others.
+    def check_pcap(self, cape_task: CapeTask, parent_section: ResultSection) -> None:
         """
-        This method gets a PCAP file from the Cuckoo server and extracts it accordingly.
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        This method gets a PCAP file from the CAPE server and extracts it accordingly.
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: None
         """
@@ -932,9 +932,9 @@ class Cuckoo(ServiceBase):
         if not has_network:
             return
 
-        pcap_data = self.query_pcap(cuckoo_task)
+        pcap_data = self.query_pcap(cape_task)
         if pcap_data:
-            pcap_file_name = f"{cuckoo_task.id}_cuckoo_traffic.pcap"
+            pcap_file_name = f"{cape_task.id}_cape_traffic.pcap"
             pcap_path = os.path.join(self.working_directory, pcap_file_name)
             pcap_file = open(pcap_path, 'wb')
             pcap_file.write(pcap_data)
@@ -944,18 +944,18 @@ class Cuckoo(ServiceBase):
             artifact = {
                 "name": pcap_file_name,
                 "path": pcap_path,
-                "description": "PCAP from Cuckoo analysis",
+                "description": "PCAP from CAPE analysis",
                 "to_be_extracted": True
             }
             self.artifact_list.append(artifact)
-            self.log.debug(f"Adding extracted file for task {cuckoo_task.id}: {pcap_file_name}")
+            self.log.debug(f"Adding extracted file for task {cape_task.id}: {pcap_file_name}")
 
-    def report_machine_info(self, machine_name: str, cuckoo_task: CuckooTask, parent_section: ResultSection,
+    def report_machine_info(self, machine_name: str, cape_task: CapeTask, parent_section: ResultSection,
                             so: SandboxOntology) -> None:
         """
         This method reports details about the machine that was used for detonation.
         :param machine_name: The name of the machine that the task ran on.
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
@@ -972,7 +972,7 @@ class Cuckoo(ServiceBase):
             if not machine:
                 return
 
-        manager = cuckoo_task.report["info"]["machine"]["manager"]
+        manager = cape_task.report["info"]["machine"]["manager"]
         platform = machine["platform"]
         body = {
             'Name': machine_name,
@@ -1053,7 +1053,7 @@ class Cuckoo(ServiceBase):
     def _assign_file_extension(self, kwargs: Dict[str, Any]) -> str:
         """
         This method determines the correct file extension to the file to be submitted
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :return: The file extension of the file to be submitted
         """
@@ -1061,7 +1061,7 @@ class Cuckoo(ServiceBase):
         original_ext = self.file_name.rsplit('.', 1)
         tag_extension = type_to_extension.get(self.request.file_type)
 
-        # NOTE: Cuckoo still tries to identify files itself, so we only force the extension/package
+        # NOTE: CAPE still tries to identify files itself, so we only force the extension/package
         # if the user specifies one. However, we go through the trouble of renaming the file because
         # the only way to have certain modules run is to use the appropriate suffix (.jar, .vbs, etc.)
 
@@ -1075,7 +1075,7 @@ class Cuckoo(ServiceBase):
             if submitted_ext not in SUPPORTED_EXTENSIONS:
                 # This is the case where the submitted file was NOT identified, and  the provided extension
                 # isn't in the list of extensions that we explicitly support.
-                self.log.debug("Cuckoo is exiting because it doesn't support the provided file type.")
+                self.log.debug("CAPE is exiting because it doesn't support the provided file type.")
                 return ""
             else:
                 if submitted_ext == "bin":
@@ -1095,7 +1095,7 @@ class Cuckoo(ServiceBase):
     def _set_task_parameters(self, kwargs: Dict[str, Any], file_ext: str, parent_section: ResultSection) -> None:
         """
         This method sets the specific details about the run, through the kwargs and the task_options
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :param file_ext: The file extension of the file to be submitted
         :param parent_section: The overarching result section detailing what image this task is being sent to
@@ -1142,7 +1142,7 @@ class Cuckoo(ServiceBase):
         if self.config.get("machinery_supports_memory_dumps", False) and dump_memory:
             kwargs["memory"] = True
         elif dump_memory:
-            parent_section.add_subsection(ResultSection("Cuckoo Machinery Cannot Generate Memory Dumps."))
+            parent_section.add_subsection(ResultSection("CAPE Machinery Cannot Generate Memory Dumps."))
 
         if no_monitor:
             task_options.append("free=yes")
@@ -1198,7 +1198,7 @@ class Cuckoo(ServiceBase):
         """
         This method checks if the specific image exists in a list of machines
         :param specific_image: The specific image requested for the task
-        :param machines: A list of machines on a Cuckoo server
+        :param machines: A list of machines on a CAPE server
         :param allowed_images: A list of images that are allowed to be selected on Assemblyline
         :return: A boolean representing if the image exists
         """
@@ -1215,7 +1215,7 @@ class Cuckoo(ServiceBase):
     def _get_available_images(machines: List[Dict[str, Any]], allowed_images: List[str]) -> List[str]:
         """
         This method gets a list of available images given a list of machines
-        :param machines: A list of machines on a Cuckoo server
+        :param machines: A list of machines on a CAPE server
         :param allowed_images: A list of images that are allowed to be selected on Assemblyline
         :return: A list of available images
         """
@@ -1233,7 +1233,7 @@ class Cuckoo(ServiceBase):
                                 parent_section: ResultSection) -> None:
         """
         This method handles if a specific function was requested to be run for a DLL, or what functions to run for a DLL
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :param task_options: A list of parameters detailing the specifics of the task
         :param file_ext: The file extension of the file to be submitted
@@ -1257,7 +1257,7 @@ class Cuckoo(ServiceBase):
     def _parse_dll(self, kwargs: Dict[str, Any], task_options: List[str], parent_section: ResultSection) -> None:
         """
         This method parses a DLL file and determines which functions to try and run with the DLL
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :param task_options: A list of parameters detailing the specifics of the task
         :param parent_section: The overarching result section detailing what image this task is being sent to
@@ -1318,78 +1318,78 @@ class Cuckoo(ServiceBase):
         return dll_parsed
 
     def _generate_report(
-            self, file_ext: str, cuckoo_task: CuckooTask, parent_section: ResultSection, so: SandboxOntology) -> None:
+            self, file_ext: str, cape_task: CapeTask, parent_section: ResultSection, so: SandboxOntology) -> None:
         """
         This method generates the report for the task
         :param file_ext: The file extension of the file to be submitted
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
         """
         # Retrieve artifacts from analysis
-        self.log.debug(f"Generating cuckoo report tar.gz for {cuckoo_task.id}.")
+        self.log.debug(f"Generating CAPE report tar.gz for {cape_task.id}.")
 
-        # Submit cuckoo analysis report archive as a supplementary file
+        # Submit CAPE analysis report archive as a supplementary file
         # FYI: tweak https://github.com/cuckoosandbox/cuckoo/pull/2533, so that fmt="all" has the
         # bz_format = "all": {"type": "-", "files": []}. This way you can retrieve the "memory.dmp" file via REST.
-        tar_report = self.query_report(cuckoo_task, fmt='all', params={'tar': 'gz'})
+        tar_report = self.query_report(cape_task, fmt='all', params={'tar': 'gz'})
         if tar_report is not None:
-            self._unpack_tar(tar_report, file_ext, cuckoo_task, parent_section, so)
+            self._unpack_tar(tar_report, file_ext, cape_task, parent_section, so)
 
         # Submit dropped files and pcap if available:
-        self._extract_console_output(cuckoo_task.id)
-        self._extract_injected_exes(cuckoo_task.id)
-        self.check_dropped(cuckoo_task)
-        self.check_powershell(cuckoo_task.id, parent_section)
-        # self.check_pcap(cuckoo_task)
+        self._extract_console_output(cape_task.id)
+        self._extract_injected_exes(cape_task.id)
+        self.check_dropped(cape_task)
+        self.check_powershell(cape_task.id, parent_section)
+        # self.check_pcap(cape_task)
 
-    def _unpack_tar(self, tar_report: bytes, file_ext: str, cuckoo_task: CuckooTask,
+    def _unpack_tar(self, tar_report: bytes, file_ext: str, cape_task: CapeTask,
                     parent_section: ResultSection, so: SandboxOntology) -> None:
         """
         This method unpacks the tarball, which contains the report for the task
         :param tar_report: The tarball in bytes which contains all artifacts from the analysis
         :param file_ext: The file extension of the file to be submitted
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
         """
-        tar_file_name = f"{cuckoo_task.id}_cuckoo_report.tar.gz"
+        tar_file_name = f"{cape_task.id}_cape_report.tar.gz"
         tar_report_path = os.path.join(self.working_directory, tar_file_name)
 
-        self._add_tar_ball_as_supplementary_file(tar_file_name, tar_report_path, tar_report, cuckoo_task)
+        self._add_tar_ball_as_supplementary_file(tar_file_name, tar_report_path, tar_report, cape_task)
         tar_obj = tarfile_open(tar_report_path)
 
         try:
-            report_json_path = self._add_json_as_supplementary_file(tar_obj, cuckoo_task)
-        except MissingCuckooReportException:
+            report_json_path = self._add_json_as_supplementary_file(tar_obj, cape_task)
+        except MissingCapeReportException:
             report_json_path = None
-            no_json_res_sec = ResultTextSection("The Cuckoo JSON Report Is Missing!")
-            no_json_res_sec.add_line("Please alert your Cuckoo administrators.")
+            no_json_res_sec = ResultTextSection("The CAPE JSON Report Is Missing!")
+            no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
-            self._build_report(report_json_path, file_ext, cuckoo_task, parent_section, so)
+            self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         # Check for any extra files in full report to add as extracted files
         # special 'supplementary' directory
         try:
-            self._extract_hollowshunter(tar_obj, cuckoo_task.id)
-            self._extract_artifacts(tar_obj, cuckoo_task.id, parent_section, so)
+            self._extract_hollowshunter(tar_obj, cape_task.id)
+            self._extract_artifacts(tar_obj, cape_task.id, parent_section, so)
 
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for "
-                               f"task {cuckoo_task.id}. Exception: {e}")
+                               f"task {cape_task.id}. Exception: {e}")
         tar_obj.close()
 
     def _add_tar_ball_as_supplementary_file(self, tar_file_name: str, tar_report_path: str, tar_report: bytes,
-                                            cuckoo_task: CuckooTask) -> None:
+                                            cape_task: CapeTask) -> None:
         """
         This method adds the tarball report as a supplementary file to Assemblyline
         :param tar_file_name: The name of the tarball
         :param tar_report_path: The path where the tarball is located
         :param tar_report: The tarball report in bytes
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
         try:
@@ -1399,20 +1399,20 @@ class Cuckoo(ServiceBase):
             artifact = {
                 "name": tar_file_name,
                 "path": tar_report_path,
-                "description": "Cuckoo Sandbox analysis report archive (tar.gz)",
+                "description": "CAPE Sandbox analysis report archive (tar.gz)",
                 "to_be_extracted": False
             }
             self.artifact_list.append(artifact)
-            self.log.debug(f"Adding supplementary file {tar_file_name} for task {cuckoo_task.id}")
+            self.log.debug(f"Adding supplementary file {tar_file_name} for task {cape_task.id}")
         except Exception as e:
             self.log.exception(f"Unable to add tar of complete report for "
-                               f"task {cuckoo_task.id} due to {e}")
+                               f"task {cape_task.id} due to {e}")
 
-    def _add_json_as_supplementary_file(self, tar_obj: TarFile, cuckoo_task: CuckooTask) -> str:
+    def _add_json_as_supplementary_file(self, tar_obj: TarFile, cape_task: CapeTask) -> str:
         """
         This method adds the JSON report as a supplementary file to Assemblyline
         :param tar_obj: The tarball object, containing the analysis artifacts for the task
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: A string representing the path of the report in JSON format
         """
         # Attach report.json as a supplementary file. This is duplicating functionality
@@ -1421,34 +1421,34 @@ class Cuckoo(ServiceBase):
         try:
             member_name = "reports/report.json"
             if member_name in tar_obj.getnames():
-                task_dir = os.path.join(self.working_directory, f"{cuckoo_task.id}")
+                task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
                 report_json_path = os.path.join(task_dir, member_name)
-                report_name = f"{cuckoo_task.id}_report.json"
+                report_name = f"{cape_task.id}_report.json"
 
                 tar_obj.extract(member_name, path=task_dir)
                 artifact = {
                     "name": report_name,
                     "path": report_json_path,
-                    "description": "Cuckoo Sandbox report (json)",
+                    "description": "CAPE Sandbox report (json)",
                     "to_be_extracted": False
                 }
                 self.artifact_list.append(artifact)
-                self.log.debug(f"Adding supplementary file {report_name} for task {cuckoo_task.id}")
+                self.log.debug(f"Adding supplementary file {report_name} for task {cape_task.id}")
             else:
-                raise MissingCuckooReportException
-        except MissingCuckooReportException:
+                raise MissingCapeReportException
+        except MissingCapeReportException:
             raise
         except Exception as e:
-            self.log.exception(f"Unable to add report.json for task {cuckoo_task.id}. Exception: {e}")
+            self.log.exception(f"Unable to add report.json for task {cape_task.id}. Exception: {e}")
         return report_json_path
 
-    def _build_report(self, report_json_path: str, file_ext: str, cuckoo_task: CuckooTask,
+    def _build_report(self, report_json_path: str, file_ext: str, cape_task: CapeTask,
                       parent_section: ResultSection, so: SandboxOntology) -> None:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
         :param file_ext: The file extension of the file to be submitted
-        :param cuckoo_task: The CuckooTask class instance, which contains details about the specific task
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return:
@@ -1457,17 +1457,17 @@ class Cuckoo(ServiceBase):
             # Setting environment recursion limit for large JSONs
             setrecursionlimit(int(self.config['recursion_limit']))
             # Reading, decoding and converting to JSON
-            cuckoo_task.report = loads(open(report_json_path, "rb").read().decode('utf-8'))
+            cape_task.report = loads(open(report_json_path, "rb").read().decode('utf-8'))
         except JSONDecodeError as e:
             self.log.exception(f"Failed to decode the json: {str(e)}")
             raise e
         except Exception as e:
-            url = cuckoo_task.query_report_url % cuckoo_task.id + '/' + "all"
-            raise Exception(f"Exception converting extracted cuckoo report into json from tar ball: "
+            url = cape_task.query_report_url % cape_task.id + '/' + "all"
+            raise Exception(f"Exception converting extracted CAPE report into json from tar ball: "
                             f"report url: {url}, file_name: {self.file_name} due to {e}")
         try:
             machine_name: Optional[str] = None
-            report_info = cuckoo_task.report.get('info', {})
+            report_info = cape_task.report.get('info', {})
             machine = report_info.get('machine', {})
 
             if isinstance(machine, dict):
@@ -1476,31 +1476,31 @@ class Cuckoo(ServiceBase):
             if machine_name is None:
                 self.log.warning('Unable to retrieve machine name from result.')
             else:
-                self.report_machine_info(machine_name, cuckoo_task, parent_section, so)
-            self.log.debug(f"Generating AL Result from Cuckoo results for task {cuckoo_task.id}.")
-            generate_al_result(cuckoo_task.report, parent_section, file_ext, self.config.get("random_ip_range"),
+                self.report_machine_info(machine_name, cape_task, parent_section, so)
+            self.log.debug(f"Generating AL Result from CAPE results for task {cape_task.id}.")
+            generate_al_result(cape_task.report, parent_section, file_ext, self.config.get("random_ip_range"),
                                self.routing, self.safelist, so)
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
-            if cuckoo_task and cuckoo_task.id is not None:
-                self.delete_task(cuckoo_task)
+            if cape_task and cape_task.id is not None:
+                self.delete_task(cape_task)
             raise
-        except CuckooProcessingException:
-            # Catching the CuckooProcessingException, attempting to delete the file, and then carrying on
+        except CapeProcessingException:
+            # Catching the CapeProcessingException, attempting to delete the file, and then carrying on
             self.log.error("Processing error occurred generating report")
-            if cuckoo_task and cuckoo_task.id is not None:
-                self.delete_task(cuckoo_task)
+            if cape_task and cape_task.id is not None:
+                self.delete_task(cape_task)
             raise
         except Exception as e:
             self.log.error(f"Error generating report: {repr(e)}")
-            if cuckoo_task and cuckoo_task.id is not None:
-                self.delete_task(cuckoo_task)
+            if cape_task and cape_task.id is not None:
+                self.delete_task(cape_task)
             raise
 
     def _extract_console_output(self, task_id: int) -> None:
         """
         This method adds a file containing console output, if it exists
-        :param task_id: An integer representing the Cuckoo Task ID
+        :param task_id: An integer representing the CAPE Task ID
         :return: None
         """
         # Check if there are any files consisting of console output from detonation
@@ -1519,7 +1519,7 @@ class Cuckoo(ServiceBase):
     def _extract_injected_exes(self, task_id: int) -> None:
         """
         This method adds files containing injected exes, if they exist
-        :param task_id: An integer representing the Cuckoo Task ID
+        :param task_id: An integer representing the CAPE Task ID
         :return: None
         """
         # Check if there are any files consisting of injected exes
@@ -1545,7 +1545,7 @@ class Cuckoo(ServiceBase):
         """
         This method extracts certain artifacts from that tarball
         :param tar_obj: The tarball object, containing the analysis artifacts for the task
-        :param task_id: An integer representing the Cuckoo Task ID
+        :param task_id: An integer representing the CAPE Task ID
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
@@ -1555,9 +1555,9 @@ class Cuckoo(ServiceBase):
         # Extract buffers, screenshots and anything else
         tarball_file_map = {
             "buffer": "Extracted buffer",
-            "extracted": "Cuckoo extracted file",
+            "extracted": "CAPE extracted file",
             "memory": "Memory artifact",
-            "shots": "Screenshots from Cuckoo analysis",
+            "shots": "Screenshots from CAPE analysis",
             # "polarproxy": "HTTPS .pcap from PolarProxy capture",
             "sum": "All traffic from TCPDUMP and PolarProxy",
             "sysmon/sysmon.evtx": "Sysmon Logging Captured",
@@ -1622,7 +1622,7 @@ class Cuckoo(ServiceBase):
         """
         This method extracts HollowsHunter dumps from the tarball
         :param tar_obj: The tarball object, containing the analysis artifacts for the task
-        :param task_id: An integer representing the Cuckoo Task ID
+        :param task_id: An integer representing the CAPE Task ID
         :return: None
         """
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -1714,7 +1714,7 @@ class Cuckoo(ServiceBase):
     def _handle_specific_machine(self, kwargs: Dict[str, Any]) -> Tuple[bool, bool]:
         """
         This method handles if a specific machine was requested
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :return: A tuple containing if a machine was requested, and if that machine exists
         """
@@ -1748,14 +1748,14 @@ class Cuckoo(ServiceBase):
                 no_machine_sec.add_line(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec.add_line("General Information:")
                 no_machine_sec.add_line(
-                    f"At the moment, the current machine options for this Cuckoo deployment include {machine_names}.")
+                    f"At the moment, the current machine options for this CAPE deployment include {machine_names}.")
                 self.file_res.add_section(no_machine_sec)
         return machine_requested, machine_exists
 
     def _handle_specific_platform(self, kwargs: Dict[str, Any]) -> Tuple[bool, Dict[str, List[str]]]:
         """
         This method handles if a specific platform was requested
-        :param kwargs: The keyword arguments that will be sent to Cuckoo when submitting the file, detailing specifics
+        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
         :return: A tuple containing if a platform was requested, and where that platform exists
         """
@@ -1784,7 +1784,7 @@ class Cuckoo(ServiceBase):
             no_platform_sec.add_line("General Information:")
             no_platform_sec.add_line(
                 "At the moment, the current platform options for "
-                f"this Cuckoo deployment include {sorted(machine_platform_set)}.")
+                f"this CAPE deployment include {sorted(machine_platform_set)}.")
             self.file_res.add_section(no_platform_sec)
         else:
             kwargs["platform"] = specific_platform
@@ -1822,7 +1822,7 @@ class Cuckoo(ServiceBase):
                 no_image_sec.add_line(f"The requested image '{specific_image}' is currently unavailable.")
                 no_image_sec.add_line("General Information:")
                 no_image_sec.add_line(
-                    f"At the moment, the current image options for this Cuckoo deployment include {available_images}.")
+                    f"At the moment, the current image options for this CAPE deployment include {available_images}.")
                 self.file_res.add_section(no_image_sec)
         return image_requested, relevant_images
 
@@ -1838,14 +1838,14 @@ class Cuckoo(ServiceBase):
         host_details: List[Dict[str, Any], int] = []
         min_queue_size = maxsize
         for host in hosts:
-            host_status_url = f"http://{host['ip']}:{host['port']}/{CUCKOO_API_QUERY_HOST}"
+            host_status_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_HOST}"
             try:
                 resp = self.session.get(host_status_url, headers=host["auth_header"], timeout=self.timeout)
             except requests.exceptions.Timeout:
                 self.log.warning(f"{host_status_url} timed out after {self.timeout}s")
                 continue
             except requests.ConnectionError:
-                self.log.warning(f"Unable to reach the Cuckoo nest while trying to GET {host_status_url}")
+                self.log.warning(f"Unable to reach the CAPE nest while trying to GET {host_status_url}")
                 continue
             if resp.status_code != 200:
                 self.log.error(f"Failed to GET {host_status_url}. Status code: {resp.status_code}")
@@ -1862,7 +1862,7 @@ class Cuckoo(ServiceBase):
         if len(min_queue_hosts) > 0:
             return choice(min_queue_hosts)
         else:
-            raise CuckooVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
+            raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
 
     def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
         """

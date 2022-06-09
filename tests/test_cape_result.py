@@ -1,10 +1,10 @@
 import os
 import json
 import pytest
-from test_cuckoo_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality, dummy_result_class_instance
+from test_cape_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality, dummy_result_class_instance
 
 
-class TestCuckooResult:
+class TestCapeResult:
     @classmethod
     def setup_class(cls):
         create_tmp_manifest()
@@ -36,25 +36,25 @@ class TestCuckooResult:
          ({"signatures": [{"name": "blah"}],
            "info": {"id": "blah"}, "behavior": {"processes": "blah"}}), ])
     def test_generate_al_result(api_report, mocker):
-        from cuckoo.cuckoo_result import generate_al_result
+        from cape.cape_result import generate_al_result
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
 
         correct_process_map = {"blah": "blah"}
-        mocker.patch("cuckoo.cuckoo_result.process_info")
-        mocker.patch("cuckoo.cuckoo_result.process_debug")
-        mocker.patch("cuckoo.cuckoo_result.get_process_map", return_value=correct_process_map)
-        mocker.patch("cuckoo.cuckoo_result.process_signatures", return_value=False)
-        mocker.patch("cuckoo.cuckoo_result.convert_sysmon_processes", return_value=None)
-        mocker.patch("cuckoo.cuckoo_result.convert_sysmon_network", return_value=None)
-        mocker.patch("cuckoo.cuckoo_result.process_behaviour", return_value=["blah"])
-        mocker.patch("cuckoo.cuckoo_result.process_network", return_value=["blah"])
-        mocker.patch("cuckoo.cuckoo_result.process_all_events")
-        mocker.patch("cuckoo.cuckoo_result.build_process_tree")
-        mocker.patch("cuckoo.cuckoo_result.process_curtain")
-        mocker.patch("cuckoo.cuckoo_result.process_hollowshunter")
-        mocker.patch("cuckoo.cuckoo_result.process_decrypted_buffers")
+        mocker.patch("cape.cape_result.process_info")
+        mocker.patch("cape.cape_result.process_debug")
+        mocker.patch("cape.cape_result.get_process_map", return_value=correct_process_map)
+        mocker.patch("cape.cape_result.process_signatures", return_value=False)
+        mocker.patch("cape.cape_result.convert_sysmon_processes", return_value=None)
+        mocker.patch("cape.cape_result.convert_sysmon_network", return_value=None)
+        mocker.patch("cape.cape_result.process_behaviour", return_value=["blah"])
+        mocker.patch("cape.cape_result.process_network", return_value=["blah"])
+        mocker.patch("cape.cape_result.process_all_events")
+        mocker.patch("cape.cape_result.build_process_tree")
+        mocker.patch("cape.cape_result.process_curtain")
+        mocker.patch("cape.cape_result.process_hollowshunter")
+        mocker.patch("cape.cape_result.process_decrypted_buffers")
         so = SandboxOntology()
         al_result = ResultSection("blah")
         file_ext = "blah"
@@ -75,16 +75,16 @@ class TestCuckooResult:
     @pytest.mark.parametrize(
         "info, correct_body, expected_am",
         [({"started": "blah", "ended": "blah", "duration": "blah", "id": "blah", "route": "blah", "version": "blah"},
-          '{"Cuckoo Task ID": "blah", "Duration": -1, "Routing": "blah", "Cuckoo Version": "blah"}',
+          '{"CAPE Task ID": "blah", "Duration": -1, "Routing": "blah", "CAPE Version": "blah"}',
           {"routing": "blah", "start_time": "blah", "end_time": "blah", "task_id": "blah"}),
          ({"started": "1", "ended": "1", "duration": "1", "id": "blah", "route": "blah", "version": "blah"},
-          '{"Cuckoo Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "Cuckoo Version": "blah"}',
+          '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "CAPE Version": "blah"}',
           {"routing": "blah", "start_time": "1", "end_time": "1", "task_id": "blah"}),
          ({"id": "blah", "started": "1", "ended": "1", "duration": "1", "route": "blah", "version": "blah"},
-          '{"Cuckoo Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "Cuckoo Version": "blah"}',
+          '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "CAPE Version": "blah"}',
           {"routing": "blah", "start_time": "1", "end_time": "1", "task_id": "blah"}), ])
     def test_process_info(info, correct_body, expected_am):
-        from cuckoo.cuckoo_result import process_info
+        from cape.cape_result import process_info
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
         al_result = ResultSection("blah")
@@ -120,11 +120,11 @@ class TestCuckooResult:
                 "Virtual Machine /status failed. This can indicate the guest losing network connectivity",
                 "Virtual Machine /status failed. This can indicate the guest losing network connectivity",
             ]},
-                'it appears that this Virtual Machine hasn\'t been configured properly as the Cuckoo Host wasn\'t able to connect to the Guest.'),
+                'it appears that this Virtual Machine hasn\'t been configured properly as the CAPE Host wasn\'t able to connect to the Guest.'),
         ]
     )
     def test_process_debug(debug, correct_body):
-        from cuckoo.cuckoo_result import process_debug
+        from cape.cape_result import process_debug
         from assemblyline_v4_service.common.result import ResultSection
 
         al_result = ResultSection("blah")
@@ -146,10 +146,10 @@ class TestCuckooResult:
         ]
     )
     def test_process_behaviour(behaviour, mocker):
-        from cuckoo.cuckoo_result import process_behaviour
+        from cape.cape_result import process_behaviour
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        mocker.patch("cuckoo.cuckoo_result.get_process_api_sums", return_value={"blah": "blah"})
-        mocker.patch("cuckoo.cuckoo_result.convert_cuckoo_processes")
+        mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
+        mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
         so = SandboxOntology()
         process_behaviour(behaviour, safelist, so)
@@ -165,7 +165,7 @@ class TestCuckooResult:
         ]
     )
     def test_get_process_api_sums(apistats, correct_api_sums):
-        from cuckoo.cuckoo_result import get_process_api_sums
+        from cape.cape_result import get_process_api_sums
         assert get_process_api_sums(apistats) == correct_api_sums
 
     @staticmethod
@@ -186,13 +186,13 @@ class TestCuckooResult:
           {}),
          ([],
           {})])
-    def test_convert_cuckoo_processes(processes, correct_event):
-        from cuckoo.cuckoo_result import convert_cuckoo_processes
+    def test_convert_cape_processes(processes, correct_event):
+        from cape.cape_result import convert_cape_processes
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from uuid import UUID
         safelist = {}
         so = SandboxOntology()
-        convert_cuckoo_processes(processes, safelist, so)
+        convert_cape_processes(processes, safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
             if proc_as_prims["pobjectid"]["guid"]:
@@ -224,7 +224,7 @@ class TestCuckooResult:
                                 "signatures": {},
                                 "children": [], }), ])
     def test_build_process_tree(events, is_process_martian, correct_body):
-        from cuckoo.cuckoo_result import build_process_tree
+        from cape.cape_result import build_process_tree
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultProcessTreeSection, ResultSection, ProcessItem
         default_so = SandboxOntology()
@@ -405,7 +405,7 @@ class TestCuckooResult:
     def test_process_signatures(
             sig_name, sigs, random_ip_range, target_filename, process_map, correct_body, correct_is_process_martian,
             expected_sig):
-        from cuckoo.cuckoo_result import process_signatures
+        from cape.cape_result import process_signatures
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology, Process
         from assemblyline.common.attack_map import revoke_map
         from ipaddress import ip_network
@@ -572,7 +572,7 @@ class TestCuckooResult:
     )
     def test_is_signature_a_false_positive(name, marks, filename, filename_remainder, expected_result):
         from ipaddress import ip_network
-        from cuckoo.cuckoo_result import _is_signature_a_false_positive
+        from cape.cape_result import _is_signature_a_false_positive
         inetsim_network = ip_network("192.0.2.0/24")
         safelist = {"match": {"file.path": ["desktop.ini"]}, "regex": {"network.dynamic.domain": ["w3\.org"]}}
         assert _is_signature_a_false_positive(
@@ -612,7 +612,7 @@ class TestCuckooResult:
     def test_create_signature_result_section(
             name, signature, expected_tags, expected_heuristic_id, expected_description, expected_attack_ids,
             expected_sig):
-        from cuckoo.cuckoo_result import _create_signature_result_section, SCORE_TRANSLATION
+        from cape.cape_result import _create_signature_result_section, SCORE_TRANSLATION
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         so_sig = SandboxOntology.Signature()
         default_sig = SandboxOntology.Signature().as_primitives()
@@ -635,7 +635,7 @@ class TestCuckooResult:
     @staticmethod
     def test_write_console_output_to_file():
         from os import remove
-        from cuckoo.cuckoo_result import _write_console_output_to_file
+        from cape.cape_result import _write_console_output_to_file
         _write_console_output_to_file(1, [{"call": {"arguments": {"buffer": "blah"}}}])
         remove("/tmp/1_console_output.txt")
         assert True
@@ -643,7 +643,7 @@ class TestCuckooResult:
     @staticmethod
     def test_write_injected_exe_to_file():
         from os import remove
-        from cuckoo.cuckoo_result import _write_injected_exe_to_file
+        from cape.cape_result import _write_injected_exe_to_file
         _write_injected_exe_to_file(1, [{"call": {"arguments": {"buffer": "blah"}}}])
         remove("/tmp/1_injected_memory_0.exe")
         assert True
@@ -658,7 +658,7 @@ class TestCuckooResult:
                                {'network.dynamic.uri': ['http://evil.com'], "network.dynamic.domain": ["evil.com"]},
                                '\t"evil http://evil.com" is suspicious because "http://evil.com"',
                                {"uri": "http://evil.com"}),
-                              ("network_cnc_http", {"suspicious_request": "benign http://w3.org"},
+                              ("network_cnc_http", {"suspicious_request": "benign http://w3.org", "suspicious_features": "cuz"},
                                {},
                                None, {}),
                               ("nolookup_communication", {"host": "193.0.2.123"},
@@ -712,7 +712,7 @@ class TestCuckooResult:
     def test_tag_and_describe_generic_signature(signature_name, mark, expected_tags, expected_body, expected_ioc):
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
-        from cuckoo.cuckoo_result import _tag_and_describe_generic_signature
+        from cape.cape_result import _tag_and_describe_generic_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         so_sig = SandboxOntology.Signature()
         default_sig = so_sig.as_primitives()
@@ -773,7 +773,7 @@ class TestCuckooResult:
             signature_name, mark, process_map, expected_tags, expected_body, expected_ioc):
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
-        from cuckoo.cuckoo_result import _tag_and_describe_ioc_signature
+        from cape.cape_result import _tag_and_describe_ioc_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         so = SandboxOntology()
         nd = so.create_network_dns(domain="blah.com", resolved_ips=["192.0.2.123"])
@@ -835,7 +835,7 @@ class TestCuckooResult:
            {"uri": "http://bad.com"}]), ])
     def test_tag_and_describe_call_signature(signature_name, mark, expected_tags, expected_body, expected_iocs):
         from assemblyline_v4_service.common.result import ResultSection
-        from cuckoo.cuckoo_result import _tag_and_describe_call_signature
+        from cape.cape_result import _tag_and_describe_call_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology, Process
         safelist = []
         expected_result = ResultSection("blah", body=expected_body, tags=expected_tags)
@@ -870,7 +870,7 @@ class TestCuckooResult:
     @staticmethod
     def test_get_dns_sec():
         from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cuckoo.cuckoo_result import _get_dns_sec
+        from cape.cape_result import _get_dns_sec
         from json import dumps
         resolved_ips = {}
         safelist = []
@@ -946,7 +946,7 @@ class TestCuckooResult:
         ]
     )
     def test_get_dns_map(dns_calls, process_map, routing, expected_return):
-        from cuckoo.cuckoo_result import _get_dns_map
+        from cape.cape_result import _get_dns_map
         dns_servers = ["1.1.1.1"]
         assert _get_dns_map(dns_calls, process_map, routing, dns_servers) == expected_return
 
@@ -986,7 +986,7 @@ class TestCuckooResult:
           ([],
            "flag"))])
     def test_get_low_level_flows(resolved_ips, flows, expected_return):
-        from cuckoo.cuckoo_result import _get_low_level_flows
+        from cape.cape_result import _get_low_level_flows
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection
         expected_network_flows_table, expected_netflows_sec_body = expected_return
         correct_netflows_sec = ResultTableSection(title_text="TCP/UDP Network Traffic")
@@ -1057,7 +1057,7 @@ class TestCuckooResult:
         ]
     )
     def test_process_http_calls(process_map, http_level_flows, expected_req_table):
-        from cuckoo.cuckoo_result import _process_http_calls
+        from cape.cape_result import _process_http_calls
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         default_so = SandboxOntology()
         safelist = {
@@ -1089,13 +1089,13 @@ class TestCuckooResult:
             {'Connection': 'Keep-Alive', 'Accept': '*/*', 'IfModifiedSince': 'Sat, 01 Jul 2022 00:00:00 GMT',
              'UserAgent': 'Microsoft-CryptoAPI/10.0', 'Host': 'blah.blah.com'})])
     def test_handle_http_headers(header_string, expected_header_dict):
-        from cuckoo.cuckoo_result import _handle_http_headers
+        from cape.cape_result import _handle_http_headers
         assert _handle_http_headers(header_string) == expected_header_dict
 
     @staticmethod
     def test_extract_iocs_from_encrypted_buffers():
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cuckoo.cuckoo_result import _extract_iocs_from_encrypted_buffers
+        from cape.cape_result import _extract_iocs_from_encrypted_buffers
         test_parent_section = ResultSection("blah")
         correct_result_section = ResultTableSection("IOCs found in encrypted buffers used in network calls")
         correct_result_section.set_heuristic(1006)
@@ -1110,7 +1110,7 @@ class TestCuckooResult:
     @staticmethod
     def test_process_non_http_traffic_over_http():
         from json import dumps
-        from cuckoo.cuckoo_result import _process_non_http_traffic_over_http
+        from cape.cape_result import _process_non_http_traffic_over_http
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
         test_parent_section = ResultSection("blah")
         network_flows = [{"dest_port": 80, "dest_ip": "127.0.0.1", "domain": "blah.com"},
@@ -1129,7 +1129,7 @@ class TestCuckooResult:
 
     @staticmethod
     def test_process_all_events():
-        from cuckoo.cuckoo_result import process_all_events
+        from cape.cape_result import process_all_events
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
         default_so = SandboxOntology()
@@ -1185,7 +1185,7 @@ class TestCuckooResult:
              "behaviors": ["blah"]}}, {1: {"name": "blah.exe"}}),
         ])
     def test_process_curtain(curtain, process_map):
-        from cuckoo.cuckoo_result import process_curtain
+        from cape.cape_result import process_curtain
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
 
         al_result = ResultSection("blah")
@@ -1307,7 +1307,7 @@ class TestCuckooResult:
            'pimage': None, 'pcommand_line': None, 'ppid': None, 'pid': 123, 'image': 'blah', 'command_line': None,
            'integrity_level': None, 'image_hash': None, 'original_file_name': None}), ])
     def test_convert_sysmon_processes(sysmon, expected_process):
-        from cuckoo.cuckoo_result import convert_sysmon_processes
+        from cape.cape_result import convert_sysmon_processes
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from uuid import UUID
         so = SandboxOntology()
@@ -1433,14 +1433,14 @@ class TestCuckooResult:
         ]
     )
     def test_convert_sysmon_network(sysmon, actual_network, correct_network, dummy_result_class_instance, mocker):
-        from cuckoo.cuckoo_result import convert_sysmon_network
+        from cape.cape_result import convert_sysmon_network
         safelist = {}
         convert_sysmon_network(sysmon, actual_network, safelist)
         assert actual_network == correct_network
 
     @staticmethod
     def test_process_hollowshunter():
-        from cuckoo.cuckoo_result import process_hollowshunter
+        from cape.cape_result import process_hollowshunter
         from assemblyline_v4_service.common.result import ResultSection, TableRow, ResultTableSection
 
         hollowshunter = {}
@@ -1486,7 +1486,7 @@ class TestCuckooResult:
                                [{"ioc_type": "ip", "ioc": "127.0.0.1"},
                                 {"ioc_type": "uri", "ioc": "127.0.0.1:999"}]), ])
     def test_process_decrypted_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
-        from cuckoo.cuckoo_result import process_decrypted_buffers
+        from cape.cape_result import process_decrypted_buffers
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
 
         parent_section = ResultSection("blah")
@@ -1544,7 +1544,7 @@ class TestCuckooResult:
         ]
     )
     def test_get_process_map(processes, correct_process_map):
-        from cuckoo.cuckoo_result import get_process_map
+        from cape.cape_result import get_process_map
         safelist = {"regex": {"dynamic.process.file_name": [r"C:\\Windows\\System32\\lsass\.exe"]}}
         assert get_process_map(processes, safelist) == correct_process_map
 
@@ -1558,13 +1558,13 @@ class TestCuckooResult:
         ]
     )
     def test_remove_network_http_noise(sigs, correct_sigs):
-        from cuckoo.cuckoo_result import _remove_network_http_noise
+        from cape.cape_result import _remove_network_http_noise
         assert _remove_network_http_noise(sigs) == correct_sigs
 
     @staticmethod
     def test_update_process_map():
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from cuckoo.cuckoo_result import _update_process_map
+        from cape.cape_result import _update_process_map
 
         process_map = {}
         _update_process_map(process_map, [])

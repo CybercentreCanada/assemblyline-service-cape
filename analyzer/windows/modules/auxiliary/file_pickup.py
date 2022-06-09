@@ -2,25 +2,39 @@ import os
 import logging
 
 from lib.common.abstracts import Auxiliary
-from lib.common.exceptions import CuckooDisableModule, CuckooPackageError
 from lib.common.results import upload_to_host
+from lib.core.config import Config
 
 log = logging.getLogger(__name__)
 
+
+__author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
+
+
 class FilePickup(Auxiliary):
     """In cases where you want to run something with 'free=yes' but know that a file will be generated,
-    you can use this aux module to tell cuckoo to pick up the file"""
+    you can use this aux module to tell CAPE to pick up the file"""
+    def __init__(self, options=None, config=None):
+        if options is None:
+            options = {}
+        Auxiliary.__init__(self, options, config)
+        self.config = Config(cfg="analysis.conf")
+        self.enabled = self.config.filepickup
+        self.do_run = self.enabled
 
     def start(self):
         if not self.options.get("filepickup"):
-            raise CuckooDisableModule
+            self.do_run = False
+            return True
 
         self.file_to_get = self.options.get("filepickup")
 
     def stop(self):
         if hasattr(self, "file_to_get"):
             if self.file_to_get:
-                log.info("uploading %s" % self.file_to_get)
+                log.info(f"Uploading {self.file_to_get}")
                 # We're using the 'supplementary' directory since that already has some special meaning within the
-                # AssemblyLine Cuckoo service, and shouldn't matter if you're outside of AssemblyLine
+                # AssemblyLine CAPE service, and shouldn't matter if you're outside of AssemblyLine
                 upload_to_host(self.file_to_get, os.path.join("supplementary", os.path.basename(self.file_to_get)))
+
+        self.do_run = False

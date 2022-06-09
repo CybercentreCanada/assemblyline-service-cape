@@ -4,8 +4,8 @@ import pytest
 class TestSignatures:
     @staticmethod
     def test_constants():
-        from cuckoo.signatures import CUCKOO_SIGNATURES, CUCKOO_SIGNATURE_CATEGORIES, CUCKOO_DROPPED_SIGNATURES
-        assert CUCKOO_SIGNATURES == {
+        from cape.signatures import CAPE_SIGNATURES, CAPE_SIGNATURE_CATEGORIES, CAPE_DROPPED_SIGNATURES
+        assert CAPE_SIGNATURES == {
             "html_flash": "Exploit",
             "powershell_bitstransfer": "PowerShell",
             "powershell_empire": "Hacking tool",
@@ -526,7 +526,7 @@ class TestSignatures:
             "network_ip_exe": "Downloader",
         }
 
-        assert CUCKOO_SIGNATURE_CATEGORIES == {
+        assert CAPE_SIGNATURE_CATEGORIES == {
             "Exploit": {
                 "id": 1,
                 "description": "Exploits an known software vulnerability or security flaw."
@@ -717,7 +717,7 @@ class TestSignatures:
             }
         }
 
-        assert CUCKOO_DROPPED_SIGNATURES == [
+        assert CAPE_DROPPED_SIGNATURES == [
             'origin_langid', 'apt_cloudatlas', 'apt_carbunak', 'apt_sandworm_ip', 'apt_turlacarbon', 'apt_sandworm_url',
             'apt_inception', 'rat_lolbot', 'backdoor_vanbot', 'rat_sdbot', 'backdoor_tdss', 'backdoor_whimoo',
             'madness_url', 'volatility_svcscan_2', 'volatility_svcscan_3', 'volatility_modscan_1',
@@ -739,7 +739,7 @@ class TestSignatures:
         ]
     )
     def test_get_category_id(sig, correct_int):
-        from cuckoo.signatures import get_category_id
+        from cape.signatures import get_category_id
         assert get_category_id(sig) == correct_int
 
     @staticmethod
@@ -751,5 +751,5 @@ class TestSignatures:
         ]
     )
     def test_get_signature_category(sig, correct_string):
-        from cuckoo.signatures import get_signature_category
+        from cape.signatures import get_signature_category
         assert get_signature_category(sig) == correct_string

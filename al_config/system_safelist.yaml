@@ -82,7 +82,7 @@ match:
   - index.dat
 regex:
   dynamic.process.file_name:
-  # Cuckoo
+  # CAPE
   - C:\\tmp.+\\bin\\.+
   - C:\\Windows\\System32\\lsass\.exe
   - lsass\.exe
@@ -98,8 +98,6 @@ regex:
   # Flash
   - C:\\windows\\SysWOW64\\Macromed\\Flash\\FlashPlayerUpdateService\.exe
   dynamic.process.command_line:
-  # Cuckoo
-  - C:\\Python27\\pythonw\.exe C:/tmp.+/analyzer\.py
   # Azure
   - \"C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\MonitoringHost\.exe\" -Embedding
   - \"C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\MOMPerfSnapshotHelper\.exe\\\" -Embedding

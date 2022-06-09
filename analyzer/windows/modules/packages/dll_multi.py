@@ -9,6 +9,9 @@ import shutil
 
 from lib.common.abstracts import Package
 
+__author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"
+
+
 class DllMulti(Package):
     """DLL analysis package, for attempting to execute multiple exports"""
     PATHS = [

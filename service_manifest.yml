@@ -2,7 +2,7 @@ name: CAPE
 version: $SERVICE_TAG
 description: Provides dynamic malware analysis through sandboxing.
 
-accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)
+accepts: .*
 rejects: empty|metadata/.*
 
 stage: CORE
@@ -25,6 +25,7 @@ config:
       - ip: "127.0.0.1"
         port: 8090
         api_key: "sample_api_token"
+        version: 1
 
   connection_timeout_in_seconds: 30
   rest_timeout_in_seconds: 120
@@ -57,11 +58,6 @@ config:
 
   # Assemblyline service specifications
   dedup_similar_percent: 40
-
-  # Since Windows 10x64 is not supported by the CAPE monitor, but a lot of malware samples only run on Windows 10x64,
-  # we want a service-level variable that will submit files to Windows 10x64 without the CAPE monitor, in
-  # order to still catch network IOCs
-  no_monitor_for_win10x64: false
 
 submission_params:
   - default: 0

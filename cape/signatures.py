@@ -1,5 +1,5 @@
 # TODO: convert into list?
-CUCKOO_SIGNATURES = {
+CAPE_SIGNATURES = {
     "html_flash": "Exploit",
     "powershell_bitstransfer": "PowerShell",
     "powershell_empire": "Hacking tool",
@@ -520,7 +520,7 @@ CUCKOO_SIGNATURES = {
     "network_ip_exe": "Downloader",
 }
 
-CUCKOO_SIGNATURE_CATEGORIES = {
+CAPE_SIGNATURE_CATEGORIES = {
     "Exploit": {
         "id": 1,
         "description": "Exploits an known software vulnerability or security flaw."
@@ -711,7 +711,7 @@ CUCKOO_SIGNATURE_CATEGORIES = {
     }
 }
 
-CUCKOO_DROPPED_SIGNATURES = [
+CAPE_DROPPED_SIGNATURES = [
     'origin_langid', 'apt_cloudatlas', 'apt_carbunak', 'apt_sandworm_ip',
     'apt_turlacarbon', 'apt_sandworm_url', 'apt_inception', 'rat_lolbot',
     'backdoor_vanbot', 'rat_sdbot', 'backdoor_tdss', 'backdoor_whimoo',
@@ -736,8 +736,8 @@ def get_category_id(sig: str) -> int:
     :param sig: given signature name
     :return: the category ID
     """
-    category = CUCKOO_SIGNATURES.get(sig, "unknown")
-    metadata = CUCKOO_SIGNATURE_CATEGORIES.get(category, {})
+    category = CAPE_SIGNATURES.get(sig, "unknown")
+    metadata = CAPE_SIGNATURE_CATEGORIES.get(category, {})
     return metadata.get("id", 9999)
 
 
@@ -747,4 +747,4 @@ def get_signature_category(sig: str) -> str:
     :param sig: given signature name
     :return: The category name
     """
-    return CUCKOO_SIGNATURES.get(sig, "unknown")
+    return CAPE_SIGNATURES.get(sig, "unknown")
