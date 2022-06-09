@@ -23,9 +23,8 @@ config:
   remote_host_details:
     hosts:
       - ip: "127.0.0.1"
-        port: 8090
-        api_key: "sample_api_token"
-        version: 1
+        port: 8000
+        token: "sample_token"
 
   connection_timeout_in_seconds: 30
   rest_timeout_in_seconds: 120
@@ -155,6 +154,11 @@ submission_params:
     type: list
     value: none
     list: ["none", "inetsim", "drop", "internet", "tor", "vpn"]
+
+  - default: false
+    name: ignore_cape_cache
+    type: bool
+    value: false
 
 heuristics:
   - heur_id: 1

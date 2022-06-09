@@ -30,6 +30,8 @@ from assemblyline.common.identify_defaults import type_to_extension, trusted_mim
 from assemblyline.common.exceptions import RecoverableError, ChainException
 # from assemblyline.odm.models.ontology.types.sandbox import Sandbox
 
+APIv2_BASE_ENDPOINT = "apiv2"
+
 from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
     SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS
 # from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
@@ -38,14 +40,15 @@ HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_r
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
 
-CAPE_API_SUBMIT = "tasks/create/file"
-CAPE_API_QUERY_TASK = "tasks/view/%s"
-CAPE_API_DELETE_TASK = "tasks/delete/%s"
-CAPE_API_QUERY_REPORT = "tasks/report/%s"
-CAPE_API_QUERY_PCAP = "pcap/get/%s"
-CAPE_API_QUERY_MACHINES = "machines/list"
-CAPE_API_QUERY_HOST = "cape/status"
-CAPE_API_REBOOT_TASK = "tasks/reboot/%s"
+CAPE_API_SUBMIT = "tasks/create/file/"
+CAPE_API_QUERY_TASK = "tasks/view/%s/"
+CAPE_API_DELETE_TASK = "tasks/delete/%s/"
+CAPE_API_QUERY_REPORT = "tasks/report/%s/"
+CAPE_API_QUERY_PCAP = "pcap/get/%s/"
+CAPE_API_QUERY_MACHINES = "machines/list/"
+CAPE_API_QUERY_HOST = "cuckoo/status/"
+CAPE_API_REBOOT_TASK = "tasks/reboot/%s/"
+CAPE_API_SHA256_SEARCH = "tasks/search/sha256/%s/"
 
 CAPE_POLL_DELAY = 5
 GUEST_VM_START_TIMEOUT = 360  # Give the VM at least 6 minutes to start up
@@ -171,14 +174,14 @@ class CapeTask(dict):
         self.report: Optional[Dict[str, Dict]] = None
         self.errors: List[str] = []
         self.auth_header = host_details["auth_header"]
-        self.base_url = f"http://{host_details['ip']}:{host_details['port']}"
+        self.base_url = f"http://{host_details['ip']}:{host_details['port']}/{APIv2_BASE_ENDPOINT}"
         self.submit_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
         self.query_task_url = f"{self.base_url}/{CAPE_API_QUERY_TASK}"
         self.delete_task_url = f"{self.base_url}/{CAPE_API_DELETE_TASK}"
         self.query_report_url = f"{self.base_url}/{CAPE_API_QUERY_REPORT}"
         self.query_pcap_url = f"{self.base_url}/{CAPE_API_QUERY_PCAP}"
-        self.query_machines_url = f"{self.base_url}/{CAPE_API_QUERY_MACHINES}"
         self.reboot_task_url = f"{self.base_url}/{CAPE_API_REBOOT_TASK}"
+        self.sha256_search_url = f"{self.base_url}/{CAPE_API_SHA256_SEARCH}"
 
 
 class SubmissionThread(Thread):
@@ -220,9 +223,10 @@ class CAPE(ServiceBase):
         # self.sandbox_ontologies: List[SandboxOntology] = None
 
     def start(self) -> None:
+        self.log.debug("CAPE service started...")
         for host in self.config["remote_host_details"]["hosts"]:
-            host["auth_header"] = {'Authorization': f"Bearer {host['api_key']}"}
-            del host["api_key"]
+            host["auth_header"] = {'Authorization': f"Bearer {host['token']}"}
+            del host["token"]
         self.hosts = self.config["remote_host_details"]["hosts"]
         self.ssdeep_match_pct = int(self.config.get("dedup_similar_percent", 40))
         self.connection_timeout_in_seconds = self.config.get(
@@ -460,17 +464,18 @@ class CAPE(ServiceBase):
         :return: None
         """
         if not reboot:
-            try:
-                """ Submits a new file to CAPE for analysis """
-                task_id = self.submit_file(file_content, cape_task)
-                if not task_id:
-                    self.log.error("Failed to get task for submitted file.")
-                    return
-                else:
-                    cape_task.id = task_id
-            except Exception as e:
-                self.log.error(f"Error submitting to CAPE: {safe_str(e)}")
-                raise
+            if self._safely_get_param("ignore_cape_cache") or self.sha256_check(self.request.sha256, cape_task):
+                try:
+                    """ Submits a new file to CAPE for analysis """
+                    task_id = self.submit_file(file_content, cape_task)
+                    if not task_id:
+                        self.log.error("Failed to get task for submitted file.")
+                        return
+                    else:
+                        cape_task.id = task_id
+                except Exception as e:
+                    self.log.error(f"Error submitting to CAPE: {safe_str(e)}")
+                    raise
         else:
             resp = self.session.get(cape_task.reboot_task_url % cape_task.id, headers=cape_task.auth_header,
                                     timeout=self.timeout)
@@ -524,8 +529,7 @@ class CAPE(ServiceBase):
             raise AnalysisFailed()
 
     def stop(self) -> None:
-        # Need to kill the container; we're about to go down..
-        self.log.debug("Service is being stopped; removing all running containers and metadata..")
+        self.log.debug("CAPE service stopped...")
 
     @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
            stop_max_attempt_number=(GUEST_VM_START_TIMEOUT/CAPE_POLL_DELAY),
@@ -603,6 +607,38 @@ class CAPE(ServiceBase):
 
         return None
 
+    def sha256_check(self, sha256: str, cape_task: CapeTask) -> bool:
+        """
+        This method was inspired by/grabbed from https://github.com/NVISOsecurity/assemblyline-service-cape/blob/main/cape.py#L21:L37
+        Check in CAPE if an analysis already exists for the corresponding sha256
+            - If an analysis already exist, we set the ID of the analysis and return true
+            - If not, we just return false
+
+        NOTE: This method is used on a per-host basis, and will only return True if the most of the submision
+        parameters line up
+        :param sha256: A string of the SHA256 for the submitted file
+        :return: A boolean indicating that the task ID was set
+        """
+        self.log.debug(f"Searching for the file's SHA256 at {cape_task.sha256_search_url}")
+        try:
+            resp = self.session.get(cape_task.sha256_search_url % sha256, headers=cape_task.auth_header, timeout=self.timeout)
+        except requests.exceptions.Timeout:
+            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
+                                       f"trying to search for {sha256}")
+        except requests.ConnectionError:
+            raise Exception(f"Unable to reach the CAPE nest while trying to search for {sha256}")
+
+        if resp.status_code != 200:
+            self.log.error(f"Failed to search for {sha256}. Status code: {resp.status_code}")
+        else:
+            resp_dict = resp.json()
+            if resp_dict["data"]:
+                if not tasks_are_similar(cape_task, resp_dict["data"]):
+                    cape_task.id = resp_dict["data"][0]["id"]
+                    return True
+
+        return False
+
     def submit_file(self, file_content: bytes, cape_task: CapeTask) -> int:
         """
         This method submits the file to the CAPE server
@@ -613,7 +649,8 @@ class CAPE(ServiceBase):
         self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
         files = {"file": (cape_task.file, file_content)}
         try:
-            resp = self.session.post(cape_task.submit_url, files=files, data=cape_task,
+            cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
+            resp = self.session.post(cape_task.submit_url, files=files, data=cape_task_data,
                                      headers=cape_task.auth_header, timeout=self.timeout)
         except requests.exceptions.Timeout:
             raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
@@ -633,15 +670,12 @@ class CAPE(ServiceBase):
                 raise RecoverableError("Retrying after 500 error")
             return 0
         else:
-            resp_dict = dict(resp.json())
-            task_id = resp_dict["task_id"]
-            if not task_id:
-                # Spender case?
-                task_id = resp_dict.get("task_ids", [])
-                if isinstance(task_id, list) and len(task_id) > 0:
-                    task_id = task_id[0]
-                else:
-                    return 0
+            resp_dict = resp.json()
+            task_id = resp_dict["data"].get("task_ids", [])
+            if isinstance(task_id, list) and len(task_id) > 0:
+                task_id = task_id[0]
+            else:
+                return 0
             return task_id
 
     def query_report(self, cape_task: CapeTask, fmt: str, params: Optional[Dict[str, str]] = None) -> Any:
@@ -753,9 +787,9 @@ class CAPE(ServiceBase):
             else:
                 self.log.error(f"Failed to query task {cape_task.id}. Status code: {resp.status_code}")
         else:
-            resp_dict = dict(resp.json())
-            task_dict = resp_dict['task']
-            if task_dict is None or task_dict == '':
+            resp_dict = resp.json()
+            task_dict = resp_dict["data"]
+            if not task_dict:
                 self.log.error('Failed to query task. Returned task dictionary is None or empty')
         return task_dict
 
@@ -797,7 +831,7 @@ class CAPE(ServiceBase):
 
         for host in hosts_copy:
             for attempt in range(self.connection_attempts):
-                query_machines_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_MACHINES}"
+                query_machines_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_MACHINES}"
                 try:
                     resp = self.session.get(
                         query_machines_url, headers=host["auth_header"],
@@ -810,14 +844,14 @@ class CAPE(ServiceBase):
                         number_of_unavailable_hosts += 1
                         self.hosts.remove(host)
                     continue
-                except requests.ConnectionError:
-                    self.log.error(
-                        f"Unable to reach the CAPE nest ({host['ip']}) while trying to query machines. "
-                        f"Be sure to checkout the README and ensure that you have a CAPE nest setup outside "
-                        f"of Assemblyline first before running the service.")
+                except requests.ConnectionError as e:
                     if attempt == self.connection_attempts - 1:
                         number_of_unavailable_hosts += 1
                         self.hosts.remove(host)
+                        self.log.error(
+                            f"Unable to reach the CAPE nest ({host['ip']}) while trying to query due to {e}. "
+                            f"Be sure to checkout the README and ensure that you have a CAPE nest setup outside "
+                            f"of Assemblyline first before running the service.")
                     continue
                 if resp.status_code != 200:
                     self.log.error(f"Failed to query machines for {host['ip']}:{host['port']}. "
@@ -827,7 +861,13 @@ class CAPE(ServiceBase):
                     break
                 else:
                     resp_json = resp.json()
-                    host["machines"] = resp_json["machines"]
+                    if "error" in resp_json and resp_json['error']:
+                        self.log.error(f"Failed to query machines for {host['ip']}:{host['port']} due "
+                                       f"to '{resp_json['error_value']}'.")
+                        number_of_unavailable_hosts += 1
+                        self.hosts.remove(host)
+                        break
+                    host["machines"] = resp_json["data"]
                     break
 
         if number_of_unavailable_hosts == number_of_hosts:
@@ -1064,6 +1104,7 @@ class CAPE(ServiceBase):
         # NOTE: CAPE still tries to identify files itself, so we only force the extension/package
         # if the user specifies one. However, we go through the trouble of renaming the file because
         # the only way to have certain modules run is to use the appropriate suffix (.jar, .vbs, etc.)
+        # TODO: Adapt to be able to match packages found in https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/lib/core/packages.py
 
         # Check for a valid tag
         # TODO: this should be more explicit in terms of "unknown" in file_type
@@ -1839,7 +1880,7 @@ class CAPE(ServiceBase):
         host_details: List[Dict[str, Any], int] = []
         min_queue_size = maxsize
         for host in hosts:
-            host_status_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_HOST}"
+            host_status_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_HOST}"
             try:
                 resp = self.session.get(host_status_url, headers=host["auth_header"], timeout=self.timeout)
             except requests.exceptions.Timeout:
@@ -1852,10 +1893,14 @@ class CAPE(ServiceBase):
                 self.log.error(f"Failed to GET {host_status_url}. Status code: {resp.status_code}")
             else:
                 resp_dict = resp.json()
-                queue_size = resp_dict["tasks"]["pending"]
-                host_details.append({"host": host, "queue_size": queue_size})
-                if queue_size < min_queue_size:
-                    min_queue_size = queue_size
+                if "error" in resp_dict and resp_dict['error']:
+                    self.log.error(f"Failed to get the status of {host['ip']}:{host['port']} due to "
+                                   f"'{resp_dict['error_value']}'.")
+                else:
+                    queue_size = resp_dict["data"]["tasks"]["pending"]
+                    host_details.append({"host": host, "queue_size": queue_size})
+                    if queue_size < min_queue_size:
+                        min_queue_size = queue_size
 
         # If the minimum queue size is shared by multiple hosts, choose a random one.
         min_queue_hosts = [host_detail["host"] for host_detail in host_details
@@ -1968,3 +2013,38 @@ def generate_random_words(num_words: int) -> str:
     return " ".join(["".join([choice(alpha_nums)
                               for _ in range(int(random() * 10) + 2)])
                      for _ in range(num_words)])
+
+
+def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submitted: List[Dict[str, Any]]) -> bool:
+    """
+    This method looks for "cache hits" for tasks, based on their submission parameters
+    :param task_to_be_submitted: The task to be submitted
+    :param tasks_that_have_been_submitted: A list of tasks that have already been submitted
+    :return: A boolean representing if this task to be submitted is similar enough to another task that has been
+    submitted to represent a "cache hit"
+    """
+    for task_that_has_been_submitted in tasks_that_have_been_submitted:
+        same_file_name = task_that_has_been_submitted["target"] == task_to_be_submitted.file
+        same_timeout = task_that_has_been_submitted["timeout"] == task_to_be_submitted["timeout"]
+        same_custom = task_that_has_been_submitted["custom"] == task_to_be_submitted.get("custom", "")
+        same_package = task_that_has_been_submitted["package"] == task_to_be_submitted.get("package", "")
+        if task_that_has_been_submitted["route"] == "false":
+            same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "") or \
+                "route=none" in task_to_be_submitted.get("options", "")
+        else:
+            same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "") or \
+                f"route={task_that_has_been_submitted['route']}" in task_to_be_submitted.get("options", "")
+        same_options = task_that_has_been_submitted["options"] == task_to_be_submitted.get("options", "")
+        same_memory = task_that_has_been_submitted["memory"] == task_to_be_submitted.get("memory", False)
+        # TODO: This value is somehow set to True when we want it to be false
+        same_enforce_timeout = task_that_has_been_submitted["enforce_timeout"] == task_to_be_submitted.get("enforce_timeout", False)
+        # The recommended architecture tag is automatically added based on file type
+        # https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/core/database.py#L1297:L1314
+        same_tags = [tag for tag in task_that_has_been_submitted["tags"] if tag not in
+            [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]] == [task_to_be_submitted.get("tags", "")]
+        same_day_submission = task_that_has_been_submitted["clock"] \
+            and task_that_has_been_submitted["added_on"] == task_that_has_been_submitted["clock"] != ""
+
+        if same_file_name and same_timeout and same_custom and same_package and same_route and same_options and same_memory and same_enforce_timeout and same_tags and same_day_submission:
+            return True
+    return False

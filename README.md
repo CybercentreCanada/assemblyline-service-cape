@@ -9,3 +9,5 @@ was inspired by the [project](https://github.com/NVISOsecurity/assemblyline-serv
 created by [x1mus](https://github.com/x1mus) with support from [Sorakurai](https://github.com/Sorakurai),
 [jvanwilder](https://github.com/jvanwilder), and [RenaudFrere](https://github.com/RenaudFrere) at
 [NVISOsecurity](https://github.com/NVISOsecurity).
+
+Since the REST APIv2 is the only API version that is [supported](https://capev2.readthedocs.io/en/latest/usage/api.html), we will also only be supporting this version.
