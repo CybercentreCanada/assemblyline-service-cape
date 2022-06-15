@@ -10,7 +10,7 @@ from ssdeep import hash as ssdeep_hash, compare as ssdeep_compare
 from sys import maxsize, setrecursionlimit
 import requests
 from retrying import retry, RetryError
-from tarfile import open as tarfile_open, TarFile
+from zipfile import ZipFile
 from tempfile import SpooledTemporaryFile
 from time import time
 from threading import Thread
@@ -43,7 +43,7 @@ INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
 CAPE_API_SUBMIT = "tasks/create/file/"
 CAPE_API_QUERY_TASK = "tasks/view/%s/"
 CAPE_API_DELETE_TASK = "tasks/delete/%s/"
-CAPE_API_QUERY_REPORT = "tasks/report/%s/"
+CAPE_API_QUERY_REPORT = "tasks/get/report/%s/"
 CAPE_API_QUERY_PCAP = "pcap/get/%s/"
 CAPE_API_QUERY_MACHINES = "machines/list/"
 CAPE_API_QUERY_HOST = "cuckoo/status/"
@@ -94,7 +94,7 @@ TASK_STARTED = "started"
 TASK_STARTING = "starting"
 TASK_COMPLETED = "completed"
 TASK_REPORTED = "reported"
-ANALYSIS_FAILED = "analysis_failed"
+ANALYSIS_FAILED = "failed_analysis"
 ANALYSIS_EXCEEDED_TIMEOUT = "analysis_exceeded_timeout"
 
 MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
@@ -464,7 +464,7 @@ class CAPE(ServiceBase):
         :return: None
         """
         if not reboot:
-            if self._safely_get_param("ignore_cape_cache") or self.sha256_check(self.request.sha256, cape_task):
+            if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
                     """ Submits a new file to CAPE for analysis """
                     task_id = self.submit_file(file_content, cape_task)
@@ -619,7 +619,7 @@ class CAPE(ServiceBase):
         :param sha256: A string of the SHA256 for the submitted file
         :return: A boolean indicating that the task ID was set
         """
-        self.log.debug(f"Searching for the file's SHA256 at {cape_task.sha256_search_url}")
+        self.log.debug(f"Searching for the file's SHA256 at {cape_task.sha256_search_url % sha256}")
         try:
             resp = self.session.get(cape_task.sha256_search_url % sha256, headers=cape_task.auth_header, timeout=self.timeout)
         except requests.exceptions.Timeout:
@@ -633,8 +633,9 @@ class CAPE(ServiceBase):
         else:
             resp_dict = resp.json()
             if resp_dict["data"]:
-                if not tasks_are_similar(cape_task, resp_dict["data"]):
+                if tasks_are_similar(cape_task, resp_dict["data"]):
                     cape_task.id = resp_dict["data"][0]["id"]
+                    self.log.debug(f"Cache hit for {sha256} with ID {cape_task.id}. No need to submit.")
                     return True
 
         return False
@@ -678,12 +679,11 @@ class CAPE(ServiceBase):
                 return 0
             return task_id
 
-    def query_report(self, cape_task: CapeTask, fmt: str, params: Optional[Dict[str, str]] = None) -> Any:
+    def query_report(self, cape_task: CapeTask, fmt: str) -> Any:
         """
         This method retrieves the report from the CAPE server
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param fmt: The report format to retrieve from the CAPE server
-        :param params: The parameters of the report format that we want
         :return: Depending on what is requested, will return a string representing that a JSON report has been
         generated or the bytes of a tarball
         """
@@ -691,7 +691,7 @@ class CAPE(ServiceBase):
         try:
             # There are edge cases that require us to stream the report to disk
             temp_report = SpooledTemporaryFile()
-            with self.session.get(cape_task.query_report_url % cape_task.id + '/' + fmt, params=params or {},
+            with self.session.get(cape_task.query_report_url % cape_task.id + fmt + '/zip/',
                                   headers=cape_task.auth_header, timeout=self.timeout, stream=True) as resp:
                 if int(resp.headers["Content-Length"]) > self.max_report_size:
                     # BAIL, TOO BIG and there is a strong chance it will crash the Docker container
@@ -880,37 +880,35 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
-        dropped_tar_bytes = self.query_report(cape_task, 'dropped')
+        dropped_zip_bytes = self.query_report(cape_task, 'dropped')
         added_hashes: Set[str] = set()
         task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
-        if dropped_tar_bytes is not None:
+        if dropped_zip_bytes is not None:
             try:
-                dropped_tar = tarfile_open(fileobj=BytesIO(dropped_tar_bytes))
-                for tarobj in dropped_tar:
-                    if tarobj.isfile() and not tarobj.isdir():  # a file, not a dir
-                        # A dropped file found
-                        dropped_name = os.path.split(tarobj.name)[1]
-                        # Fixup the name.. the tar originally has files/your/file/path
-                        tarobj.name = tarobj.name.replace("/", "_").split('_', 1)[1]
-                        dropped_tar.extract(tarobj, task_dir)
-                        dropped_file_path = os.path.join(task_dir, tarobj.name)
-                        # Check the file hash for safelisting:
-                        with open(dropped_file_path, 'rb') as f:
-                            data = f.read()
-                            if not self.request.task.deep_scan:
-                                ssd_hash = ssdeep_hash(data)
-                                skip_file = False
-                                for seen_hash in added_hashes:
-                                    if ssdeep_compare(ssd_hash, seen_hash) >= self.ssdeep_match_pct:
-                                        skip_file = True
-                                        break
-                                if skip_file is True:
-                                    continue
-                                else:
-                                    added_hashes.add(ssd_hash)
-                            dropped_hash = sha256(data).hexdigest()
-                            if dropped_hash == self.request.sha256:
+                dropped_zip = ZipFile(BytesIO(dropped_zip_bytes))
+                for zip_item in dropped_zip.filelist:
+                    dropped_name = os.path.split(zip_item.name)[1]
+                    # Fixup the name.. the tar originally has files/your/file/path
+                    zip_item.name = zip_item.name.replace("/", "_").split('_', 1)[1]
+                    dropped_zip.extract(zip_item, task_dir)
+                    dropped_file_path = os.path.join(task_dir, zip_item.name)
+                    # Check the file hash for safelisting:
+                    with open(dropped_file_path, 'rb') as f:
+                        data = f.read()
+                        if not self.request.task.deep_scan:
+                            ssd_hash = ssdeep_hash(data)
+                            skip_file = False
+                            for seen_hash in added_hashes:
+                                if ssdeep_compare(ssd_hash, seen_hash) >= self.ssdeep_match_pct:
+                                    skip_file = True
+                                    break
+                            if skip_file is True:
                                 continue
+                            else:
+                                added_hashes.add(ssd_hash)
+                        dropped_hash = sha256(data).hexdigest()
+                        if dropped_hash == self.request.sha256:
+                            continue
                         if not is_tag_safelisted(dropped_name, ["file.path"], self.safelist, substring=True) or \
                                 dropped_name.endswith('_info.txt'):
                             # Resubmit
@@ -1208,7 +1206,7 @@ class CAPE(ServiceBase):
             task_options.append("hollowshunter=all")
 
         if route:
-            task_options.append(f"route={route.lower()}")
+            kwargs["route"] = route.lower()
             self.routing = route
         else:
             self.routing = "None"
@@ -1375,9 +1373,9 @@ class CAPE(ServiceBase):
         # Submit CAPE analysis report archive as a supplementary file
         # FYI: tweak https://github.com/cuckoosandbox/cuckoo/pull/2533, so that fmt="all" has the
         # bz_format = "all": {"type": "-", "files": []}. This way you can retrieve the "memory.dmp" file via REST.
-        tar_report = self.query_report(cape_task, fmt='all', params={'tar': 'gz'})
-        if tar_report is not None:
-            self._unpack_tar(tar_report, file_ext, cape_task, parent_section, so)
+        zip_report = self.query_report(cape_task, fmt='all')
+        if zip_report is not None:
+            self._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
 
         # Submit dropped files and pcap if available:
         self._extract_console_output(cape_task.id)
@@ -1386,25 +1384,25 @@ class CAPE(ServiceBase):
         self.check_powershell(cape_task.id, parent_section)
         # self.check_pcap(cape_task)
 
-    def _unpack_tar(self, tar_report: bytes, file_ext: str, cape_task: CapeTask,
+    def _unpack_zip(self, zip_report: bytes, file_ext: str, cape_task: CapeTask,
                     parent_section: ResultSection, so: SandboxOntology) -> None:
         """
-        This method unpacks the tarball, which contains the report for the task
-        :param tar_report: The tarball in bytes which contains all artifacts from the analysis
+        This method unpacks the zipfile, which contains the report for the task
+        :param zip_report: The zipfile in bytes which contains all artifacts from the analysis
         :param file_ext: The file extension of the file to be submitted
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
         """
-        tar_file_name = f"{cape_task.id}_cape_report.tar.gz"
-        tar_report_path = os.path.join(self.working_directory, tar_file_name)
+        zip_file_name = f"{cape_task.id}_cape_report.zip"
+        zip_report_path = os.path.join(self.working_directory, zip_file_name)
 
-        self._add_tar_ball_as_supplementary_file(tar_file_name, tar_report_path, tar_report, cape_task)
-        tar_obj = tarfile_open(tar_report_path)
+        self._add_zip_as_supplementary_file(zip_file_name, zip_report_path, zip_report, cape_task)
+        zip_obj = ZipFile(zip_report_path)
 
         try:
-            report_json_path = self._add_json_as_supplementary_file(tar_obj, cape_task)
+            report_json_path = self._add_json_as_supplementary_file(zip_obj, cape_task)
         except MissingCapeReportException:
             report_json_path = None
             no_json_res_sec = ResultTextSection("The CAPE JSON Report Is Missing!")
@@ -1416,44 +1414,44 @@ class CAPE(ServiceBase):
         # Check for any extra files in full report to add as extracted files
         # special 'supplementary' directory
         try:
-            self._extract_hollowshunter(tar_obj, cape_task.id)
-            self._extract_artifacts(tar_obj, cape_task.id, parent_section, so)
+            self._extract_hollowshunter(zip_obj, cape_task.id)
+            self._extract_artifacts(zip_obj, cape_task.id, parent_section, so)
 
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for "
                                f"task {cape_task.id}. Exception: {e}")
-        tar_obj.close()
+        zip_obj.close()
 
-    def _add_tar_ball_as_supplementary_file(self, tar_file_name: str, tar_report_path: str, tar_report: bytes,
-                                            cape_task: CapeTask) -> None:
+    def _add_zip_as_supplementary_file(self, zip_file_name: str, zip_report_path: str, zip_report: bytes,
+                                       cape_task: CapeTask) -> None:
         """
-        This method adds the tarball report as a supplementary file to Assemblyline
-        :param tar_file_name: The name of the tarball
-        :param tar_report_path: The path where the tarball is located
-        :param tar_report: The tarball report in bytes
+        This method adds the zipfile report as a supplementary file to Assemblyline
+        :param zip_file_name: The name of the zipfile
+        :param zip_report_path: The path where the zipfile is located
+        :param zip_report: The zipfile report in bytes
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
         try:
-            report_file = open(tar_report_path, 'wb')
-            report_file.write(tar_report)
+            report_file = open(zip_report_path, 'wb')
+            report_file.write(zip_report)
             report_file.close()
             artifact = {
-                "name": tar_file_name,
-                "path": tar_report_path,
+                "name": zip_file_name,
+                "path": zip_report_path,
                 "description": "CAPE Sandbox analysis report archive (tar.gz)",
                 "to_be_extracted": False
             }
             self.artifact_list.append(artifact)
-            self.log.debug(f"Adding supplementary file {tar_file_name} for task {cape_task.id}")
+            self.log.debug(f"Adding supplementary file {zip_file_name} for task {cape_task.id}")
         except Exception as e:
             self.log.exception(f"Unable to add tar of complete report for "
                                f"task {cape_task.id} due to {e}")
 
-    def _add_json_as_supplementary_file(self, tar_obj: TarFile, cape_task: CapeTask) -> str:
+    def _add_json_as_supplementary_file(self, zip_obj: ZipFile, cape_task: CapeTask) -> str:
         """
         This method adds the JSON report as a supplementary file to Assemblyline
-        :param tar_obj: The tarball object, containing the analysis artifacts for the task
+        :param zip_obj: The tarball object, containing the analysis artifacts for the task
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: A string representing the path of the report in JSON format
         """
@@ -1462,12 +1460,12 @@ class CAPE(ServiceBase):
         report_json_path = ""
         try:
             member_name = "reports/report.json"
-            if member_name in tar_obj.getnames():
+            if member_name in zip_obj.namelist():
                 task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
                 report_json_path = os.path.join(task_dir, member_name)
                 report_name = f"{cape_task.id}_report.json"
 
-                tar_obj.extract(member_name, path=task_dir)
+                zip_obj.extract(member_name, path=task_dir)
                 artifact = {
                     "name": report_name,
                     "path": report_json_path,
@@ -1505,7 +1503,7 @@ class CAPE(ServiceBase):
             raise e
         except Exception as e:
             url = cape_task.query_report_url % cape_task.id + '/' + "all"
-            raise Exception(f"Exception converting extracted CAPE report into json from tar ball: "
+            raise Exception(f"Exception converting extracted CAPE report into json from zip file: "
                             f"report url: {url}, file_name: {self.file_name} due to {e}")
         try:
             machine_name: Optional[str] = None
@@ -1582,11 +1580,11 @@ class CAPE(ServiceBase):
             self.artifact_list.append(artifact)
             self.log.debug(f"Adding extracted file for task {task_id}: {injected_exe}")
 
-    def _extract_artifacts(self, tar_obj: TarFile, task_id: int, parent_section: ResultSection,
+    def _extract_artifacts(self, zip_obj: ZipFile, task_id: int, parent_section: ResultSection,
                            so: SandboxOntology) -> None:
         """
-        This method extracts certain artifacts from that tarball
-        :param tar_obj: The tarball object, containing the analysis artifacts for the task
+        This method extracts certain artifacts from that zipfile
+        :param zip_obj: The zipfile object, containing the analysis artifacts for the task
         :param task_id: An integer representing the CAPE Task ID
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
@@ -1595,7 +1593,7 @@ class CAPE(ServiceBase):
         image_section = ResultImageSection(self.request, f'Screenshots taken during Task {task_id}')
 
         # Extract buffers, screenshots and anything else
-        tarball_file_map = {
+        zip_file_map = {
             "buffer": "Extracted buffer",
             "extracted": "CAPE extracted file",
             "memory": "Memory artifact",
@@ -1609,11 +1607,10 @@ class CAPE(ServiceBase):
 
         # Get the max size for extract files, used a few times after this
         max_extracted_size = self.config.get('max_file_size', 80000000)
-        tar_obj_members = [x.name for x in tar_obj.getmembers() if
-                           x.isfile() and x.size < max_extracted_size]
+        zip_obj_members = [x.filename for x in zip_obj.filelist if x.file_size < max_extracted_size]
         task_dir = os.path.join(self.working_directory, f"{task_id}")
-        for key, value in tarball_file_map.items():
-            key_hits = [x for x in tar_obj_members if x.startswith(key)]
+        for key, value in zip_file_map.items():
+            key_hits = [x for x in zip_obj_members if x.startswith(key)]
             key_hits.sort()
 
             # We are going to get a snippet of the first 256 bytes of these files and
@@ -1624,7 +1621,7 @@ class CAPE(ServiceBase):
                     if not nh:
                         continue
                     destination_file_path = os.path.join(task_dir, f)
-                    tar_obj.extract(f, path=task_dir)
+                    zip_obj.extract(f, path=task_dir)
                     contents = str(open(destination_file_path, "rb").read(256))
                     if contents == "b''":
                         continue
@@ -1636,7 +1633,7 @@ class CAPE(ServiceBase):
 
             for f in key_hits:
                 destination_file_path = os.path.join(task_dir, f)
-                tar_obj.extract(f, path=task_dir)
+                zip_obj.extract(f, path=task_dir)
                 file_name = f"{task_id}_{f}"
                 to_be_extracted = False
 
@@ -1660,18 +1657,18 @@ class CAPE(ServiceBase):
         if image_section.body:
             parent_section.add_subsection(image_section)
 
-    def _extract_hollowshunter(self, tar_obj: TarFile, task_id: int) -> None:
+    def _extract_hollowshunter(self, zip_obj: ZipFile, task_id: int) -> None:
         """
         This method extracts HollowsHunter dumps from the tarball
-        :param tar_obj: The tarball object, containing the analysis artifacts for the task
+        :param zip_obj: The tarball object, containing the analysis artifacts for the task
         :param task_id: An integer representing the CAPE Task ID
         :return: None
         """
         task_dir = os.path.join(self.working_directory, f"{task_id}")
         report_pattern = compile(HOLLOWSHUNTER_REPORT_REGEX)
         dump_pattern = compile(HOLLOWSHUNTER_DUMP_REGEX)
-        report_list = list(filter(report_pattern.match, tar_obj.getnames()))
-        dump_list = list(filter(dump_pattern.match, tar_obj.getnames()))
+        report_list = list(filter(report_pattern.match, zip_obj.namelist()))
+        dump_list = list(filter(dump_pattern.match, zip_obj.namelist()))
 
         hh_tuples = [
             (report_list, "HollowsHunter report (json)", False),
@@ -1682,7 +1679,7 @@ class CAPE(ServiceBase):
             for path in paths:
                 full_path = os.path.join(task_dir, path)
                 file_name = f"{task_id}_{path}"
-                tar_obj.extract(path, path=task_dir)
+                zip_obj.extract(path, path=task_dir)
                 # Confirm that file is indeed a PE
                 if ".dll" in path or ".exe" in path:
                     if os.path.exists(full_path):
@@ -2024,6 +2021,8 @@ def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submi
     submitted to represent a "cache hit"
     """
     for task_that_has_been_submitted in tasks_that_have_been_submitted:
+        if task_that_has_been_submitted["status"] == ANALYSIS_FAILED:
+            continue
         same_file_name = task_that_has_been_submitted["target"] == task_to_be_submitted.file
         same_timeout = task_that_has_been_submitted["timeout"] == task_to_be_submitted["timeout"]
         same_custom = task_that_has_been_submitted["custom"] == task_to_be_submitted.get("custom", "")
