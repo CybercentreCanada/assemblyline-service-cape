@@ -672,9 +672,9 @@ class CAPE(ServiceBase):
             return 0
         else:
             resp_dict = resp.json()
-            task_id = resp_dict["data"].get("task_ids", [])
-            if isinstance(task_id, list) and len(task_id) > 0:
-                task_id = task_id[0]
+            task_ids = resp_dict["data"].get("task_ids", [])
+            if isinstance(task_ids, list) and len(task_ids) > 0:
+                task_id = task_ids[0]
             else:
                 return 0
             return task_id
@@ -867,64 +867,65 @@ class CAPE(ServiceBase):
                         number_of_unavailable_hosts += 1
                         self.hosts.remove(host)
                         break
-                    host["machines"] = resp_json["data"]
+                    host["machines"] = resp_json["data"]["machines"]
                     break
 
         if number_of_unavailable_hosts == number_of_hosts:
             raise CapeHostsUnavailable(f"Failed to reach any of the hosts "
                                        f"at {[host['ip'] + ':' + str(host['port']) for host in hosts_copy]}")
 
-    def check_dropped(self, cape_task: CapeTask) -> None:
-        """
-        This method retrieves a tarball containing dropped files from the CAPE server, and extracts them
-        :param cape_task: The CapeTask class instance, which contains details about the specific task
-        :return: None
-        """
-        dropped_zip_bytes = self.query_report(cape_task, 'dropped')
-        added_hashes: Set[str] = set()
-        task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
-        if dropped_zip_bytes is not None:
-            try:
-                dropped_zip = ZipFile(BytesIO(dropped_zip_bytes))
-                for zip_item in dropped_zip.filelist:
-                    dropped_name = os.path.split(zip_item.name)[1]
-                    # Fixup the name.. the tar originally has files/your/file/path
-                    zip_item.name = zip_item.name.replace("/", "_").split('_', 1)[1]
-                    dropped_zip.extract(zip_item, task_dir)
-                    dropped_file_path = os.path.join(task_dir, zip_item.name)
-                    # Check the file hash for safelisting:
-                    with open(dropped_file_path, 'rb') as f:
-                        data = f.read()
-                        if not self.request.task.deep_scan:
-                            ssd_hash = ssdeep_hash(data)
-                            skip_file = False
-                            for seen_hash in added_hashes:
-                                if ssdeep_compare(ssd_hash, seen_hash) >= self.ssdeep_match_pct:
-                                    skip_file = True
-                                    break
-                            if skip_file is True:
-                                continue
-                            else:
-                                added_hashes.add(ssd_hash)
-                        dropped_hash = sha256(data).hexdigest()
-                        if dropped_hash == self.request.sha256:
-                            continue
-                        if not is_tag_safelisted(dropped_name, ["file.path"], self.safelist, substring=True) or \
-                                dropped_name.endswith('_info.txt'):
-                            # Resubmit
-                            dropped_file_name = f"{cape_task.id}_{dropped_name}"
-                            artifact = {
-                                "name": dropped_file_name,
-                                "path": dropped_file_path,
-                                "description": "Dropped file during CAPE analysis.",
-                                "to_be_extracted": True
-                            }
-                            self.artifact_list.append(artifact)
-                            self.log.debug(f"Submitted dropped file for analysis for task "
-                                           f"ID {cape_task.id}: {dropped_file_name}")
-            except Exception as e_x:
-                self.log.error(f"Error extracting dropped files: {e_x}")
-                return
+    # TODO
+    # def check_dropped(self, cape_task: CapeTask) -> None:
+    #     """
+    #     This method retrieves a tarball containing dropped files from the CAPE server, and extracts them
+    #     :param cape_task: The CapeTask class instance, which contains details about the specific task
+    #     :return: None
+    #     """
+    #     dropped_zip_bytes = self.query_report(cape_task, 'dropped')
+    #     added_hashes: Set[str] = set()
+    #     task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
+    #     if dropped_zip_bytes is not None:
+    #         try:
+    #             dropped_zip = ZipFile(BytesIO(dropped_zip_bytes))
+    #             for zip_item in dropped_zip.filelist:
+    #                 dropped_name = os.path.split(zip_item.name)[1]
+    #                 # Fixup the name.. the tar originally has files/your/file/path
+    #                 zip_item.name = zip_item.name.replace("/", "_").split('_', 1)[1]
+    #                 dropped_zip.extract(zip_item, task_dir)
+    #                 dropped_file_path = os.path.join(task_dir, zip_item.name)
+    #                 # Check the file hash for safelisting:
+    #                 with open(dropped_file_path, 'rb') as f:
+    #                     data = f.read()
+    #                     if not self.request.task.deep_scan:
+    #                         ssd_hash = ssdeep_hash(data)
+    #                         skip_file = False
+    #                         for seen_hash in added_hashes:
+    #                             if ssdeep_compare(ssd_hash, seen_hash) >= self.ssdeep_match_pct:
+    #                                 skip_file = True
+    #                                 break
+    #                         if skip_file is True:
+    #                             continue
+    #                         else:
+    #                             added_hashes.add(ssd_hash)
+    #                     dropped_hash = sha256(data).hexdigest()
+    #                     if dropped_hash == self.request.sha256:
+    #                         continue
+    #                     if not is_tag_safelisted(dropped_name, ["file.path"], self.safelist, substring=True) or \
+    #                             dropped_name.endswith('_info.txt'):
+    #                         # Resubmit
+    #                         dropped_file_name = f"{cape_task.id}_{dropped_name}"
+    #                         artifact = {
+    #                             "name": dropped_file_name,
+    #                             "path": dropped_file_path,
+    #                             "description": "Dropped file during CAPE analysis.",
+    #                             "to_be_extracted": True
+    #                         }
+    #                         self.artifact_list.append(artifact)
+    #                         self.log.debug(f"Submitted dropped file for analysis for task "
+    #                                        f"ID {cape_task.id}: {dropped_file_name}")
+    #         except Exception as e_x:
+    #             self.log.error(f"Error extracting dropped files: {e_x}")
+    #             return
 
     def check_powershell(self, task_id: int, parent_section: ResultSection) -> None:
         """
@@ -1380,7 +1381,7 @@ class CAPE(ServiceBase):
         # Submit dropped files and pcap if available:
         self._extract_console_output(cape_task.id)
         self._extract_injected_exes(cape_task.id)
-        self.check_dropped(cape_task)
+        # self.check_dropped(cape_task)
         self.check_powershell(cape_task.id, parent_section)
         # self.check_pcap(cape_task)
 

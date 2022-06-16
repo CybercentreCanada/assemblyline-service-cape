@@ -118,13 +118,14 @@ def dummy_request_class(dummy_task_class):
 
 
 @pytest.fixture
-def dummy_tar_class():
-    class DummyTar:
+def dummy_zip_class():
+    class DummyZip:
         def __init__(self, members=[]):
             self.supplementary = None
             self.members = members
+            self.filelist = self.members
 
-        def getnames(self):
+        def namelist(self):
             return [
                 "reports/report.json",
                 "hollowshunter/hh_process_123_dump_report.json",
@@ -144,27 +145,27 @@ def dummy_tar_class():
         def extract(self, output, path=None):
             pass
 
-        def getmembers(self):
+        def getnames(self):
             return self.members
 
         def close(self):
             pass
-    yield DummyTar
+    yield DummyZip
 
 
 @pytest.fixture
-def dummy_tar_member_class():
-    class DummyTarMember:
+def dummy_zip_member_class():
+    class DummyZipMember:
         def __init__(self, name, size):
-            self.name = name
-            self.size = size
+            self.filename = name
+            self.file_size = size
 
         def isfile(self):
             return True
 
         def startswith(self, val):
             return val in self.name
-    yield DummyTarMember
+    yield DummyZipMember
 
 
 @pytest.fixture
@@ -330,12 +331,12 @@ class TestModule:
     def test_cape_api_constants():
         from cape.cape_main import CAPE_API_SUBMIT, CAPE_API_QUERY_TASK, CAPE_API_DELETE_TASK, \
             CAPE_API_QUERY_REPORT, CAPE_API_QUERY_PCAP, CAPE_API_QUERY_MACHINES
-        assert CAPE_API_SUBMIT == "tasks/create/file"
-        assert CAPE_API_QUERY_TASK == "tasks/view/%s"
-        assert CAPE_API_DELETE_TASK == "tasks/delete/%s"
-        assert CAPE_API_QUERY_REPORT == "tasks/report/%s"
-        assert CAPE_API_QUERY_PCAP == "pcap/get/%s"
-        assert CAPE_API_QUERY_MACHINES == "machines/list"
+        assert CAPE_API_SUBMIT == "tasks/create/file/"
+        assert CAPE_API_QUERY_TASK == "tasks/view/%s/"
+        assert CAPE_API_DELETE_TASK == "tasks/delete/%s/"
+        assert CAPE_API_QUERY_REPORT == "tasks/get/report/%s/"
+        assert CAPE_API_QUERY_PCAP == "pcap/get/%s/"
+        assert CAPE_API_QUERY_MACHINES == "machines/list/"
 
     @staticmethod
     def test_retry_constants():
@@ -396,7 +397,7 @@ class TestModule:
         assert TASK_STARTING == "starting"
         assert TASK_COMPLETED == "completed"
         assert TASK_REPORTED == "reported"
-        assert ANALYSIS_FAILED == "analysis_failed"
+        assert ANALYSIS_FAILED == "failed_analysis"
         assert ANALYSIS_EXCEEDED_TIMEOUT == "analysis_exceeded_timeout"
 
     @staticmethod
@@ -607,8 +608,8 @@ class TestCapeMain:
             (1, "started", "reboot"),
         ]
     )
-    def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG, \
+    def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, dummy_request_class, mocker):
+        from cape.cape_main import TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG, \
             SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, CapeTask, \
             AnalysisTimeoutExceeded, AnalysisFailed
         from retrying import RetryError
@@ -621,22 +622,24 @@ class TestCapeMain:
         cape_task = CapeTask("blah", host_to_use, blah="blah")
         cape_task.id = task_id
         parent_section = ResultSection("blah")
+        cape_class_instance.request = dummy_request_class()
 
-        mocker.patch.object(CAPE, "submit_file", return_value=task_id)
-        mocker.patch.object(CAPE, "delete_task", return_value=True)
+        mocker.patch.object(cape_class_instance, "sha256_check", return_value=False)
+        mocker.patch.object(cape_class_instance, "submit_file", return_value=task_id)
+        mocker.patch.object(cape_class_instance, "delete_task", return_value=True)
         if poll_started_status:
-            mocker.patch.object(CAPE, "poll_started", return_value=poll_started_status)
+            mocker.patch.object(cape_class_instance, "poll_started", return_value=poll_started_status)
         else:
-            mocker.patch.object(CAPE, "poll_started", side_effect=RetryError("blah"))
+            mocker.patch.object(cape_class_instance, "poll_started", side_effect=RetryError("blah"))
         if poll_report_status:
-            mocker.patch.object(CAPE, "poll_report", return_value=poll_report_status)
+            mocker.patch.object(cape_class_instance, "poll_report", return_value=poll_report_status)
         else:
-            mocker.patch.object(CAPE, "poll_report", side_effect=RetryError("blah"))
+            mocker.patch.object(cape_class_instance, "poll_report", side_effect=RetryError("blah"))
 
         if task_id is None:
             cape_class_instance.submit(file_content, cape_task, parent_section)
             assert cape_task.id is None
-            mocker.patch.object(CAPE, "submit_file", side_effect=Exception)
+            mocker.patch.object(cape_class_instance, "submit_file", side_effect=Exception)
             cape_task.id = 1
             with pytest.raises(Exception):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
@@ -778,17 +781,16 @@ class TestCapeMain:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "status_code, task_id, task_ids",
+        "status_code, task_ids",
         [
-            (200, 1, None),
-            (200, None, None),
-            (200, None, [1]),
-            (404, 1, None),
-            (500, 1, None),
-            (None, None, None)
+            (200, None),
+            (200, [1]),
+            (404, [1]),
+            (500, [1]),
+            (None, None)
         ]
     )
-    def test_submit_file(status_code, task_id, task_ids, cape_class_instance, mocker):
+    def test_submit_file(status_code, task_ids, cape_class_instance, mocker):
         mocker.patch('cape.cape_main.generate_random_words', return_value="blah")
 
         from requests import Session, exceptions, ConnectionError
@@ -801,32 +803,25 @@ class TestCapeMain:
         file_content = b"submit me!"
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
-        cape_task.id = task_id
 
-        correct_rest_response = {"task_id": task_id}
-        if task_ids:
-            correct_rest_response["task_ids"] = task_ids
+        correct_rest_response = {"data": {"task_ids": task_ids}}
         with requests_mock.Mocker() as m:
-            if status_code is None and task_id is None and task_ids is None:
+            if status_code is None and task_ids is None:
                 with mocker.patch.object(CAPE, 'delete_task', return_value=True):
                     m.post(cape_task.submit_url, exc=exceptions.Timeout)
                     with pytest.raises(CapeTimeoutException):
-                        cape_task.id = 1
                         cape_class_instance.submit_file(file_content, cape_task)
                     m.post(cape_task.submit_url, exc=ConnectionError)
                     with pytest.raises(Exception):
-                        cape_task.id = 1
                         cape_class_instance.submit_file(file_content, cape_task)
             else:
                 m.post(cape_task.submit_url, json=correct_rest_response, status_code=status_code)
                 # IF the status code is 200, then we expect a dictionary
                 if status_code == 200:
                     test_result = cape_class_instance.submit_file(file_content, cape_task)
-                    if task_id:
-                        assert test_result == task_id
-                    elif task_ids:
+                    if task_ids:
                         assert test_result == task_ids[0]
-                    elif not task_id and not task_ids:
+                    else:
                         assert test_result == 0
 
                 # If the status code is not 200, then we expect an error or None
@@ -839,18 +834,17 @@ class TestCapeMain:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "task_id,fmt,params,status_code,headers,report_data",
+        "task_id,fmt,status_code,headers,report_data",
         [
-            (1, "json", None, 200, {"Content-Length": "0"}, {}),
-            (1, "json", None, 200, {"Content-Length": "999999999999"}, {}),
-            (1, "json", None, 404, {"Content-Length": "0"}, {}),
-            (1, "json", None, 500, {"Content-Length": "0"}, {}),
-            (1, "anything", None, 200, {"Content-Length": "0"}, {}),
-            (1, "anything", None, 200, {"Content-Length": "0"}, None),
-            (None, None, None, None, None, None)
+            (1, "json", 200, {"Content-Length": "0"}, {}),
+            (1, "json", 200, {"Content-Length": "999999999999"}, {}),
+            (1, "json", 404, {"Content-Length": "0"}, {}),
+            (1, "json", 500, {"Content-Length": "0"}, {}),
+            (1, "anything", 200, {"Content-Length": "0"}, {}),
+            (1, "anything", 200, {"Content-Length": "0"}, None),
         ]
     )
-    def test_query_report(task_id, fmt, params, status_code, headers, report_data, cape_class_instance, mocker):
+    def test_query_report(task_id, fmt, status_code, headers, report_data, cape_class_instance, mocker):
         from cape.cape_main import CAPE, ReportSizeExceeded, MissingCapeReportException, \
             CapeTimeoutException, CapeTask
         from requests import Session, exceptions, ConnectionError
@@ -865,31 +859,31 @@ class TestCapeMain:
 
         with requests_mock.Mocker() as m:
             with mocker.patch.object(CAPE, 'delete_task', return_value=True):
-                if task_id is None and fmt is None and params is None and status_code is None and headers is None and report_data is None:
-                    m.get(cape_task.query_report_url % task_id + '/json', exc=exceptions.Timeout)
+                if task_id is None and fmt is None and status_code is None and headers is None and report_data is None:
+                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', exc=exceptions.Timeout)
                     with pytest.raises(CapeTimeoutException):
-                        cape_class_instance.query_report(cape_task, "json", params)
-                    m.get(cape_task.query_report_url % task_id + '/json', exc=ConnectionError)
+                        cape_class_instance.query_report(cape_task, "json")
+                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', exc=ConnectionError)
                     with pytest.raises(Exception):
-                        cape_class_instance.query_report(cape_task, "json", params)
+                        cape_class_instance.query_report(cape_task, "json")
                 else:
-                    m.get((cape_task.query_report_url + '/' + fmt) % task_id, headers=headers,
+                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', headers=headers,
                           json=report_data, status_code=status_code)
                     if int(headers["Content-Length"]) > cape_class_instance.max_report_size:
                         with pytest.raises(ReportSizeExceeded):
-                            cape_class_instance.query_report(cape_task, fmt, params)
+                            cape_class_instance.query_report(cape_task, fmt)
                     elif status_code == 404:
                         with pytest.raises(MissingCapeReportException):
-                            cape_class_instance.query_report(cape_task, fmt, params)
+                            cape_class_instance.query_report(cape_task, fmt)
                     elif status_code != 200:
                         with pytest.raises(Exception):
-                            cape_class_instance.query_report(cape_task, fmt, params)
+                            cape_class_instance.query_report(cape_task, fmt)
                     else:
                         if report_data is None:
                             with pytest.raises(Exception):
-                                cape_class_instance.query_report(cape_task, fmt, params)
+                                cape_class_instance.query_report(cape_task, fmt)
                         else:
-                            test_result = cape_class_instance.query_report(cape_task, fmt, params)
+                            test_result = cape_class_instance.query_report(cape_task, fmt)
                             if status_code == 200:
                                 correct_result = f"{report_data}".encode()
                                 assert correct_result == test_result
@@ -956,7 +950,7 @@ class TestCapeMain:
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
         cape_task.id = task_id
-        correct_rest_response = {"task": task_dict}
+        correct_rest_response = {"data": {"task": task_dict}}
 
         with requests_mock.Mocker() as m:
             if status_code is None and task_dict is None:
@@ -973,9 +967,9 @@ class TestCapeMain:
                 test_result = cape_class_instance.query_task(cape_task)
                 if status_code == 200:
                     if task_dict is None:
-                        assert test_result is None
+                        assert test_result == {"task": None}
                     elif task_dict:
-                        assert task_dict == test_result
+                        assert test_result == {"task": 1}
                 elif status_code == 404:
                     assert {"task": {"status": TASK_MISSING}, "id": task_id} == test_result
                 elif status_code == 500:
@@ -1039,12 +1033,12 @@ class TestCapeMain:
         from cape.cape_main import CapeHostsUnavailable, CAPE_API_QUERY_MACHINES
 
         # Prerequisites before we can mock query_machines response
-        query_machines_url = f"http://1.1.1.1:8000/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url = f"http://1.1.1.1:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
         cape_class_instance.session = Session()
         cape_class_instance.connection_timeout_in_seconds = 30
         cape_class_instance.connection_attempts = 3
 
-        correct_rest_response = {"machines": ["blah"]}
+        correct_rest_response = {"data": {"machines": ["blah"]}}
         with requests_mock.Mocker() as m:
             if status_code is None:
                 cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
@@ -1068,45 +1062,46 @@ class TestCapeMain:
                     with pytest.raises(CapeHostsUnavailable):
                         cape_class_instance.query_machines()
 
-    @staticmethod
-    @pytest.mark.parametrize("sample", samples)
-    def test_check_dropped(sample, cape_class_instance, mocker):
-        from assemblyline_v4_service.common.task import Task
-        from assemblyline.odm.messages.task import Task as ServiceTask
-        from assemblyline_v4_service.common.request import ServiceRequest
-        from cape.cape_main import CAPE, CapeTask
-        import tarfile
-        import io
+    # TODO
+    # @staticmethod
+    # @pytest.mark.parametrize("sample", samples)
+    # def test_check_dropped(sample, cape_class_instance, mocker):
+    #     from assemblyline_v4_service.common.task import Task
+    #     from assemblyline.odm.messages.task import Task as ServiceTask
+    #     from assemblyline_v4_service.common.request import ServiceRequest
+    #     from cape.cape_main import CAPE, CapeTask
+    #     import tarfile
+    #     import io
 
-        s = io.BytesIO()
+    #     s = io.BytesIO()
 
-        # Creating the required objects for execution
-        service_task = ServiceTask(sample)
-        task = Task(service_task)
-        cape_class_instance._task = task
-        cape_class_instance.request = ServiceRequest(task)
-        cape_class_instance.artifact_list = []
-        cape_class_instance.ssdeep_match_pct = 40
+    #     # Creating the required objects for execution
+    #     service_task = ServiceTask(sample)
+    #     task = Task(service_task)
+    #     cape_class_instance._task = task
+    #     cape_class_instance.request = ServiceRequest(task)
+    #     cape_class_instance.artifact_list = []
+    #     cape_class_instance.ssdeep_match_pct = 40
 
-        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
-        cape_task = CapeTask("blah", host_to_use, blah="blah")
-        cape_task.id = 1
-        tar = tarfile.open(fileobj=s, mode="w:bz2", dereference=True)
-        for file_path in yield_sample_file_paths():
-            if sample["filename"] in file_path:
-                # Tar it up
-                tar.add(file_path)
-                break
-        with open("/tmp/blah.txt", "w") as f:
-            f.write("blah")
-        tar.add("/tmp/blah.txt")
-        tar.close()
+    #     host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+    #     cape_task = CapeTask("blah", host_to_use, blah="blah")
+    #     cape_task.id = 1
+    #     tar = tarfile.open(fileobj=s, mode="w:bz2", dereference=True)
+    #     for file_path in yield_sample_file_paths():
+    #         if sample["filename"] in file_path:
+    #             # Tar it up
+    #             tar.add(file_path)
+    #             break
+    #     with open("/tmp/blah.txt", "w") as f:
+    #         f.write("blah")
+    #     tar.add("/tmp/blah.txt")
+    #     tar.close()
 
-        mocker.patch.object(CAPE, "query_report", return_value=s.getvalue())
-        cape_class_instance.check_dropped(cape_task)
-        assert cape_class_instance.artifact_list[0]["name"] == "1_blah.txt"
-        assert cape_class_instance.artifact_list[0]["description"] == 'Dropped file during CAPE analysis.'
-        assert cape_class_instance.artifact_list[0]["to_be_extracted"]
+    #     mocker.patch.object(CAPE, "query_report", return_value=s.getvalue())
+    #     cape_class_instance.check_dropped(cape_task)
+    #     assert cape_class_instance.artifact_list[0]["name"] == "1_blah.txt"
+    #     assert cape_class_instance.artifact_list[0]["description"] == 'Dropped file during CAPE analysis.'
+    #     assert cape_class_instance.artifact_list[0]["to_be_extracted"]
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
@@ -1446,7 +1441,7 @@ class TestCapeMain:
         if deep_scan:
             correct_task_options.append("hollowshunter=all")
         if route:
-            correct_task_options.append(f"route={route}")
+            correct_kwargs["route"] = route
 
         correct_kwargs['options'] = ','.join(correct_task_options)
         if custom_options is not None:
@@ -1554,17 +1549,17 @@ class TestCapeMain:
         assert check_section_equality(parent_section.subsections[0], correct_result_section)
 
     @staticmethod
-    @pytest.mark.parametrize("tar_report", [None, "blah"])
-    def test_generate_report(tar_report, cape_class_instance, mocker):
+    @pytest.mark.parametrize("zip_report", [None, "blah"])
+    def test_generate_report(zip_report, cape_class_instance, mocker):
         from cape.cape_main import CAPE, CapeTask
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection
-        mocker.patch.object(CAPE, 'query_report', return_value=tar_report)
+        mocker.patch.object(CAPE, 'query_report', return_value=zip_report)
         mocker.patch.object(CAPE, '_extract_console_output', return_value=None)
         mocker.patch.object(CAPE, '_extract_injected_exes', return_value=None)
-        mocker.patch.object(CAPE, 'check_dropped', return_value=None)
+        # mocker.patch.object(CAPE, 'check_dropped', return_value=None)
         mocker.patch.object(CAPE, 'check_powershell', return_value=None)
-        mocker.patch.object(CAPE, '_unpack_tar', return_value=None)
+        mocker.patch.object(CAPE, '_unpack_zip', return_value=None)
 
         so = SandboxOntology()
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -1577,53 +1572,53 @@ class TestCapeMain:
         assert True
 
     @staticmethod
-    def test_unpack_tar(cape_class_instance, dummy_tar_class, mocker):
+    def test_unpack_zip(cape_class_instance, dummy_zip_class, mocker):
         from cape.cape_main import CAPE, CapeTask, MissingCapeReportException
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection
 
         so = SandboxOntology()
-        tar_report = b"blah"
+        zip_report = b"blah"
         file_ext = "blah"
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         parent_section = ResultSection("blah")
 
-        mocker.patch.object(CAPE, "_add_tar_ball_as_supplementary_file")
+        mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
         mocker.patch.object(CAPE, "_build_report")
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
-        mocker.patch("cape.cape_main.tarfile_open", return_value=dummy_tar_class())
+        mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
 
-        cape_class_instance._unpack_tar(tar_report, file_ext, cape_task, parent_section, so)
+        cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
         assert True
 
         with mocker.patch.object(CAPE, "_add_json_as_supplementary_file", side_effect=MissingCapeReportException):
-            cape_class_instance._unpack_tar(tar_report, file_ext, cape_task, parent_section, so)
+            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
             assert True
 
         # Exception test for _extract_console_output or _extract_hollowshunter or _extract_artifacts
         with mocker.patch.object(CAPE, "_extract_console_output", side_effect=Exception):
             mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-            cape_class_instance._unpack_tar(tar_report, file_ext, cape_task, parent_section, so)
+            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
             assert True
 
     @staticmethod
-    def test_add_tar_ball_as_supplementary_file(cape_class_instance, dummy_request_class, mocker):
+    def test_add_zip_as_supplementary_file(cape_class_instance, dummy_request_class, mocker):
         from cape.cape_main import CapeTask
-        tar_file_name = "blah"
-        tar_report_path = f"/tmp/{tar_file_name}"
-        tar_report = b"blah"
+        zip_file_name = "blah"
+        zip_report_path = f"/tmp/{zip_file_name}"
+        zip_report = b"blah"
         cape_class_instance.request = dummy_request_class()
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_class_instance.artifact_list = []
         cape_task = CapeTask("blah", host_to_use)
         cape_task.id = 1
-        cape_class_instance._add_tar_ball_as_supplementary_file(
-            tar_file_name, tar_report_path, tar_report, cape_task)
-        assert cape_class_instance.artifact_list[0]["path"] == tar_report_path
-        assert cape_class_instance.artifact_list[0]["name"] == tar_file_name
+        cape_class_instance._add_zip_as_supplementary_file(
+            zip_file_name, zip_report_path, zip_report, cape_task)
+        assert cape_class_instance.artifact_list[0]["path"] == zip_report_path
+        assert cape_class_instance.artifact_list[0]["name"] == zip_file_name
         assert cape_class_instance.artifact_list[0][
             "description"] == "CAPE Sandbox analysis report archive (tar.gz)"
         assert cape_class_instance.artifact_list[0]["to_be_extracted"] == False
@@ -1631,25 +1626,25 @@ class TestCapeMain:
         cape_class_instance.request.task.supplementary = []
 
         mocker.patch('builtins.open', side_effect=Exception())
-        cape_class_instance._add_tar_ball_as_supplementary_file(
-            tar_file_name, tar_report_path, tar_report, cape_task)
+        cape_class_instance._add_zip_as_supplementary_file(
+            zip_file_name, zip_report_path, zip_report, cape_task)
 
         # Cleanup
-        os.remove(tar_report_path)
+        os.remove(zip_report_path)
 
     @staticmethod
-    def test_add_json_as_supplementary_file(cape_class_instance, dummy_request_class, dummy_tar_class, mocker):
+    def test_add_json_as_supplementary_file(cape_class_instance, dummy_request_class, dummy_zip_class, mocker):
         from cape.cape_main import CapeTask, MissingCapeReportException
 
         json_file_name = "report.json"
         json_report_path = f"{cape_class_instance.working_directory}/1/reports/{json_file_name}"
-        tar_obj = dummy_tar_class()
+        zip_obj = dummy_zip_class()
         cape_class_instance.request = dummy_request_class()
         cape_class_instance.artifact_list = []
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         cape_task.id = 1
-        report_json_path = cape_class_instance._add_json_as_supplementary_file(tar_obj, cape_task)
+        report_json_path = cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
         assert cape_class_instance.artifact_list[0]["path"] == json_report_path
         assert cape_class_instance.artifact_list[0]["name"] == f"1_{json_file_name}"
         assert cape_class_instance.artifact_list[0]["description"] == "CAPE Sandbox report (json)"
@@ -1658,12 +1653,12 @@ class TestCapeMain:
 
         cape_class_instance.artifact_list = []
 
-        with mocker.patch.object(dummy_tar_class, 'getnames', return_value=[]):
+        with mocker.patch.object(dummy_zip_class, 'namelist', return_value=[]):
             with pytest.raises(MissingCapeReportException):
-                cape_class_instance._add_json_as_supplementary_file(tar_obj, cape_task)
+                cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
 
-        mocker.patch.object(dummy_tar_class, 'getnames', side_effect=Exception())
-        report_json_path = cape_class_instance._add_json_as_supplementary_file(tar_obj, cape_task)
+        mocker.patch.object(dummy_zip_class, 'namelist', side_effect=Exception())
+        report_json_path = cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
         assert cape_class_instance.artifact_list == []
         assert report_json_path == ""
 
@@ -1754,7 +1749,7 @@ class TestCapeMain:
         assert cape_class_instance.artifact_list[0]["to_be_extracted"]
 
     @staticmethod
-    def test_extract_artifacts(cape_class_instance, dummy_request_class, dummy_tar_class, dummy_tar_member_class):
+    def test_extract_artifacts(cape_class_instance, dummy_request_class, dummy_zip_class, dummy_zip_member_class):
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, ResultImageSection
         default_so = SandboxOntology()
@@ -1769,21 +1764,21 @@ class TestCapeMain:
         }
         parent_section = ResultSection("blah")
         correct_artifact_list = []
-        tar_obj = dummy_tar_class()
+        zip_obj = dummy_zip_class()
         task_id = 1
         cape_class_instance.artifact_list = []
         correct_image_section = ResultImageSection(
             dummy_request_class,
             f"Screenshots taken during Task {task_id}",
         )
-        for f in tar_obj.getnames():
+        for f in zip_obj.namelist():
             key = next((k for k in tarball_file_map if k in f), None)
             if not key:
                 continue
             val = tarball_file_map[key]
             correct_path = f"{cape_class_instance.working_directory}/{task_id}/{f}"
-            dummy_tar_member = dummy_tar_member_class(f, 1)
-            tar_obj.members.append(dummy_tar_member)
+            dummy_zip_member = dummy_zip_member_class(f, 1)
+            zip_obj.members.append(dummy_zip_member)
             if key in ["shots"]:
                 if "_small" not in f:
                     correct_image_section.add_image(correct_path, f"{task_id}_{f}", val)
@@ -1796,7 +1791,7 @@ class TestCapeMain:
                                              "description": val, "to_be_extracted": True})
 
         cape_class_instance.request = dummy_request_class()
-        cape_class_instance._extract_artifacts(tar_obj, task_id, parent_section, default_so)
+        cape_class_instance._extract_artifacts(zip_obj, task_id, parent_section, default_so)
 
         all_extracted = True
         for extracted in cape_class_instance.artifact_list:
@@ -1815,12 +1810,12 @@ class TestCapeMain:
         check_section_equality(parent_section.subsections[0], correct_image_section)
 
     @staticmethod
-    def test_extract_hollowshunter(cape_class_instance, dummy_request_class, dummy_tar_class):
+    def test_extract_hollowshunter(cape_class_instance, dummy_request_class, dummy_zip_class):
         cape_class_instance.request = dummy_request_class()
-        tar_obj = dummy_tar_class()
+        zip_obj = dummy_zip_class()
         task_id = 1
         cape_class_instance.artifact_list = []
-        cape_class_instance._extract_hollowshunter(tar_obj, task_id)
+        cape_class_instance._extract_hollowshunter(zip_obj, task_id)
 
         assert cape_class_instance.artifact_list[0] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_dump_report.json",
@@ -2037,13 +2032,13 @@ class TestCapeMain:
         ]
         with requests_mock.Mocker() as m:
             for host in hosts:
-                host_status_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_HOST}"
-                m.get(host_status_url, json={"tasks": {"pending": 1}})
+                host_status_url = f"http://{host['ip']}:{host['port']}/apiv2/{CAPE_API_QUERY_HOST}"
+                m.get(host_status_url, json={"data": {"tasks": {"pending": 1}}})
             test_result = cape_class_instance._determine_host_to_use(hosts)
             assert any(host == test_result for host in hosts)
             for key, val in [("exc", exceptions.Timeout), ("exc", ConnectionError), ("status_code", 404)]:
                 for host in hosts:
-                    host_status_url = f"http://{host['ip']}:{host['port']}/{CAPE_API_QUERY_HOST}"
+                    host_status_url = f"http://{host['ip']}:{host['port']}/apiv2/{CAPE_API_QUERY_HOST}"
                     if key == "exc":
                         m.get(host_status_url, exc=val)
                     elif key == "status_code":

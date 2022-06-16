@@ -918,7 +918,8 @@ def process_all_events(
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             events_section.add_row(
                 TableRow(
-                    time_observed=event.start_time,
+                    time_observed=datetime.fromtimestamp(event.objectid.time_observed).strftime(
+                        '%Y-%m-%d %H:%M:%S.%f')[: -3],
                     process_name=f"{event.image} ({event.pid})",
                     details={"command_line": event.command_line, }
                 )
@@ -1184,35 +1185,26 @@ def get_process_map(processes: List[Dict[str, Any]],
         for call in calls:
             category = call.get("category", "does_not_exist")
             api = call["api"]
-            if category == "network" and api in api_calls_of_interest.keys():
+            if category in ["network", "crypto", "system"] and api in api_calls_of_interest.keys():
                 args = call["arguments"]
                 args_of_interest: Dict[str, str] = {}
                 for arg in api_calls_of_interest.get(api, []):
                     # Call arguments are split into dictionaries, each containing a name and value kv pair
                     for kv in args:
                         if arg == kv["name"] and kv["value"]:
-                            args_of_interest[arg] = kv["value"]
-                            break
+                            if category == "system" and "cfg:" in kv["value"]:
+                                args_of_interest[arg] = kv["value"]
+                                break
+                            elif category in ["network", "crypto"]:
+                                args_of_interest[arg] = kv["value"]
+                                break
                 if args_of_interest:
                     item_to_add = {api: args_of_interest}
-                    if item_to_add not in network_calls:
+                    if category == "network" and item_to_add not in network_calls:
                         network_calls.append(item_to_add)
-            elif category == "crypto" and api in api_calls_of_interest.keys():
-                args = call["arguments"]
-                args_of_interest: Dict[str, str] = {}
-                for arg in api_calls_of_interest.get(api, []):
-                    if arg in args and args[arg]:
-                        args_of_interest[arg] = args[arg]
-                if args_of_interest:
-                    decrypted_buffers.append({api: args_of_interest})
-            elif category in ["system"] and api in api_calls_of_interest.keys():
-                args = call["arguments"]
-                args_of_interest: Dict[str, str] = {}
-                for arg in api_calls_of_interest.get(api, []):
-                    if arg in args and "cfg:" in args[arg]:
-                        args_of_interest[arg] = args[arg]
-                if args_of_interest:
-                    decrypted_buffers.append({api: args_of_interest})
+                    elif category in ["crypto", "system"] and item_to_add not in decrypted_buffers:
+                        decrypted_buffers.append(item_to_add)
+
         pid = process["process_id"]
         process_map[pid] = {
             "name": process_name,
