@@ -400,7 +400,7 @@ heuristics:
 
   - heur_id: 38
     name: Malware
-    score: 0
+    score: 1000
     filetype: '*'
     description: The file uses techniques associated with malicious software.
 

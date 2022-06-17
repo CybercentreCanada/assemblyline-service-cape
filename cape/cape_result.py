@@ -1329,11 +1329,20 @@ def _create_signature_result_section(
         _ = add_tag(sig_res, "dynamic.signature.family", [family for family in sig_families])
 
     # Get the evidence that supports why the signature was raised
+    mark_count = 0
     for mark in signature["data"]:
+        if mark_count >= 10:
+            sig_res.add_section_part(
+                TextSectionBody(
+                    body=f"There were {len(signature['data'] - mark_count)} marks that were not displayed."
+                )
+            )
+            break
         mark_body = KVSectionBody()
         for k, v in mark.items():
             mark_body.set_item(k, v)
         sig_res.add_section_part(mark_body)
+        mark_count += 1
 
     so_sig.update(name=name, description=description, score=translated_score)
     return sig_res
