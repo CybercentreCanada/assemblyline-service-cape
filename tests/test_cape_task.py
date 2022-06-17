@@ -7,7 +7,7 @@ class TestCuckooTask:
     @pytest.mark.parametrize("sample", samples)
     def test_init(sample, cape_task_class):
         from cape.cape_main import CAPE_API_SUBMIT, CAPE_API_QUERY_TASK, CAPE_API_DELETE_TASK, \
-            CAPE_API_QUERY_REPORT, CAPE_API_QUERY_PCAP, CAPE_API_QUERY_MACHINES
+            CAPE_API_QUERY_REPORT, CAPE_API_QUERY_MACHINES
 
         kwargs = {"blah": "blah"}
         host_details = {"ip": "blah", "port": "blah", "auth_header": "blah"}
@@ -22,4 +22,3 @@ class TestCuckooTask:
         assert cape_task_class_instance.query_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_TASK}"
         assert cape_task_class_instance.delete_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_DELETE_TASK}"
         assert cape_task_class_instance.query_report_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_REPORT}"
-        assert cape_task_class_instance.query_pcap_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_PCAP}"

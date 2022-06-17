@@ -11,3 +11,5 @@ created by [x1mus](https://github.com/x1mus) with support from [Sorakurai](https
 [NVISOsecurity](https://github.com/NVISOsecurity).
 
 Since the REST APIv2 is the only API version that is [supported](https://capev2.readthedocs.io/en/latest/usage/api.html), we will also only be supporting this version.
+
+It should be noted that this service grabs the `lite` format of the report bundle. So be sure you have `litereport` enabled in your `reporting.conf` file on your CAPE instance.
