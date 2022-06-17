@@ -918,8 +918,7 @@ def process_all_events(
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             events_section.add_row(
                 TableRow(
-                    time_observed=datetime.fromtimestamp(event.objectid.time_observed).strftime(
-                        '%Y-%m-%d %H:%M:%S.%f')[: -3],
+                    time_observed=event.start_time,
                     process_name=f"{event.image} ({event.pid})",
                     details={"command_line": event.command_line, }
                 )
