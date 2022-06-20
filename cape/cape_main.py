@@ -1474,7 +1474,9 @@ class CAPE(ServiceBase):
             "dump.pcap": "All traffic from TCPDUMP",
             "sysmon/sysmon.evtx": "Sysmon Logging Captured",
             "network": None,  # These are only used for updating the sandbox ontology
-            "files": "File extracted during analysis"
+            "files/": "File extracted during analysis",
+            "procdump": "Dumps of process memory",
+            "macros": "Macros found during analysis",
         }
 
         # Get the max size for extract files, used a few times after this
