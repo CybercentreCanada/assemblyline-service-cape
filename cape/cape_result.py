@@ -1434,7 +1434,7 @@ def _create_signature_result_section(
     for mark in signature["data"]:
         if mark_count >= 10:
             sig_res.add_section_part(
-                TextSectionBody(body=f"There were {len(signature['data'] - mark_count)} marks that were not displayed.")
+                TextSectionBody(body=f"There were {len(signature['data']) - mark_count} marks that were not displayed.")
             )
             break
         mark_body = KVSectionBody()
