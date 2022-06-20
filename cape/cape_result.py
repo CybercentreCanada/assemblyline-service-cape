@@ -12,30 +12,35 @@ from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.net import is_valid_ip, is_ip_in_network
 from assemblyline.odm.base import IP_REGEX, FULL_URI
-from assemblyline_v4_service.common.result import ResultSection, ResultKeyValueSection, ResultTextSection, ResultTableSection, TableRow, ResultMultiSection, TextSectionBody, KVSectionBody
+from assemblyline_v4_service.common.result import (
+    ResultSection,
+    ResultKeyValueSection,
+    ResultTextSection,
+    ResultTableSection,
+    TableRow,
+    ResultMultiSection,
+    TextSectionBody,
+    KVSectionBody,
+)
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
 from assemblyline_v4_service.common.tag_helper import add_tag
 
 from cape.signatures import get_category_id, get_signature_category, CAPE_DROPPED_SIGNATURES
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-from assemblyline_v4_service.common.dynamic_service_helper import extract_iocs_from_text_blob, SandboxOntology, Process, NetworkConnection
+from assemblyline_v4_service.common.dynamic_service_helper import (
+    extract_iocs_from_text_blob,
+    SandboxOntology,
+    Process,
+    NetworkConnection,
+)
 
-al_log.init_logging('service.cape.cape_result')
-log = getLogger('assemblyline.service.cape.cape_result')
+al_log.init_logging("service.cape.cape_result")
+log = getLogger("assemblyline.service.cape.cape_result")
 # Global variable used for containing the system safelist
 global_safelist: Optional[Dict[str, Dict[str, List[str]]]] = None
 # Custom regex for finding uris in a text blob
 UNIQUE_IP_LIMIT = 100
-SCORE_TRANSLATION = {
-    1: 10,
-    2: 100,
-    3: 250,
-    4: 500,
-    5: 750,
-    6: 1000,
-    7: 1000,
-    8: 1000  # dead_host signature
-}
+SCORE_TRANSLATION = {1: 10, 2: 100, 3: 250, 4: 500, 5: 750, 6: 1000, 7: 1000, 8: 1000}  # dead_host signature
 
 # Signature Processing Constants
 SKIPPED_MARK_ITEMS = ["type", "suspicious_features", "entropy", "process", "useragent"]
@@ -47,22 +52,61 @@ SILENT_PROCESS_NAMES = ["injection_write_memory_exe", "injection_write_memory", 
 
 INETSIM = "INetSim"
 DNS_API_CALLS = ["getaddrinfo", "InternetConnectW", "InternetConnectA", "GetAddrInfoW", "gethostbyname"]
-HTTP_API_CALLS = ["send", "InternetConnectW", "InternetConnectA",
-                  "URLDownloadToFileW", "InternetCrackUrlW", "InternetOpenUrlA"]
+HTTP_API_CALLS = ["send", "InternetConnectW", "InternetConnectA", "URLDownloadToFileW", "InternetCrackUrlW", "InternetOpenUrlA"]
 BUFFER_API_CALLS = ["send", "WSASend"]
-SUSPICIOUS_USER_AGENTS = [
-    "Microsoft BITS", "Excel Service"
-]
+SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
-    'bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe', 'hta', 'htm', 'html',
-    'hwp', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf', 'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt',
-    'pptm', 'pptx', 'ps1', 'pub', 'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'vbs', 'wsf', 'xls', 'xlsm', 'xlsx'
+    "bat",
+    "bin",
+    "cpl",
+    "dll",
+    "doc",
+    "docm",
+    "docx",
+    "dotm",
+    "elf",
+    "eml",
+    "exe",
+    "hta",
+    "htm",
+    "html",
+    "hwp",
+    "jar",
+    "js",
+    "lnk",
+    "mht",
+    "msg",
+    "msi",
+    "pdf",
+    "potm",
+    "potx",
+    "pps",
+    "ppsm",
+    "ppsx",
+    "ppt",
+    "pptm",
+    "pptx",
+    "ps1",
+    "pub",
+    "py",
+    "pyc",
+    "rar",
+    "rtf",
+    "sh",
+    "swf",
+    "vbs",
+    "wsf",
+    "xls",
+    "xlsm",
+    "xlsx",
 ]
-ANALYSIS_ERRORS = 'Analysis Errors'
+ANALYSIS_ERRORS = "Analysis Errors"
 # Substring of Warning Message frm https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/guest.py#L561
-GUEST_LOSING_CONNNECTIVITY = 'Virtual Machine /status failed. This can indicate the guest losing network connectivity'
+GUEST_LOSING_CONNNECTIVITY = "Virtual Machine /status failed. This can indicate the guest losing network connectivity"
 # Substring of Error Message from https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/scheduler.py#L572
-GUEST_CANNOT_REACH_HOST = "it appears that this Virtual Machine hasn't been configured properly as the CAPE Host wasn't able to connect to the Guest."
+GUEST_CANNOT_REACH_HOST = (
+    "it appears that this Virtual Machine hasn't been configured properly as the CAPE Host wasn't able to connect to the Guest."
+)
 GUEST_LOST_CONNECTIVITY = 5
 SIGNATURES_SECTION_TITLE = "Signatures"
 ENCRYPTED_BUFFER_LIMIT = 25
@@ -72,10 +116,14 @@ SYSTEM_PROCESS_ID = 4
 # noinspection PyBroadException
 # TODO: break this into smaller methods
 def generate_al_result(
-        api_report: Dict[str, Any],
-        al_result: ResultSection, file_ext: str, random_ip_range: str, routing: str,
-        safelist: Dict[str, Dict[str, List[str]]],
-        so: SandboxOntology) -> None:
+    api_report: Dict[str, Any],
+    al_result: ResultSection,
+    file_ext: str,
+    random_ip_range: str,
+    routing: str,
+    safelist: Dict[str, Dict[str, List[str]]],
+    so: SandboxOntology,
+) -> None:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
     :param api_report: The JSON report for the CAPE analysis
@@ -91,11 +139,11 @@ def generate_al_result(
     global_safelist = safelist
     validated_random_ip_range = ip_network(random_ip_range)
 
-    info: Dict[str, Any] = api_report.get('info', {})
-    debug: Dict[str, Any] = api_report.get('debug', {})
-    sigs: List[Dict[str, Any]] = api_report.get('signatures', [])
-    network: Dict[str, Any] = api_report.get('network', {})
-    behaviour: Dict[str, Any] = api_report.get('behavior', {})  # Note conversion from American to Canadian spelling eh
+    info: Dict[str, Any] = api_report.get("info", {})
+    debug: Dict[str, Any] = api_report.get("debug", {})
+    sigs: List[Dict[str, Any]] = api_report.get("signatures", [])
+    network: Dict[str, Any] = api_report.get("network", {})
+    behaviour: Dict[str, Any] = api_report.get("behavior", {})  # Note conversion from American to Canadian spelling eh
     curtain: Dict[str, Any] = api_report.get("curtain", {})
     sysmon: List[Dict[str, Any]] = api_report.get("sysmon", [])
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
@@ -116,13 +164,14 @@ def generate_al_result(
         convert_sysmon_network(sysmon, network, safelist)
 
     if behaviour:
-        sample_executed = [len(behaviour.get("processtree", [])),
-                           len(behaviour.get("processes", [])),
-                           len(behaviour.get("summary", []))]
+        sample_executed = [
+            len(behaviour.get("processtree", [])),
+            len(behaviour.get("processes", [])),
+            len(behaviour.get("summary", [])),
+        ]
         if not any(item > 0 for item in sample_executed):
             noexec_res = ResultTextSection("Sample Did Not Execute")
-            noexec_res.add_line(f"No program available to execute a file with the following "
-                                f"extension: {safe_str(file_ext)}")
+            noexec_res.add_line(f"No program available to execute a file with the following extension: {safe_str(file_ext)}")
             al_result.add_subsection(noexec_res)
         else:
             # Otherwise, moving on!
@@ -134,16 +183,15 @@ def generate_al_result(
     is_process_martian = False
 
     if network:
-        process_network(network, al_result, validated_random_ip_range, routing, process_map,
-                        safelist, so)
+        process_network(network, al_result, validated_random_ip_range, routing, process_map, safelist, so)
 
     if sigs:
         target = api_report.get("target", {})
         target_file = target.get("file", {})
         target_filename = target_file.get("name", "missing_name")
         is_process_martian = process_signatures(
-            sigs, al_result, validated_random_ip_range, target_filename, process_map, info["id"],
-            safelist, so)
+            sigs, al_result, validated_random_ip_range, target_filename, process_map, info["id"], safelist, so
+        )
 
     build_process_tree(al_result, is_process_martian, so)
 
@@ -167,25 +215,20 @@ def process_info(info: Dict[str, Any], parent_result_section: ResultSection, so:
     :param so: An instance of the sandbox ontology class
     :return: None
     """
-    start_time = info['started']
-    end_time = info['ended']
-    duration = info['duration']
+    start_time = info["started"]
+    end_time = info["ended"]
+    duration = info["duration"]
     analysis_time = -1  # Default error time
     try:
-        duration_str = datetime.fromtimestamp(int(duration)).strftime('%Hh %Mm %Ss')
+        duration_str = datetime.fromtimestamp(int(duration)).strftime("%Hh %Mm %Ss")
         analysis_time = duration_str + "\t(" + start_time + " to " + end_time + ")"
     except Exception:
         pass
-    body = {
-        'CAPE Task ID': info['id'],
-        'Duration': analysis_time,
-        'Routing': info['route'],
-        'CAPE Version': info['version']
-    }
-    info_res = ResultKeyValueSection('Analysis Information')
+    body = {"CAPE Task ID": info["id"], "Duration": analysis_time, "Routing": info["route"], "CAPE Version": info["version"]}
+    info_res = ResultKeyValueSection("Analysis Information")
     info_res.update_items(body)
     parent_result_section.add_subsection(info_res)
-    so.update_analysis_metadata(task_id=info["id"], start_time=start_time, end_time=end_time, routing=info['route'])
+    so.update_analysis_metadata(task_id=info["id"], start_time=start_time, end_time=end_time, routing=info["route"])
     so.set_sandbox_version(info["version"])
 
 
@@ -197,7 +240,7 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     :return: None
     """
     error_res = ResultTextSection(ANALYSIS_ERRORS)
-    for error in debug['errors']:
+    for error in debug["errors"]:
         err_str = str(error)
         # TODO: what is the point of lower-casing it?
         err_str = err_str.lower()
@@ -215,8 +258,7 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
         parent_result_section.add_subsection(error_res)
 
 
-def process_behaviour(behaviour: Dict[str, Any],
-                      safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology) -> None:
+def process_behaviour(behaviour: Dict[str, Any], safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology) -> None:
     """
     This method processes the behaviour section of the CAPE report, adding anything noteworthy to the
     Assemblyline report
@@ -247,8 +289,9 @@ def get_process_api_sums(apistats: Dict[str, Dict[str, int]]) -> Dict[str, int]:
     return api_sums
 
 
-def convert_cape_processes(cape_processes: List[Dict[str, Any]],
-                           safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology) -> None:
+def convert_cape_processes(
+    cape_processes: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology
+) -> None:
     """
     This method converts processes observed in CAPE to the format supported by the SandboxOntology helper class
     :param cape_processes: A list of processes observed during the analysis of the task
@@ -262,22 +305,29 @@ def convert_cape_processes(cape_processes: List[Dict[str, Any]],
         if item["process_id"] not in existing_pids:
             process_path = item.get("module_path")
             command_line = item["environ"]["CommandLine"]
-            if not process_path or not command_line or \
-                    is_tag_safelisted(process_path, ["dynamic.process.file_name"], safelist) or \
-                    is_tag_safelisted(command_line, ["dynamic.process.command_line"], safelist):
+            if (
+                not process_path
+                or not command_line
+                or is_tag_safelisted(process_path, ["dynamic.process.file_name"], safelist)
+                or is_tag_safelisted(command_line, ["dynamic.process.command_line"], safelist)
+            ):
                 continue
             so.update_process(
                 pid=item["process_id"],
                 ppid=item["parent_id"],
-                image=process_path, command_line=command_line, start_time=item["first_seen"],
-                guid=so.get_guid_by_pid_and_time(item["process_id"],
-                                                 item["first_seen"]) if not item.get("guid") else item.get("guid"),
+                image=process_path,
+                command_line=command_line,
+                start_time=item["first_seen"],
+                guid=so.get_guid_by_pid_and_time(item["process_id"], item["first_seen"])
+                if not item.get("guid")
+                else item.get("guid"),
                 pguid=so.get_pguid_by_pid_and_time(item["process_id"], item["first_seen"])
-                if not item.get("pguid") else item.get("pguid"))
+                if not item.get("pguid")
+                else item.get("pguid"),
+            )
 
 
-def build_process_tree(parent_result_section: ResultSection, is_process_martian: bool,
-                       so: SandboxOntology) -> None:
+def build_process_tree(parent_result_section: ResultSection, is_process_martian: bool, so: SandboxOntology) -> None:
     """
     This method builds a process tree ResultSection
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
@@ -299,11 +349,15 @@ def build_process_tree(parent_result_section: ResultSection, is_process_martian:
 
 
 def process_signatures(
-        sigs: List[Dict[str, Any]],
-        parent_result_section: ResultSection, inetsim_network: IPv4Network, target_filename: str,
-        process_map: Dict[int, Dict[str, Any]],
-        task_id: int, safelist: Dict[str, Dict[str, List[str]]],
-        so: SandboxOntology) -> bool:
+    sigs: List[Dict[str, Any]],
+    parent_result_section: ResultSection,
+    inetsim_network: IPv4Network,
+    target_filename: str,
+    process_map: Dict[int, Dict[str, Any]],
+    task_id: int,
+    safelist: Dict[str, Dict[str, List[str]]],
+    so: SandboxOntology,
+) -> bool:
     """
     This method processes the signatures section of the CAPE report, adding anything noteworthy to the
     Assemblyline report
@@ -331,8 +385,8 @@ def process_signatures(
     sigs = _remove_network_http_noise(sigs)
 
     for sig in sigs:
-        sig_name = sig['name']
-        sig_marks = sig.get('data', [])
+        sig_name = sig["name"]
+        sig_marks = sig.get("data", [])
 
         if not is_process_martian and sig_name == "process_martian":
             is_process_martian = True
@@ -403,9 +457,15 @@ def process_signatures(
 
 
 # TODO: break this up into methods
-def process_network(network: Dict[str, Any], parent_result_section: ResultSection, inetsim_network: IPv4Network,
-                    routing: str, process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]],
-                    so: SandboxOntology) -> None:
+def process_network(
+    network: Dict[str, Any],
+    parent_result_section: ResultSection,
+    inetsim_network: IPv4Network,
+    routing: str,
+    process_map: Dict[int, Dict[str, Any]],
+    safelist: Dict[str, Dict[str, List[str]]],
+    so: SandboxOntology,
+) -> None:
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
     Assemblyline report
@@ -427,10 +487,7 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
     resolved_ips: Dict[str, Dict[str, Any]] = _get_dns_map(dns_calls, process_map, routing, dns_servers)
     dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(resolved_ips, safelist)
 
-    low_level_flows = {
-        "udp": network.get("udp", []),
-        "tcp": network.get("tcp", [])
-    }
+    low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
     network_flows_table, netflows_sec = _get_low_level_flows(resolved_ips, low_level_flows, safelist)
 
     # We have to copy the network table so that we can iterate through the copy
@@ -456,16 +513,22 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
                 for process in process_map:
                     process_details = process_map[process]
                     for network_call in process_details["network_calls"]:
-                        connect = network_call.get(
-                            "connect", {}) or network_call.get(
-                            "InternetConnectW", {}) or network_call.get(
-                            "InternetConnectA", {}) or network_call.get(
-                            "WSAConnect", {}) or network_call.get(
-                            "InternetOpenUrlA", {})
-                        if connect != {} and (
-                                connect.get("ip_address", "") == network_flow["dest_ip"] or connect.get("hostname", "") ==
-                                network_flow["dest_ip"]) and connect["port"] == network_flow["dest_port"] or (
-                                network_flow["domain"] and network_flow["domain"] in connect.get("url", "")):
+                        connect = (
+                            network_call.get("connect", {})
+                            or network_call.get("InternetConnectW", {})
+                            or network_call.get("InternetConnectA", {})
+                            or network_call.get("WSAConnect", {})
+                            or network_call.get("InternetOpenUrlA", {})
+                        )
+                        if (
+                            connect != {}
+                            and (
+                                connect.get("ip_address", "") == network_flow["dest_ip"]
+                                or connect.get("hostname", "") == network_flow["dest_ip"]
+                            )
+                            and connect["port"] == network_flow["dest_port"]
+                            or (network_flow["domain"] and network_flow["domain"] in connect.get("url", ""))
+                        ):
                             network_flow["image"] = process_details["name"] + " (" + str(process) + ")"
                             network_flow["pid"] = process
                             break
@@ -486,9 +549,9 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
                 destination_port=network_flow["dest_port"],
                 time_observed=network_flow["timestamp"],
                 transport_layer_protocol=network_flow["protocol"],
-                direction="outbound")
-            nc.update_process(pid=network_flow["pid"], image=process_details.get(
-                "name"), start_time=network_flow["timestamp"])
+                direction="outbound",
+            )
+            nc.update_process(pid=network_flow["pid"], image=process_details.get("name"), start_time=network_flow["timestamp"])
             so.add_network_connection(nc)
 
             # We want all key values for all network flows except for timestamps and event_type
@@ -498,7 +561,10 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
         nd = so.create_network_dns(domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"])
         nd.update_connection_details(
             destination_ip=dns_servers[0] if dns_servers else None,
-            destination_port=53, transport_layer_protocol="udp", direction="outbound")
+            destination_port=53,
+            transport_layer_protocol="udp",
+            direction="outbound",
+        )
         nd.update_process(pid=request["process_id"], image=request["process_name"], guid=request["guid"])
         so.add_network_dns(nd)
 
@@ -534,17 +600,24 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
         _ = add_tag(http_sec, "network.protocol", "http")
 
         for http_call in http_calls:
-            if not add_tag(http_sec, "network.dynamic.ip", http_call.connection_details.destination_ip, safelist) or http_call.connection_details.destination_ip in dns_servers:
+            if (
+                not add_tag(http_sec, "network.dynamic.ip", http_call.connection_details.destination_ip, safelist)
+                or http_call.connection_details.destination_ip in dns_servers
+            ):
                 continue
             _ = add_tag(http_sec, "network.port", http_call.connection_details.destination_port)
-            _ = add_tag(http_sec, "network.dynamic.domain", so.get_domain_by_destination_ip(
-                http_call.connection_details.destination_ip), safelist)
+            _ = add_tag(
+                http_sec,
+                "network.dynamic.domain",
+                so.get_domain_by_destination_ip(http_call.connection_details.destination_ip),
+                safelist,
+            )
             _ = add_tag(http_sec, "network.dynamic.uri", http_call.request_uri, safelist)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
                 split_path = http_call.request_uri.rsplit("/", 1)
-                if len(split_path) > 1 and search(r'[^\\]*\.(\w+)$', split_path[-1]):
+                if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
                     if not remote_file_access_sec.body:
                         remote_file_access_sec.add_line(f"\t{http_call.request_uri}")
                     elif f"\t{http_call.request_uri}" not in remote_file_access_sec.body:
@@ -555,12 +628,12 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
 
             user_agent = http_call.request_headers.get("UserAgent")
             if user_agent:
-                if any(sus_user_agent in user_agent
-                       for sus_user_agent in SUSPICIOUS_USER_AGENTS):
+                if any(sus_user_agent in user_agent for sus_user_agent in SUSPICIOUS_USER_AGENTS):
                     if suspicious_user_agent_sec.heuristic is None:
                         suspicious_user_agent_sec.set_heuristic(1007)
-                    sus_user_agent_used = next((sus_user_agent for sus_user_agent in SUSPICIOUS_USER_AGENTS
-                                                if (sus_user_agent in user_agent)), None)
+                    sus_user_agent_used = next(
+                        (sus_user_agent for sus_user_agent in SUSPICIOUS_USER_AGENTS if (sus_user_agent in user_agent)), None
+                    )
                     if sus_user_agent_used not in sus_user_agents_used:
                         _ = add_tag(suspicious_user_agent_sec, "network.user_agent", sus_user_agent_used, safelist)
                         suspicious_user_agent_sec.add_line(f"\t{sus_user_agent_used}")
@@ -569,13 +642,13 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
             http_sec.add_row(
                 TableRow(
                     process_name=f"{http_call.get_process_image()} ({http_call.get_process_pid()})",
-                    request=http_call.request_headers
+                    request=http_call.request_headers,
                 )
             )
         if remote_file_access_sec.heuristic:
             http_sec.add_subsection(remote_file_access_sec)
         if suspicious_user_agent_sec.heuristic:
-            suspicious_user_agent_sec.add_line(' | '.join(sus_user_agents_used))
+            suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
             http_sec.add_subsection(suspicious_user_agent_sec)
         if http_sec.body or http_sec.subsections:
             network_res.add_subsection(http_sec)
@@ -588,8 +661,7 @@ def process_network(network: Dict[str, Any], parent_result_section: ResultSectio
         parent_result_section.add_subsection(network_res)
 
 
-def _get_dns_sec(resolved_ips: Dict[str, Dict[str, Any]],
-                 safelist: Dict[str, Dict[str, List[str]]]) -> ResultTableSection:
+def _get_dns_sec(resolved_ips: Dict[str, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]) -> ResultTableSection:
     """
     This method creates the result section for DNS traffic
     :param resolved_ips: the mapping of resolved IPs and their corresponding domains
@@ -616,8 +688,9 @@ def _get_dns_sec(resolved_ips: Dict[str, Dict[str, Any]],
     return dns_res_sec
 
 
-def _get_dns_map(dns_calls: List[Dict[str, Any]], process_map: Dict[int, Dict[str, Any]],
-                 routing: str, dns_servers: List[str]) -> Dict[str, Dict[str, Any]]:
+def _get_dns_map(
+    dns_calls: List[Dict[str, Any]], process_map: Dict[int, Dict[str, Any]], routing: str, dns_servers: List[str]
+) -> Dict[str, Dict[str, Any]]:
     """
     This method creates a map between domain calls and IPs returned
     :param dns_calls: DNS details that were captured by CAPE
@@ -650,9 +723,7 @@ def _get_dns_map(dns_calls: List[Dict[str, Any]], process_map: Dict[int, Dict[st
                 if request in resolved_ips:
                     continue
 
-                resolved_ips[request] = {
-                    "domain": answer
-                }
+                resolved_ips[request] = {"domain": answer}
             elif dns_type == "PTR" and "ip6.arpa" in request:
                 # Drop it
                 continue
@@ -674,8 +745,7 @@ def _get_dns_map(dns_calls: List[Dict[str, Any]], process_map: Dict[int, Dict[st
         for network_call in process_details["network_calls"]:
             dns = next((network_call[api_call] for api_call in DNS_API_CALLS if api_call in network_call), {})
             if dns != {} and dns.get("hostname"):
-                ip_mapped_to_host = next((ip for ip, details in resolved_ips.items()
-                                          if details["domain"] == dns["hostname"]), None)
+                ip_mapped_to_host = next((ip for ip, details in resolved_ips.items() if details["domain"] == dns["hostname"]), None)
                 if not ip_mapped_to_host:
                     continue
                 if not resolved_ips[ip_mapped_to_host].get("process_name"):
@@ -685,9 +755,9 @@ def _get_dns_map(dns_calls: List[Dict[str, Any]], process_map: Dict[int, Dict[st
     return resolved_ips
 
 
-def _get_low_level_flows(resolved_ips: Dict[str, Dict[str, Any]],
-                         flows: Dict[str, List[Dict[str, Any]]],
-                         safelist: Dict[str, Dict[str, List[str]]]) -> Tuple[List[Dict[str, Any]], ResultTableSection]:
+def _get_low_level_flows(
+    resolved_ips: Dict[str, Dict[str, Any]], flows: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
+) -> Tuple[List[Dict[str, Any]], ResultTableSection]:
     """
     This method converts low level network calls to a general format
     :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
@@ -704,16 +774,18 @@ def _get_low_level_flows(resolved_ips: Dict[str, Dict[str, Any]],
     for protocol, network_calls in flows.items():
         if len(network_calls) <= 0:
             continue
-        elif len(network_calls) > UNIQUE_IP_LIMIT/2:
+        elif len(network_calls) > UNIQUE_IP_LIMIT / 2:
             network_calls_made_to_unique_ips: List[Dict[str, Any]] = []
             # Collapsing network calls into calls made to unique IP+port combos
             for network_call in network_calls:
                 if len(network_calls_made_to_unique_ips) >= UNIQUE_IP_LIMIT:
                     # BAIL! Too many to put in a table
                     too_many_unique_ips_sec = ResultTextSection("Too Many Unique IPs")
-                    too_many_unique_ips_sec.add_line(f"The number of TCP calls displayed has been capped "
-                                                     f"at {UNIQUE_IP_LIMIT}. The full results can be found "
-                                                     f"in the supplementary PCAP file included with the analysis.")
+                    too_many_unique_ips_sec.add_line(
+                        "The number of TCP calls displayed has been capped "
+                        f"at {UNIQUE_IP_LIMIT}. The full results can be found "
+                        "in the supplementary PCAP file included with the analysis."
+                    )
                     netflows_sec.add_subsection(too_many_unique_ips_sec)
                     break
                 dst_port_pair = dumps({network_call["dst"]: network_call["dport"]})
@@ -749,9 +821,13 @@ def _get_low_level_flows(resolved_ips: Dict[str, Dict[str, Any]],
     return network_flows_table, netflows_sec
 
 
-def _process_http_calls(http_level_flows: Dict[str, List[Dict[str, Any]]],
-                        process_map: Dict[int, Dict[str, Any]], dns_servers: List[str],
-                        safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology) -> None:
+def _process_http_calls(
+    http_level_flows: Dict[str, List[Dict[str, Any]]],
+    process_map: Dict[int, Dict[str, Any]],
+    dns_servers: List[str],
+    safelist: Dict[str, Dict[str, List[str]]],
+    so: SandboxOntology,
+) -> None:
     """
     This method processes HTTP(S) calls and puts them into a nice table
     :param http_level_flows: A list of flows that represent HTTP calls
@@ -788,28 +864,29 @@ def _process_http_calls(http_level_flows: Dict[str, List[Dict[str, Any]]],
                 port = http_call["port"]
                 uri = http_call["uri"]
 
-            if is_tag_safelisted(
-                    host, ["network.dynamic.ip", "network.dynamic.domain"],
-                    safelist) or is_tag_safelisted(
-                    uri, ["network.dynamic.uri"],
-                    safelist) or "/wpad.dat" in uri or not re_match(FULL_URI, uri):
+            if (
+                is_tag_safelisted(host, ["network.dynamic.ip", "network.dynamic.domain"], safelist)
+                or is_tag_safelisted(uri, ["network.dynamic.uri"], safelist)
+                or "/wpad.dat" in uri
+                or not re_match(FULL_URI, uri)
+            ):
                 continue
 
             request_body_path = http_call.get("req", {}).get("path")
             response_body_path = http_call.get("resp", {}).get("path")
 
             if request_body_path:
-                request_body_path = request_body_path[request_body_path.index("network/"):]
+                request_body_path = request_body_path[request_body_path.index("network/") :]
             if response_body_path:
-                response_body_path = response_body_path[response_body_path.index("network/"):]
+                response_body_path = response_body_path[response_body_path.index("network/") :]
 
             request_headers = _handle_http_headers(request)
             response_headers = _handle_http_headers(http_call.get("response"))
 
             nh_to_add = False
             nh = so.get_network_http_by_details(
-                request_uri=uri, request_method=http_call["method"],
-                request_headers=request_headers)
+                request_uri=uri, request_method=http_call["method"], request_headers=request_headers
+            )
             if not nh:
                 nh = so.create_network_http()
                 nh_to_add = True
@@ -818,25 +895,33 @@ def _process_http_calls(http_level_flows: Dict[str, List[Dict[str, Any]]],
                 request_uri=uri,
                 response_status_code=http_call.get("status"),
                 request_method=http_call["method"],
-                request_headers=request_headers, response_headers=response_headers,
+                request_headers=request_headers,
+                response_headers=response_headers,
                 request_body_path=request_body_path,
-                response_body_path=response_body_path)
+                response_body_path=response_body_path,
+            )
 
             nh.update_connection_details(
                 source_ip=http_call.get("src"),
                 source_port=http_call.get("sport"),
                 destination_ip=http_call["dst"]
-                if http_call.get("dst") and http_call["dst"] not in dns_servers else so.get_destination_ip_by_domain(
-                    host), destination_port=port, direction="outbound", transport_layer_protocol="tcp")
+                if http_call.get("dst") and http_call["dst"] not in dns_servers
+                else so.get_destination_ip_by_domain(host),
+                destination_port=port,
+                direction="outbound",
+                transport_layer_protocol="tcp",
+            )
 
             match = False
             for process, process_details in process_map.items():
                 for network_call in process_details["network_calls"]:
                     send = next((network_call[api_call] for api_call in HTTP_API_CALLS if api_call in network_call), {})
-                    if send != {} and (
-                            send.get("service", 0) == 3 or send.get("buffer", "") == request) or send.get(
-                            "url", "") == uri:
-                        nh.update_process(image=process_details['name'], pid=process)
+                    if (
+                        send != {}
+                        and (send.get("service", 0) == 3 or send.get("buffer", "") == request)
+                        or send.get("url", "") == uri
+                    ):
+                        nh.update_process(image=process_details["name"], pid=process)
                         match = True
                         break
                 if match:
@@ -880,8 +965,7 @@ def _handle_http_headers(header_string: str) -> Dict[str, str]:
     return request_headers
 
 
-def process_all_events(
-        parent_result_section: ResultSection, so: SandboxOntology) -> None:
+def process_all_events(parent_result_section: ResultSection, so: SandboxOntology) -> None:
     """
     This method converts all events to a table that is sorted by timestamp
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
@@ -904,23 +988,33 @@ def process_all_events(
                 continue
             events_section.add_row(
                 TableRow(
-                    time_observed=datetime.fromtimestamp(event.objectid.time_observed).strftime(
-                        '%Y-%m-%d %H:%M:%S.%f')[: -3],
+                    time_observed=datetime.fromtimestamp(event.objectid.time_observed).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
                     process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
-                    details={"protocol": event.transport_layer_protocol, "domain": so.get_domain_by_destination_ip(
-                                 event.destination_ip),
-                             "dest_ip": event.destination_ip, "dest_port": event.destination_port, }))
+                    details={
+                        "protocol": event.transport_layer_protocol,
+                        "domain": so.get_domain_by_destination_ip(event.destination_ip),
+                        "dest_ip": event.destination_ip,
+                        "dest_port": event.destination_port,
+                    },
+                )
+            )
         elif isinstance(event, Process):
             if event.start_time in [float("-inf"), float("inf")]:
                 continue
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
             extract_iocs_from_text_blob(event.command_line, event_ioc_table)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
+            if isinstance(event.start_time, float) or isinstance(event.start_time, int):
+                time_observed = datetime.fromtimestamp(event.start_time).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            else:
+                time_observed = event.start_time
             events_section.add_row(
                 TableRow(
-                    time_observed=event.start_time,
+                    time_observed=time_observed,
                     process_name=f"{event.image} ({event.pid})",
-                    details={"command_line": event.command_line, }
+                    details={
+                        "command_line": event.command_line,
+                    },
                 )
             )
         else:
@@ -931,9 +1025,7 @@ def process_all_events(
         parent_result_section.add_subsection(events_section)
 
 
-def process_curtain(
-        curtain: Dict[str, Any],
-        parent_result_section: ResultSection, process_map: Dict[int, Dict[str, Any]]) -> None:
+def process_curtain(curtain: Dict[str, Any], parent_result_section: ResultSection, process_map: Dict[int, Dict[str, Any]]) -> None:
     """
     This method processes the Curtain section of the CAPE report and adds anything noteworthy to the
     Assemblyline report
@@ -948,11 +1040,7 @@ def process_curtain(
         process_name = process_map[int(pid)]["name"] if process_map.get(int(pid)) else "powershell.exe"
         for event in curtain[pid]["events"]:
             for command in event.keys():
-                curtain_item = {
-                    "process_name": process_name,
-                    "original": event[command]["original"],
-                    "reformatted": None
-                }
+                curtain_item = {"process_name": process_name, "original": event[command]["original"], "reformatted": None}
                 altered = event[command]["altered"]
                 if altered != "No alteration of event.":
                     curtain_item["reformatted"] = altered
@@ -963,8 +1051,9 @@ def process_curtain(
         parent_result_section.add_subsection(curtain_res)
 
 
-def convert_sysmon_network(sysmon: List[Dict[str, Any]], network: Dict[str, Any],
-                           safelist: Dict[str, Dict[str, List[str]]]) -> None:
+def convert_sysmon_network(
+    sysmon: List[Dict[str, Any]], network: Dict[str, Any], safelist: Dict[str, Dict[str, List[str]]]
+) -> None:
     """
     This method converts network connections observed by Sysmon to the format supported by CAPE
     :param sysmon: A list of processes observed during the analysis of the task by the Sysmon tool
@@ -1012,18 +1101,20 @@ def convert_sysmon_network(sysmon: List[Dict[str, Any]], network: Dict[str, Any]
             if any(network_conn[key] is None for key in network_conn.keys()) or not protocol:
                 continue
             elif any(
-                    req["dst"] == network_conn["dst"] and
-                    req["dport"] == network_conn["dport"] and
-                    req["src"] == network_conn["src"] and
-                    req["sport"] == network_conn["sport"]
-                    for req in network[protocol]
+                req["dst"] == network_conn["dst"]
+                and req["dport"] == network_conn["dport"]
+                and req["src"] == network_conn["src"]
+                and req["sport"] == network_conn["sport"]
+                for req in network[protocol]
             ):
                 # Replace record since we have more info from Sysmon
                 for req in network[protocol][:]:
-                    if req["dst"] == network_conn["dst"] and \
-                            req["dport"] == network_conn["dport"] and \
-                            req["src"] == network_conn["src"] and \
-                            req["sport"] == network_conn["sport"]:
+                    if (
+                        req["dst"] == network_conn["dst"]
+                        and req["dport"] == network_conn["dport"]
+                        and req["src"] == network_conn["src"]
+                        and req["sport"] == network_conn["sport"]
+                    ):
                         network[protocol].remove(req)
                         network[protocol].append(network_conn)
             else:
@@ -1071,8 +1162,9 @@ def convert_sysmon_network(sysmon: List[Dict[str, Any]], network: Dict[str, Any]
                 network["dns"].append(dns_query)
 
 
-def process_hollowshunter(hollowshunter: Dict[str, Any], parent_result_section: ResultSection,
-                          process_map: Dict[int, Dict[str, Any]]) -> None:
+def process_hollowshunter(
+    hollowshunter: Dict[str, Any], parent_result_section: ResultSection, process_map: Dict[int, Dict[str, Any]]
+) -> None:
     """
     This method processes the HollowsHunter section of the CAPE report and adds anything noteworthy to the
     Assemblyline report
@@ -1098,11 +1190,13 @@ def process_hollowshunter(hollowshunter: Dict[str, Any], parent_result_section: 
                         modules.append(scan_details["module"])
                         implanted_pe_count += 1
             if implanted_pes == implanted_pe_count:
-                hollowshunter_body.append({
-                    "Process": f"{process_map.get(int(pid), {}).get('name')} ({pid})",
-                    "Indicator": "Implanted PE",
-                    "Description": f"Modules found: {modules}"
-                })
+                hollowshunter_body.append(
+                    {
+                        "Process": f"{process_map.get(int(pid), {}).get('name')} ({pid})",
+                        "Indicator": "Implanted PE",
+                        "Description": f"Modules found: {modules}",
+                    }
+                )
     if len(hollowshunter_body) > 0:
         [hollowshunter_res.add_row(TableRow(**hh)) for hh in hollowshunter_body]
         parent_result_section.add_subsection(hollowshunter_res)
@@ -1142,8 +1236,7 @@ def process_decrypted_buffers(process_map: Dict[int, Dict[str, Any]], parent_res
         parent_result_section.add_subsection(buffer_res)
 
 
-def get_process_map(processes: List[Dict[str, Any]],
-                    safelist: Dict[str, Dict[str, List[str]]]) -> Dict[int, Dict[str, Any]]:
+def get_process_map(processes: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]) -> Dict[int, Dict[str, Any]]:
     """
     This method creates a process map that maps process IDs with useful details
     :param processes: A list of processes observed by CAPE
@@ -1172,7 +1265,6 @@ def get_process_map(processes: List[Dict[str, Any]],
         "URLDownloadToFileW": ["url"],
         "InternetCrackUrlW": ["url"],
         "InternetOpenUrlA": ["url"],
-
     }
     for process in processes:
         process_name = process["module_path"] if process.get("module_path") else process["process_name"]
@@ -1205,16 +1297,18 @@ def get_process_map(processes: List[Dict[str, Any]],
                         decrypted_buffers.append(item_to_add)
 
         pid = process["process_id"]
-        process_map[pid] = {
-            "name": process_name,
-            "network_calls": network_calls,
-            "decrypted_buffers": decrypted_buffers
-        }
+        process_map[pid] = {"name": process_name, "network_calls": network_calls, "decrypted_buffers": decrypted_buffers}
     return process_map
 
 
-def _is_signature_a_false_positive(name: str, marks: List[Dict[str, Any]], filename: str, filename_remainder: str,
-                                   inetsim_network: IPv4Network, safelist: Dict[str, Dict[str, List[str]]]) -> bool:
+def _is_signature_a_false_positive(
+    name: str,
+    marks: List[Dict[str, Any]],
+    filename: str,
+    filename_remainder: str,
+    inetsim_network: IPv4Network,
+    safelist: Dict[str, Dict[str, List[str]]],
+) -> bool:
     """
     This method determines if a signature is a false positive, based on factors unique to each signature
     :param name: The name of the signature
@@ -1244,7 +1338,7 @@ def _is_signature_a_false_positive(name: str, marks: List[Dict[str, Any]], filen
             if all(item in mark.get("ioc").lower() for item in [filename.split(".")[0], ".lnk"]):
                 # Microsoft Word creates temporary .lnk files when a Word doc is opened
                 fp_count += 1
-            elif 'AppData\\Roaming\\Microsoft\\Office\\Recent\\Temp.LNK' in mark.get("ioc"):
+            elif "AppData\\Roaming\\Microsoft\\Office\\Recent\\Temp.LNK" in mark.get("ioc"):
                 # Microsoft Word creates temporary .lnk files when a Word doc is opened
                 fp_count += 1
         elif name == "network_cnc_http" and mark["type"] == "generic":
@@ -1256,11 +1350,15 @@ def _is_signature_a_false_positive(name: str, marks: List[Dict[str, Any]], filen
         elif name == "nolookup_communication" and mark["type"] == "generic":
             if contains_safelisted_value(mark["host"], safelist) or is_ip_in_network(mark["host"], inetsim_network):
                 fp_count += 1
-        elif name not in ["network_cnc_http", "nolookup_communication", "suspicious_powershell", "exploit_heapspray"] \
-                and mark["type"] == "generic":
+        elif (
+            name not in ["network_cnc_http", "nolookup_communication", "suspicious_powershell", "exploit_heapspray"]
+            and mark["type"] == "generic"
+        ):
             for item in mark:
-                if item not in SKIPPED_MARK_ITEMS and \
-                        (contains_safelisted_value(mark[item], safelist) or (isinstance(mark[item], str) and is_ip_in_network(mark[item], inetsim_network))):
+                if item not in SKIPPED_MARK_ITEMS and (
+                    contains_safelisted_value(mark[item], safelist)
+                    or (isinstance(mark[item], str) and is_ip_in_network(mark[item], inetsim_network))
+                ):
                     fp_count += 1
         elif mark["type"] == "ioc":
             ioc = mark["ioc"]
@@ -1277,8 +1375,11 @@ def _is_signature_a_false_positive(name: str, marks: List[Dict[str, Any]], filen
                     ip, _ = ioc.split(":")
                     if is_ip_in_network(ip, inetsim_network):
                         fp_count += 1
-                elif name not in ["persistence_autorun", "network_icmp"] and name not in SILENT_IOCS and \
-                        (is_ip_in_network(ioc, inetsim_network)):
+                elif (
+                    name not in ["persistence_autorun", "network_icmp"]
+                    and name not in SILENT_IOCS
+                    and (is_ip_in_network(ioc, inetsim_network))
+                ):
                     fp_count += 1
 
     if 0 < len(marks) == fp_count:
@@ -1287,8 +1388,8 @@ def _is_signature_a_false_positive(name: str, marks: List[Dict[str, Any]], filen
 
 
 def _create_signature_result_section(
-        name: str, signature: Dict[str, Any],
-        translated_score: int, so_sig: SandboxOntology.Signature) -> ResultMultiSection:
+    name: str, signature: Dict[str, Any], translated_score: int, so_sig: SandboxOntology.Signature
+) -> ResultMultiSection:
     """
     This method creates a ResultMultiSection for the given signature
     :param name: The name of the signature
@@ -1298,7 +1399,7 @@ def _create_signature_result_section(
     :return: A ResultMultiSection containing details about the signature
     """
     sig_res = ResultMultiSection(f"Signature: {name}")
-    description = signature.get('description', 'No description for signature.')
+    description = signature.get("description", "No description for signature.")
     sig_res.add_section_part(TextSectionBody(body=description))
 
     # Setting up the heuristic for each signature
@@ -1313,7 +1414,7 @@ def _create_signature_result_section(
     sig_res.heuristic.add_signature_id(name, score=translated_score)
 
     # Setting the Mitre ATT&CK ID for the heuristic
-    attack_ids = signature.get('ttp', {})
+    attack_ids = signature.get("ttp", {})
     for attack_id in attack_ids:
         if attack_id in revoke_map:
             attack_id = revoke_map[attack_id]
@@ -1323,9 +1424,9 @@ def _create_signature_result_section(
         so_sig.add_attack_id(attack_id)
 
     # Getting the signature family and tagging it
-    sig_families = [family for family in signature.get('families', []) if family not in SKIPPED_FAMILIES]
+    sig_families = [family for family in signature.get("families", []) if family not in SKIPPED_FAMILIES]
     if len(sig_families) > 0:
-        sig_res.add_section_part(TextSectionBody(body='\tFamilies: ' + ','.join([safe_str(x) for x in sig_families])))
+        sig_res.add_section_part(TextSectionBody(body="\tFamilies: " + ",".join([safe_str(x) for x in sig_families])))
         _ = add_tag(sig_res, "dynamic.signature.family", [family for family in sig_families])
 
     # Get the evidence that supports why the signature was raised
@@ -1333,9 +1434,7 @@ def _create_signature_result_section(
     for mark in signature["data"]:
         if mark_count >= 10:
             sig_res.add_section_part(
-                TextSectionBody(
-                    body=f"There were {len(signature['data'] - mark_count)} marks that were not displayed."
-                )
+                TextSectionBody(body=f"There were {len(signature['data'] - mark_count)} marks that were not displayed.")
             )
             break
         mark_body = KVSectionBody()
@@ -1380,16 +1479,14 @@ def _write_injected_exe_to_file(task_id: int, marks: List[Dict[str, Any]]) -> No
         f.close()
 
 
-def _extract_iocs_from_encrypted_buffers(process_map: Dict[int, Dict[str, Any]],
-                                         network_res: ResultSection) -> None:
+def _extract_iocs_from_encrypted_buffers(process_map: Dict[int, Dict[str, Any]], network_res: ResultSection) -> None:
     """
     Extract IOCs from encrypted buffers observed during network analysis
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param network_res: The result section containing details about the network behaviour
     :return: None
     """
-    encrypted_buffer_ioc_table = ResultTableSection(
-        "IOCs found in encrypted buffers used in network calls")
+    encrypted_buffer_ioc_table = ResultTableSection("IOCs found in encrypted buffers used in network calls")
     for _, process_details in process_map.items():
         for network_call in process_details["network_calls"]:
             for api_call in BUFFER_API_CALLS:
@@ -1402,9 +1499,13 @@ def _extract_iocs_from_encrypted_buffers(process_map: Dict[int, Dict[str, Any]],
 
 
 def _tag_and_describe_generic_signature(
-        signature_name: str, mark: Dict[str, Any],
-        sig_res: ResultTextSection, inetsim_network: IPv4Network, safelist: Dict[str, Dict[str, List[str]]],
-        so_sig: SandboxOntology.Signature) -> None:
+    signature_name: str,
+    mark: Dict[str, Any],
+    sig_res: ResultTextSection,
+    inetsim_network: IPv4Network,
+    safelist: Dict[str, Dict[str, List[str]]],
+    so_sig: SandboxOntology.Signature,
+) -> None:
     """
     This method adds the appropriate tags and descriptions for "generic" signatures
     :param signature_name: The name of the signature
@@ -1418,7 +1519,9 @@ def _tag_and_describe_generic_signature(
     if signature_name == "network_cnc_http":
         http_string = mark["suspicious_request"].split()
         if "/wpad.dat" not in http_string[1] and add_tag(sig_res, "network.dynamic.uri", http_string[1], safelist):
-            sig_res.add_line(f'\t"{safe_str(mark["suspicious_request"])}" is suspicious because "{safe_str(mark["suspicious_features"])}"')
+            sig_res.add_line(
+                f'\t"{safe_str(mark["suspicious_request"])}" is suspicious because "{safe_str(mark["suspicious_features"])}"'
+            )
             so_sig.add_subject(uri=http_string[1])
     elif signature_name == "nolookup_communication":
         if not is_ip_in_network(mark["host"], inetsim_network) and add_tag(sig_res, "network.dynamic.ip", mark["host"], safelist):
@@ -1431,8 +1534,7 @@ def _tag_and_describe_generic_signature(
             else:
                 sig_res.add_line(f'\tIOC: {safe_str(mark["value"])}')
     elif signature_name == "exploit_heapspray":
-        sig_res.add_line(f"\tFun fact: Data was committed to memory at the protection level "
-                         f"{safe_str(mark['protection'])}")
+        sig_res.add_line(f"\tFun fact: Data was committed to memory at the protection level {safe_str(mark['protection'])}")
     elif signature_name == "persistence_autorun":
         reg_key = mark.get("reg_key")
         reg_value = mark.get("reg_value")
@@ -1444,19 +1546,26 @@ def _tag_and_describe_generic_signature(
             if item in SKIPPED_MARK_ITEMS:
                 continue
             if not contains_safelisted_value(mark[item], safelist):
-                if not isinstance(mark[item], str) or (isinstance(mark[item], str) and (not is_valid_ip(mark[item]) or not is_ip_in_network(mark[item], inetsim_network))):
+                if not isinstance(mark[item], str) or (
+                    isinstance(mark[item], str)
+                    and (not is_valid_ip(mark[item]) or not is_ip_in_network(mark[item], inetsim_network))
+                ):
                     if item == "description":
-                        sig_res.add_line(f'\tFun fact: {safe_str(mark[item])}')
+                        sig_res.add_line(f"\tFun fact: {safe_str(mark[item])}")
                     else:
-                        sig_res.add_line(f'\tIOC: {safe_str(mark[item])}')
+                        sig_res.add_line(f"\tIOC: {safe_str(mark[item])}")
 
 
 def _tag_and_describe_ioc_signature(
-        signature_name: str, mark: Dict[str, Any],
-        sig_res: ResultTextSection, inetsim_network: IPv4Network, process_map: Dict[int, Dict[str, Any]],
-        safelist: Dict[str, Dict[str, List[str]]],
-        so: SandboxOntology,
-        so_sig: SandboxOntology.Signature) -> None:
+    signature_name: str,
+    mark: Dict[str, Any],
+    sig_res: ResultTextSection,
+    inetsim_network: IPv4Network,
+    process_map: Dict[int, Dict[str, Any]],
+    safelist: Dict[str, Dict[str, List[str]]],
+    so: SandboxOntology,
+    so_sig: SandboxOntology.Signature,
+) -> None:
     """
     This method adds the appropriate tags and descriptions for "ioc" signatures
     :param signature_name: The name of the signature
@@ -1476,7 +1585,7 @@ def _tag_and_describe_ioc_signature(
         http_string = ioc.split()
         url_pieces = urlparse(http_string[1])
         if url_pieces.path not in SKIPPED_PATHS and re_match(FULL_URI, http_string[1]):
-            sig_res.add_line(f'\tIOC: {safe_str(ioc)}')
+            sig_res.add_line(f"\tIOC: {safe_str(ioc)}")
             if add_tag(sig_res, "network.dynamic.uri", http_string[1], safelist):
                 so_sig.add_subject(uri=http_string[1])
     elif signature_name == "process_interest":
@@ -1484,12 +1593,12 @@ def _tag_and_describe_ioc_signature(
     elif signature_name == "network_icmp":
         if not is_ip_in_network(ioc, inetsim_network) and add_tag(sig_res, "network.dynamic.ip", ioc, safelist):
             so_sig.add_subject(ip=ioc)
-            sig_res.add_line(f'\tPinged {safe_str(ioc)}.')
+            sig_res.add_line(f"\tPinged {safe_str(ioc)}.")
         else:
             domain = so.get_domain_by_destination_ip(ioc)
             if add_tag(sig_res, "network.dynamic.domain", domain, safelist):
                 so_sig.add_subject(domain=domain)
-                sig_res.add_line(f'\tPinged {safe_str(domain)}.')
+                sig_res.add_line(f"\tPinged {safe_str(domain)}.")
     elif signature_name in SILENT_IOCS:
         # Nothing to see here, just avoiding printing out the IOC line in the result body
         pass
@@ -1504,7 +1613,7 @@ def _tag_and_describe_ioc_signature(
             for key in process_map:
                 if f" {key}" in ioc:
                     ioc = ioc.replace(f" {key}", f" {process_map[key]['name']} ({key})")
-        sig_res.add_line(f'\tIOC: {safe_str(ioc)}')
+        sig_res.add_line(f"\tIOC: {safe_str(ioc)}")
 
     if mark["category"] in ["file", "dll"] and signature_name != "ransomware_mass_file_delete":
         if add_tag(sig_res, "dynamic.process.file_name", ioc, safelist):
@@ -1517,7 +1626,9 @@ def _tag_and_describe_ioc_signature(
                 so_sig.add_process_subject(**process.as_primitives())
             command_line_iocs = "Command line IOCs"
             if any(subsection.title_text == command_line_iocs for subsection in sig_res.subsections):
-                sig_ioc_table = next((subsection for subsection in sig_res.subsections if subsection.title_text == command_line_iocs))
+                sig_ioc_table = next(
+                    (subsection for subsection in sig_res.subsections if subsection.title_text == command_line_iocs)
+                )
             else:
                 sig_ioc_table = ResultTableSection(command_line_iocs)
             extract_iocs_from_text_blob(ioc, sig_ioc_table, so_sig)
@@ -1530,9 +1641,14 @@ def _tag_and_describe_ioc_signature(
             so_sig.add_subject(uri=ioc)
 
 
-def _tag_and_describe_call_signature(signature_name: str, mark: Dict[str, Any], sig_res: ResultTextSection,
-                                     process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]],
-                                     so_sig: SandboxOntology.Signature) -> None:
+def _tag_and_describe_call_signature(
+    signature_name: str,
+    mark: Dict[str, Any],
+    sig_res: ResultTextSection,
+    process_map: Dict[int, Dict[str, Any]],
+    safelist: Dict[str, Dict[str, List[str]]],
+    so_sig: SandboxOntology.Signature,
+) -> None:
     """
     This method adds the appropriate tags and descriptions for "call" signatures
     :param signature_name: The name of the signature
@@ -1556,28 +1672,28 @@ def _tag_and_describe_call_signature(signature_name: str, mark: Dict[str, Any], 
         oldfilepath = mark["call"].get("arguments", {}).get("oldfilepath")
         newfilepath = mark["call"].get("arguments", {}).get("newfilepath")
         if oldfilepath and newfilepath:
-            sig_res.add_line(f'\tOld file path: {safe_str(oldfilepath)}\n\tNew file path: {safe_str(newfilepath)}')
+            sig_res.add_line(f"\tOld file path: {safe_str(oldfilepath)}\n\tNew file path: {safe_str(newfilepath)}")
             if add_tag(sig_res, "dynamic.process.file_name", oldfilepath, safelist):
                 so_sig.add_subject(file=oldfilepath)
             if add_tag(sig_res, "dynamic.process.file_name", newfilepath, safelist):
                 so_sig.add_subject(file=newfilepath)
         elif oldfilepath and newfilepath == "":
-            sig_res.add_line(f'\tOld file path: {safe_str(oldfilepath)}\n\tNew file path: File deleted itself')
+            sig_res.add_line(f"\tOld file path: {safe_str(oldfilepath)}\n\tNew file path: File deleted itself")
             if add_tag(sig_res, "dynamic.process.file_name", oldfilepath, safelist):
                 so_sig.add_subject(file=oldfilepath)
     elif signature_name == "creates_service":
         service_name = mark["call"].get("arguments", {}).get("service_name")
         if service_name:
-            sig_res.add_line(f'\tNew service name: {safe_str(service_name)}')
+            sig_res.add_line(f"\tNew service name: {safe_str(service_name)}")
     elif signature_name == "terminates_remote_process":
         terminated_pid = mark["call"].get("arguments", {}).get("process_identifier")
         terminated_process_name = process_map.get(terminated_pid, {}).get("name")
         so_sig.add_process_subject(pid=terminated_pid, image=terminated_process_name)
         if terminated_process_name:
             if not sig_res.body:
-                sig_res.add_line(f'\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})')
-            elif f'\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})' not in sig_res.body:
-                sig_res.add_line(f'\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})')
+                sig_res.add_line(f"\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})")
+            elif f"\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})" not in sig_res.body:
+                sig_res.add_line(f"\tTerminated Remote Process: {terminated_process_name} ({terminated_pid})")
     elif signature_name == "network_document_file":
         download_path = mark["call"].get("arguments", {}).get("filepath")
         url = mark["call"].get("arguments", {}).get("url")
@@ -1587,7 +1703,7 @@ def _tag_and_describe_call_signature(signature_name: str, mark: Dict[str, Any], 
         if url and add_tag(sig_res, "network.dynamic.uri", url, safelist):
             so_sig.add_subject(uri=url)
         if download_path and url:
-            sig_res.add_line(f'\tThe file at {safe_str(url)} was attempted to be downloaded to {download_path}')
+            sig_res.add_line(f"\tThe file at {safe_str(url)} was attempted to be downloaded to {download_path}")
 
 
 def _process_non_http_traffic_over_http(network_res: ResultSection, unique_netflows: List[Dict[str, Any]]) -> None:
@@ -1626,10 +1742,7 @@ def _remove_network_http_noise(sigs: List[Dict[str, Any]]) -> List[Dict[str, Any
         return sigs
 
 
-def convert_sysmon_processes(
-        sysmon: List[Dict[str, Any]],
-        safelist: Dict[str, Dict[str, List[str]]],
-        so: SandboxOntology):
+def convert_sysmon_processes(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], so: SandboxOntology):
     """
     This method creates the GUID -> Process lookup table
     :param sysmon: A list of processes observed during the analysis of the task by the Sysmon tool
@@ -1705,16 +1818,13 @@ def _update_process_map(process_map: Dict[int, Dict[str, Any]], processes: List[
         if process.pid in process_map or process.pid == SYSTEM_PROCESS_ID:
             continue
 
-        process_map[process.pid] = {
-            "name": process.image,
-            "network_calls": [],
-            "decrypted_buffers": []
-        }
+        process_map[process.pid] = {"name": process.image, "network_calls": [], "decrypted_buffers": []}
 
 
 if __name__ == "__main__":
     from sys import argv
     from json import loads
+
     # pip install PyYAML
     import yaml
     from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
@@ -1736,11 +1846,7 @@ if __name__ == "__main__":
 
     al_result = ResultSection("Parent")
 
-    generate_al_result(
-        api_report,
-        al_result, file_ext, random_ip_range, routing,
-        safelist,
-        so)
+    generate_al_result(api_report, al_result, file_ext, random_ip_range, routing, safelist, so)
 
     so.preprocess_ontology(SAFE_PROCESS_TREE_LEAF_HASHES.keys())
     print(dumps(so.as_primitives(), indent=4))

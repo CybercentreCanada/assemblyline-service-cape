@@ -16,25 +16,37 @@ class TestCapeResult:
     @staticmethod
     @pytest.mark.parametrize(
         "api_report",
-        [({}),
-         ({"info": {"id": "blah"},
-           "debug": "blah", "signatures": [{"name": "blah"}],
-           "network": "blah", "behavior": {"blah": "blah"},
-           "curtain": "blah", "sysmon": {},
-           "hollowshunter": "blah"}),
-         ({"info": {"id": "blah"},
-           "debug": "blah", "signatures": [{"name": "ransomware"}],
-           "network": "blah", "behavior": {"blah": "blah"},
-           "curtain": "blah", "sysmon": {},
-           "hollowshunter": "blah"}),
-         ({"signatures": [{"name": "blah"}],
-           "info": {"id": "blah"},
-           "behavior": {"summary": "blah"}}),
-         ({"signatures": [{"name": "blah"}],
-           "info": {"id": "blah"},
-           "behavior": {"processtree": "blah"}}),
-         ({"signatures": [{"name": "blah"}],
-           "info": {"id": "blah"}, "behavior": {"processes": "blah"}}), ])
+        [
+            ({}),
+            (
+                {
+                    "info": {"id": "blah"},
+                    "debug": "blah",
+                    "signatures": [{"name": "blah"}],
+                    "network": "blah",
+                    "behavior": {"blah": "blah"},
+                    "curtain": "blah",
+                    "sysmon": {},
+                    "hollowshunter": "blah",
+                }
+            ),
+            (
+                {
+                    "info": {"id": "blah"},
+                    "debug": "blah",
+                    "signatures": [{"name": "ransomware"}],
+                    "network": "blah",
+                    "behavior": {"blah": "blah"},
+                    "curtain": "blah",
+                    "sysmon": {},
+                    "hollowshunter": "blah",
+                }
+            ),
+            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"summary": "blah"}}),
+            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processtree": "blah"}}),
+            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processes": "blah"}}),
+        ],
+    )
     def test_generate_al_result(api_report, mocker):
         from cape.cape_result import generate_al_result
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
@@ -65,8 +77,9 @@ class TestCapeResult:
             assert al_result.subsections == []
         elif api_report.get("behavior") == {"blah": "blah"}:
             correct_result_section = ResultSection(
-                title_text='Sample Did Not Execute',
-                body=f'No program available to execute a file with the following extension: {file_ext}')
+                title_text="Sample Did Not Execute",
+                body=f"No program available to execute a file with the following extension: {file_ext}",
+            )
             assert check_section_equality(al_result.subsections[0], correct_result_section)
         else:
             assert al_result.subsections == []
@@ -74,19 +87,45 @@ class TestCapeResult:
     @staticmethod
     @pytest.mark.parametrize(
         "info, correct_body, expected_am",
-        [({"started": "blah", "ended": "blah", "duration": "blah", "id": "blah", "route": "blah", "version": "blah"},
-          '{"CAPE Task ID": "blah", "Duration": -1, "Routing": "blah", "CAPE Version": "blah"}',
-          {"routing": "blah", "start_time": "blah", "end_time": "blah", "task_id": "blah"}),
-         ({"started": "1970-01-01 00:00:01", "ended": "1970-01-01 00:00:01", "duration": "1", "id": "blah", "route": "blah", "version": "blah"},
-          '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "CAPE Version": "blah"}',
-          {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"}),
-         ({"id": "blah", "started": "1970-01-01 00:00:01", "ended": "1970-01-01 00:00:01", "duration": "1", "route": "blah", "version": "blah"},
-          '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing": "blah", "CAPE Version": "blah"}',
-          {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"}), ])
+        [
+            (
+                {"started": "blah", "ended": "blah", "duration": "blah", "id": "blah", "route": "blah", "version": "blah"},
+                '{"CAPE Task ID": "blah", "Duration": -1, "Routing": "blah", "CAPE Version": "blah"}',
+                {"routing": "blah", "start_time": "blah", "end_time": "blah", "task_id": "blah"},
+            ),
+            (
+                {
+                    "started": "1970-01-01 00:00:01",
+                    "ended": "1970-01-01 00:00:01",
+                    "duration": "1",
+                    "id": "blah",
+                    "route": "blah",
+                    "version": "blah",
+                },
+                '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
+                ' "blah", "CAPE Version": "blah"}',
+                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"},
+            ),
+            (
+                {
+                    "id": "blah",
+                    "started": "1970-01-01 00:00:01",
+                    "ended": "1970-01-01 00:00:01",
+                    "duration": "1",
+                    "route": "blah",
+                    "version": "blah",
+                },
+                '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
+                ' "blah", "CAPE Version": "blah"}',
+                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"},
+            ),
+        ],
+    )
     def test_process_info(info, correct_body, expected_am):
         from cape.cape_result import process_info
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
+
         al_result = ResultSection("blah")
         so = SandboxOntology()
         default_am = so.analysis_metadata.as_primitives()
@@ -109,7 +148,7 @@ class TestCapeResult:
             ({"errors": [], "log": "blah"}, None),
             ({"errors": [], "log": "ERROR: blah"}, "blah"),
             ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "blah\nblah"),
-        ]
+        ],
     )
     def test_process_debug(debug, correct_body):
         from cape.cape_result import process_debug
@@ -121,21 +160,16 @@ class TestCapeResult:
         if correct_body is None:
             assert al_result.subsections == []
         else:
-            correct_result_section = ResultSection(title_text='Analysis Errors')
+            correct_result_section = ResultSection(title_text="Analysis Errors")
             correct_result_section.set_body(correct_body)
             assert check_section_equality(al_result.subsections[0], correct_result_section)
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "behaviour",
-        [
-            ({"processes": []}),
-            ({"processes": ["blah"], "apistats": {"blah": "blah"}})
-        ]
-    )
+    @pytest.mark.parametrize("behaviour", [({"processes": []}), ({"processes": ["blah"], "apistats": {"blah": "blah"}})])
     def test_process_behaviour(behaviour, mocker):
         from cape.cape_result import process_behaviour
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+
         mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
@@ -150,34 +184,72 @@ class TestCapeResult:
         [
             ({}, {}),
             ({"0": {"blah": 2}}, {"0": 2}),
-        ]
+        ],
     )
     def test_get_process_api_sums(apistats, correct_api_sums):
         from cape.cape_result import get_process_api_sums
+
         assert get_process_api_sums(apistats) == correct_api_sums
 
     @staticmethod
     @pytest.mark.parametrize(
         "processes, correct_event",
-        [([{"process_id": 0, "module_path": "blah", "environ": {"CommandLine": "blah"}, "parent_id": 1,
-            "guid": "{12345678-1234-5678-1234-567812345678}", "pguid": "{12345678-1234-5678-1234-567812345679}",
-            "first_seen": 1.0}],
-          {'start_time': 1.0, 'end_time': float("inf"),
-           'objectid':
-           {'guid': '{12345678-1234-5678-1234-567812345678}', 'tag': 'blah', 'treeid': None, 'time_observed': 1.0,
-            'processtree': None},
-           'pobjectid': {'guid': None, 'tag': None, 'treeid': None, 'time_observed': None, 'processtree': None},
-           'pimage': None, 'pcommand_line': None, 'ppid': None, 'pid': 0, 'image': 'blah', 'command_line': 'blah',
-           'integrity_level': None, 'image_hash': None, 'original_file_name': None}),
-         ([{"process_id": 0, "module_path": "", "environ": {"CommandLine": "blah"}, "parent_id": 1,
-            "guid": "{12345678-1234-5678-1234-567812345678}", "first_seen": 1.0}],
-          {}),
-         ([],
-          {})])
+        [
+            (
+                [
+                    {
+                        "process_id": 0,
+                        "module_path": "blah",
+                        "environ": {"CommandLine": "blah"},
+                        "parent_id": 1,
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "pguid": "{12345678-1234-5678-1234-567812345679}",
+                        "first_seen": 1.0,
+                    }
+                ],
+                {
+                    "start_time": 1.0,
+                    "end_time": float("inf"),
+                    "objectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "tag": "blah",
+                        "treeid": None,
+                        "time_observed": 1.0,
+                        "processtree": None,
+                    },
+                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "time_observed": None, "processtree": None},
+                    "pimage": None,
+                    "pcommand_line": None,
+                    "ppid": None,
+                    "pid": 0,
+                    "image": "blah",
+                    "command_line": "blah",
+                    "integrity_level": None,
+                    "image_hash": None,
+                    "original_file_name": None,
+                },
+            ),
+            (
+                [
+                    {
+                        "process_id": 0,
+                        "module_path": "",
+                        "environ": {"CommandLine": "blah"},
+                        "parent_id": 1,
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "first_seen": 1.0,
+                    }
+                ],
+                {},
+            ),
+            ([], {}),
+        ],
+    )
     def test_convert_cape_processes(processes, correct_event):
         from cape.cape_result import convert_cape_processes
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from uuid import UUID
+
         safelist = {}
         so = SandboxOntology()
         convert_cape_processes(processes, safelist, so)
@@ -191,30 +263,80 @@ class TestCapeResult:
             assert so.get_processes() == []
 
     @staticmethod
-    @pytest.mark.parametrize("events, is_process_martian, correct_body",
-                             [([{"pid": 0, "image": "blah", "command_line": "blah", "ppid": 1,
-                                 "guid": "{12345678-1234-5678-1234-567812345678}", "start_time": 1.0,
-                                 "pguid": "{12345678-1234-5678-1234-567812345678}"}],
-                               False, {"pid": 0, "name": "blah", "cmd": "blah", "signatures": {},
-                                       "children": [], }),
-                              ([{"pid": 0, "image": "blah", "command_line": "blah", "ppid": 1,
-                                 "guid": "{12345678-1234-5678-1234-567812345678}", "start_time": 1.0,
-                                 "pguid": "{12345678-1234-5678-1234-567812345678}"}],
-                               True, {"pid": 0, "name": "blah", "cmd": "blah", "signatures": {},
-                                      "children": [], }),
-                              ([],
-                               False, None),
-                              ([{"pid": 0, "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\blah.exe",
-                                 "command_line": "blah", "ppid": 1, "guid": "{12345678-1234-5678-1234-567812345678}",
-                                 "start_time": 1.0, "pguid": "{12345678-1234-5678-1234-567812345678}"}],
-                               False,
-                               {"pid": 0, "name": "C:\\Users\\buddy\\AppData\\Local\\Temp\\blah.exe", "cmd": "blah",
-                                "signatures": {},
-                                "children": [], }), ])
+    @pytest.mark.parametrize(
+        "events, is_process_martian, correct_body",
+        [
+            (
+                [
+                    {
+                        "pid": 0,
+                        "image": "blah",
+                        "command_line": "blah",
+                        "ppid": 1,
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "start_time": 1.0,
+                        "pguid": "{12345678-1234-5678-1234-567812345678}",
+                    }
+                ],
+                False,
+                {
+                    "pid": 0,
+                    "name": "blah",
+                    "cmd": "blah",
+                    "signatures": {},
+                    "children": [],
+                },
+            ),
+            (
+                [
+                    {
+                        "pid": 0,
+                        "image": "blah",
+                        "command_line": "blah",
+                        "ppid": 1,
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "start_time": 1.0,
+                        "pguid": "{12345678-1234-5678-1234-567812345678}",
+                    }
+                ],
+                True,
+                {
+                    "pid": 0,
+                    "name": "blah",
+                    "cmd": "blah",
+                    "signatures": {},
+                    "children": [],
+                },
+            ),
+            ([], False, None),
+            (
+                [
+                    {
+                        "pid": 0,
+                        "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\blah.exe",
+                        "command_line": "blah",
+                        "ppid": 1,
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "start_time": 1.0,
+                        "pguid": "{12345678-1234-5678-1234-567812345678}",
+                    }
+                ],
+                False,
+                {
+                    "pid": 0,
+                    "name": "C:\\Users\\buddy\\AppData\\Local\\Temp\\blah.exe",
+                    "cmd": "blah",
+                    "signatures": {},
+                    "children": [],
+                },
+            ),
+        ],
+    )
     def test_build_process_tree(events, is_process_martian, correct_body):
         from cape.cape_result import build_process_tree
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultProcessTreeSection, ResultSection, ProcessItem
+
         default_so = SandboxOntology()
         for event in events:
             p = default_so.create_process(**event)
@@ -495,21 +617,27 @@ class TestCapeResult:
             ("blah", [], "blah.txt", "blah.txt", False),
             ("creates_doc", [{"ioc": "blah.exe", "type": "blah"}], "blah.txt", "blah.txt", False),
             ("creates_doc", [{"ioc": "blah.txt"}], "blah.txt", "blah.txt", True),
-            ("creates_doc", [{"ioc": "~blahblahblahblahblah"}],
-             "blahblahblahblahblah.txt", "blahblahblahblahblah", True),
-            ("creates_doc", [{"ioc": "blah.exe", "type": "blah"}, {
-             "ioc": "blah.txt", "type": "blah"}], "blah.txt", "blah.txt", False),
+            ("creates_doc", [{"ioc": "~blahblahblahblahblah"}], "blahblahblahblahblah.txt", "blahblahblahblahblah", True),
+            (
+                "creates_doc",
+                [{"ioc": "blah.exe", "type": "blah"}, {"ioc": "blah.txt", "type": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
             ("creates_hidden_file", [{"call": {"arguments": {"filepath": "blah.exe"}}}], "blah.txt", "blah.txt", False),
             ("creates_hidden_file", [{"call": {"arguments": {"filepath": "blah.txt"}}}], "blah.txt", "blah.txt", True),
-            ("creates_hidden_file", [{"call": {"arguments": {"filepath": "desktop.ini"}}}],
-             "blah.txt", "blah.txt", True),
+            ("creates_hidden_file", [{"call": {"arguments": {"filepath": "desktop.ini"}}}], "blah.txt", "blah.txt", True),
             ("creates_exe", [{"ioc": "blah.lnk"}], "blah.txt", "blah.txt", True),
-            ("creates_exe", [{"ioc": "AppData\\Roaming\\Microsoft\\Office\\Recent\\Temp.LNK"}],
-             "blah.txt", "blah.txt", True),
-            ("network_cnc_http", [{"suspicious_request": "evil http://blah.com",
-             "type": "generic"}], "blah.txt", "blah.txt", False),
-            ("network_cnc_http", [{"suspicious_request": "benign http://w3.org",
-             "type": "generic"}], "blah.txt", "blah.txt", True),
+            ("creates_exe", [{"ioc": "AppData\\Roaming\\Microsoft\\Office\\Recent\\Temp.LNK"}], "blah.txt", "blah.txt", True),
+            (
+                "network_cnc_http",
+                [{"suspicious_request": "evil http://blah.com", "type": "generic"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            ("network_cnc_http", [{"suspicious_request": "benign http://w3.org", "type": "generic"}], "blah.txt", "blah.txt", True),
             ("nolookup_communication", [{"host": "http://blah.com", "type": "generic"}], "blah.txt", "blah.txt", False),
             ("nolookup_communication", [{"host": "http://w3.org", "type": "generic"}], "blah.txt", "blah.txt", True),
             ("nolookup_communication", [{"host": "192.0.2.123", "type": "generic"}], "blah.txt", "blah.txt", True),
@@ -525,47 +653,106 @@ class TestCapeResult:
             ("blah", [{"ioc": "blah", "type": "ioc"}], "blah.txt", "blah.txt", False),
             ("blah", [{"ioc": "blah", "type": "ioc", "category": "section"}], "blah.txt", "blah.txt", False),
             ("blah", [{"ioc": "http://w3.org", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http", [{"ioc": "benign http://w3.org/", "type": "ioc",
-             "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http", [{"ioc": "super benign http://w3.org/",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http", [{"ioc": "super http://w3.org/benign",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http_post", [{"ioc": "benign http://w3.org/",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http_post", [{"ioc": "super benign http://w3.org/",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http_post", [{"ioc": "super http://w3.org/benign",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-            ("network_http_post", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("persistence_autorun", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("network_icmp", [{"ioc": "192.0.2.123",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("creates_shortcut", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("ransomware_mass_file_delete", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("suspicious_process", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("uses_windows_utilities", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("creates_exe", [{"ioc": "super http://evil.com", "type": "ioc",
-             "category": "blah"}], "blah.txt", "blah.txt", False),
-            ("deletes_executed_files", [{"ioc": "super http://evil.com",
-             "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
+            ("network_http", [{"ioc": "benign http://w3.org/", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
+            (
+                "network_http",
+                [{"ioc": "super benign http://w3.org/", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                True,
+            ),
+            (
+                "network_http",
+                [{"ioc": "super http://w3.org/benign", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                True,
+            ),
+            (
+                "network_http_post",
+                [{"ioc": "benign http://w3.org/", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                True,
+            ),
+            (
+                "network_http_post",
+                [{"ioc": "super benign http://w3.org/", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                True,
+            ),
+            (
+                "network_http_post",
+                [{"ioc": "super http://w3.org/benign", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                True,
+            ),
+            (
+                "network_http_post",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            (
+                "persistence_autorun",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            ("network_icmp", [{"ioc": "192.0.2.123", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
+            (
+                "creates_shortcut",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            (
+                "ransomware_mass_file_delete",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            (
+                "suspicious_process",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            (
+                "uses_windows_utilities",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
+            ("creates_exe", [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
+            (
+                "deletes_executed_files",
+                [{"ioc": "super http://evil.com", "type": "ioc", "category": "blah"}],
+                "blah.txt",
+                "blah.txt",
+                False,
+            ),
             ("blah", [{"ioc": "blah", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", False),
             ("blah", [{"ioc": "192.0.2.123", "type": "ioc", "category": "blah"}], "blah.txt", "blah.txt", True),
-        ]
+        ],
     )
     def test_is_signature_a_false_positive(name, marks, filename, filename_remainder, expected_result):
         from ipaddress import ip_network
         from cape.cape_result import _is_signature_a_false_positive
+
         inetsim_network = ip_network("192.0.2.0/24")
         safelist = {"match": {"file.path": ["desktop.ini"]}, "regex": {"network.dynamic.domain": ["w3\.org"]}}
-        assert _is_signature_a_false_positive(
-            name, marks, filename, filename_remainder, inetsim_network, safelist) == expected_result
+        assert (
+            _is_signature_a_false_positive(name, marks, filename, filename_remainder, inetsim_network, safelist) == expected_result
+        )
 
     # TODO
     # @staticmethod
@@ -626,6 +813,7 @@ class TestCapeResult:
     def test_write_console_output_to_file():
         from os import remove
         from cape.cape_result import _write_console_output_to_file
+
         _write_console_output_to_file(1, [{"call": {"arguments": {"buffer": "blah"}}}])
         remove("/tmp/1_console_output.txt")
         assert True
@@ -634,76 +822,72 @@ class TestCapeResult:
     def test_write_injected_exe_to_file():
         from os import remove
         from cape.cape_result import _write_injected_exe_to_file
+
         _write_injected_exe_to_file(1, [{"call": {"arguments": {"buffer": "blah"}}}])
         remove("/tmp/1_injected_memory_0.exe")
         assert True
 
     @staticmethod
-    @pytest.mark.parametrize("signature_name, mark, expected_tags, expected_body, expected_ioc",
-                             [("blah", {},
-                               {},
-                               None, {}),
-                              ("network_cnc_http",
-                               {"suspicious_request": "evil http://evil.com", "suspicious_features": "http://evil.com"},
-                               {'network.dynamic.uri': ['http://evil.com'], "network.dynamic.domain": ["evil.com"]},
-                               '\t"evil http://evil.com" is suspicious because "http://evil.com"',
-                               {"uri": "http://evil.com"}),
-                              ("network_cnc_http", {"suspicious_request": "benign http://w3.org", "suspicious_features": "cuz"},
-                               {},
-                               None, {}),
-                              ("nolookup_communication", {"host": "193.0.2.123"},
-                               {'network.dynamic.ip': ['193.0.2.123']},
-                               "\tIOC: 193.0.2.123", {"ip": '193.0.2.123'}),
-                              ("nolookup_communication", {"host": "192.0.2.123"},
-                               {},
-                               None, {}),
-                              ("suspicious_powershell", {"options": "blah", "option": "blah", "value": "blah"},
-                               {},
-                               '\tIOC: blah via blah', {}),
-                              ("suspicious_powershell", {"value": "blah"},
-                               {},
-                               '\tIOC: blah', {}),
-                              ("exploit_heapspray", {"protection": "blah"},
-                               {},
-                               '\tFun fact: Data was committed to memory at the protection level blah', {}),
-                              ("exploit_heapspray", {"protection": "blah"},
-                               {},
-                               '\tFun fact: Data was committed to memory at the protection level blah', {}),
-                              ("blah", {"type": "blah"},
-                               {},
-                               None, {}),
-                              ("blah", {"suspicious_features": "blah"},
-                               {},
-                               None, {}),
-                              ("blah", {"entropy": "blah"},
-                               {},
-                               None, {}),
-                              ("blah", {"process": "blah"},
-                               {},
-                               None, {}),
-                              ("blah", {"useragent": "blah"},
-                               {},
-                               None, {}),
-                              ("blah", {"blah": "192.0.2.123"},
-                               {},
-                               None, {}),
-                              ("blah", {"blah": "193.0.2.123"},
-                               {},
-                               '\tIOC: 193.0.2.123', {}),
-                              ("blah", {"blah": "blah"},
-                               {},
-                               '\tIOC: blah', {}),
-                              ("blah", {"description": "blah"},
-                               {},
-                               '\tFun fact: blah', {}),
-                              ("persistence_autorun", {"reg_key": "blah", "reg_value": "blah"},
-                               {},
-                               '\tThe registry key blah was set to blah', {"registry": "blah"}), ])
+    @pytest.mark.parametrize(
+        "signature_name, mark, expected_tags, expected_body, expected_ioc",
+        [
+            ("blah", {}, {}, None, {}),
+            (
+                "network_cnc_http",
+                {"suspicious_request": "evil http://evil.com", "suspicious_features": "http://evil.com"},
+                {"network.dynamic.uri": ["http://evil.com"], "network.dynamic.domain": ["evil.com"]},
+                '\t"evil http://evil.com" is suspicious because "http://evil.com"',
+                {"uri": "http://evil.com"},
+            ),
+            ("network_cnc_http", {"suspicious_request": "benign http://w3.org", "suspicious_features": "cuz"}, {}, None, {}),
+            (
+                "nolookup_communication",
+                {"host": "193.0.2.123"},
+                {"network.dynamic.ip": ["193.0.2.123"]},
+                "\tIOC: 193.0.2.123",
+                {"ip": "193.0.2.123"},
+            ),
+            ("nolookup_communication", {"host": "192.0.2.123"}, {}, None, {}),
+            ("suspicious_powershell", {"options": "blah", "option": "blah", "value": "blah"}, {}, "\tIOC: blah via blah", {}),
+            ("suspicious_powershell", {"value": "blah"}, {}, "\tIOC: blah", {}),
+            (
+                "exploit_heapspray",
+                {"protection": "blah"},
+                {},
+                "\tFun fact: Data was committed to memory at the protection level blah",
+                {},
+            ),
+            (
+                "exploit_heapspray",
+                {"protection": "blah"},
+                {},
+                "\tFun fact: Data was committed to memory at the protection level blah",
+                {},
+            ),
+            ("blah", {"type": "blah"}, {}, None, {}),
+            ("blah", {"suspicious_features": "blah"}, {}, None, {}),
+            ("blah", {"entropy": "blah"}, {}, None, {}),
+            ("blah", {"process": "blah"}, {}, None, {}),
+            ("blah", {"useragent": "blah"}, {}, None, {}),
+            ("blah", {"blah": "192.0.2.123"}, {}, None, {}),
+            ("blah", {"blah": "193.0.2.123"}, {}, "\tIOC: 193.0.2.123", {}),
+            ("blah", {"blah": "blah"}, {}, "\tIOC: blah", {}),
+            ("blah", {"description": "blah"}, {}, "\tFun fact: blah", {}),
+            (
+                "persistence_autorun",
+                {"reg_key": "blah", "reg_value": "blah"},
+                {},
+                "\tThe registry key blah was set to blah",
+                {"registry": "blah"},
+            ),
+        ],
+    )
     def test_tag_and_describe_generic_signature(signature_name, mark, expected_tags, expected_body, expected_ioc):
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
         from cape.cape_result import _tag_and_describe_generic_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+
         so_sig = SandboxOntology.Signature()
         default_sig = so_sig.as_primitives()
         inetsim_network = ip_network("192.0.2.0/24")
@@ -724,47 +908,102 @@ class TestCapeResult:
         "signature_name, mark, process_map, expected_tags, expected_body, expected_ioc",
         [
             ("blah", {"ioc": "http://w3.org", "category": "blah"}, {}, {}, None, {}),
-            ("network_http", {"ioc": "evil http://evil.org", "category": "blah"},
-             {},
-             {'network.dynamic.uri': ['http://evil.org'], 'network.dynamic.domain': ['evil.org']},
-             '\tIOC: evil http://evil.org', {"uri": "http://evil.org"}),
-            ("network_http", {"ioc": "evil http://evil.org", "category": "blah"},
-             {},
-             {'network.dynamic.uri': ['http://evil.org'], 'network.dynamic.domain': ['evil.org']},
-             '\tIOC: evil http://evil.org', {"uri": "http://evil.org"}),
+            (
+                "network_http",
+                {"ioc": "evil http://evil.org", "category": "blah"},
+                {},
+                {"network.dynamic.uri": ["http://evil.org"], "network.dynamic.domain": ["evil.org"]},
+                "\tIOC: evil http://evil.org",
+                {"uri": "http://evil.org"},
+            ),
+            (
+                "network_http",
+                {"ioc": "evil http://evil.org", "category": "blah"},
+                {},
+                {"network.dynamic.uri": ["http://evil.org"], "network.dynamic.domain": ["evil.org"]},
+                "\tIOC: evil http://evil.org",
+                {"uri": "http://evil.org"},
+            ),
             ("network_http", {"ioc": "evil http://evil.org/", "category": "blah"}, {}, {}, None, {}),
             ("network_http_post", {"ioc": "evil http://evil.org/", "category": "blah"}, {}, {}, None, {}),
             ("network_http_post", {"ioc": "evil evil http://evil.org", "category": "blah"}, {}, {}, None, {}),
             ("network_http_post", {"ioc": "evil evil http://evil.org", "category": "blah"}, {}, {}, None, {}),
-            ("persistence_autorun", {"ioc": "blah", "category": "blah"},
-             {}, {"dynamic.autorun_location": ["blah"]}, '\tIOC: blah', {}),
+            (
+                "persistence_autorun",
+                {"ioc": "blah", "category": "blah"},
+                {},
+                {"dynamic.autorun_location": ["blah"]},
+                "\tIOC: blah",
+                {},
+            ),
             ("ransomware_mass_file_delete", {"ioc": "blah", "category": "blah"}, {}, {}, None, {}),
-            ("p2p_cnc", {"ioc": "10.10.10.10", "category": "blah"}, {}, {
-             "network.dynamic.ip": ["10.10.10.10"]}, '\tIOC: 10.10.10.10', {"ip": "10.10.10.10"}),
-            ("blah", {"ioc": "1", "category": "blah"}, {}, {}, '\tIOC: 1', {}),
-            ("blah", {"ioc": "process 1 did a thing", "category": "blah"}, {1: {"name": "blah"}}, {}, '\tIOC: process blah (1) did a thing', {}),
-            ("blah", {"ioc": "blah", "category": "file"}, {}, {
-             "dynamic.process.file_name": ["blah"]}, '\tIOC: blah', {"file": "blah"}),
-            ("blah", {"ioc": "blah", "category": "dll"}, {}, {
-             "dynamic.process.file_name": ["blah"]}, '\tIOC: blah', {"file": "blah"}),
-            ("blah", {"ioc": "blah", "category": "cmdline"}, {}, {
-             "dynamic.process.command_line": ["blah"]}, '\tIOC: blah', {}),
-            ("process_interest", {"ioc": "blah", "category": "process: super bad file"},
-             {}, {}, '\tIOC: blah is a super bad file.', {}),
-            ("blah", {"ioc": "blah", "category": "registry"},
-             {}, {}, "\tIOC: blah", {"registry": "blah"}),
-            ("network_icmp", {"ioc": "1.1.1.1", "category": "ip"},
-             {}, {"network.dynamic.ip": ["1.1.1.1"]}, "\tPinged 1.1.1.1.", {"ip": "1.1.1.1"}),
-            ("network_icmp", {"ioc": "192.0.2.123", "category": "ip"},
-             {}, {"network.dynamic.domain": ["blah.com"]}, "\tPinged blah.com.", {"domain": "blah.com"}),
-        ]
+            (
+                "p2p_cnc",
+                {"ioc": "10.10.10.10", "category": "blah"},
+                {},
+                {"network.dynamic.ip": ["10.10.10.10"]},
+                "\tIOC: 10.10.10.10",
+                {"ip": "10.10.10.10"},
+            ),
+            ("blah", {"ioc": "1", "category": "blah"}, {}, {}, "\tIOC: 1", {}),
+            (
+                "blah",
+                {"ioc": "process 1 did a thing", "category": "blah"},
+                {1: {"name": "blah"}},
+                {},
+                "\tIOC: process blah (1) did a thing",
+                {},
+            ),
+            (
+                "blah",
+                {"ioc": "blah", "category": "file"},
+                {},
+                {"dynamic.process.file_name": ["blah"]},
+                "\tIOC: blah",
+                {"file": "blah"},
+            ),
+            (
+                "blah",
+                {"ioc": "blah", "category": "dll"},
+                {},
+                {"dynamic.process.file_name": ["blah"]},
+                "\tIOC: blah",
+                {"file": "blah"},
+            ),
+            ("blah", {"ioc": "blah", "category": "cmdline"}, {}, {"dynamic.process.command_line": ["blah"]}, "\tIOC: blah", {}),
+            (
+                "process_interest",
+                {"ioc": "blah", "category": "process: super bad file"},
+                {},
+                {},
+                "\tIOC: blah is a super bad file.",
+                {},
+            ),
+            ("blah", {"ioc": "blah", "category": "registry"}, {}, {}, "\tIOC: blah", {"registry": "blah"}),
+            (
+                "network_icmp",
+                {"ioc": "1.1.1.1", "category": "ip"},
+                {},
+                {"network.dynamic.ip": ["1.1.1.1"]},
+                "\tPinged 1.1.1.1.",
+                {"ip": "1.1.1.1"},
+            ),
+            (
+                "network_icmp",
+                {"ioc": "192.0.2.123", "category": "ip"},
+                {},
+                {"network.dynamic.domain": ["blah.com"]},
+                "\tPinged blah.com.",
+                {"domain": "blah.com"},
+            ),
+        ],
     )
-    def test_tag_and_describe_ioc_signature(
-            signature_name, mark, process_map, expected_tags, expected_body, expected_ioc):
+    def test_tag_and_describe_ioc_signature(signature_name, mark, process_map, expected_tags, expected_body, expected_ioc):
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
         from cape.cape_result import _tag_and_describe_ioc_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+
         so = SandboxOntology()
         nd = so.create_network_dns(domain="blah.com", resolved_ips=["192.0.2.123"])
         so.add_network_dns(nd)
@@ -775,8 +1014,7 @@ class TestCapeResult:
         expected_result = ResultSection("blah", body=expected_body, tags=expected_tags)
         actual_result = ResultSection("blah")
         safelist = {"regex": {"network.dynamic.domain": ["(www\.)?w3\.org$"]}}
-        _tag_and_describe_ioc_signature(signature_name, mark, actual_result,
-                                        inetsim_network, process_map, safelist, so, so_sig)
+        _tag_and_describe_ioc_signature(signature_name, mark, actual_result, inetsim_network, process_map, safelist, so, so_sig)
         assert check_section_equality(actual_result, expected_result)
         for key, value in expected_ioc.items():
             so_sig_ioc[key] = value
@@ -787,46 +1025,58 @@ class TestCapeResult:
     @staticmethod
     @pytest.mark.parametrize(
         "signature_name, mark, expected_tags, expected_body, expected_iocs",
-        [("blah", {"blah": "blah"},
-          {},
-          None, []),
-         ("creates_hidden_file", {"call": {"arguments": {}}},
-          {},
-          None, []),
-         ("creates_hidden_file", {"call": {"arguments": {"filepath": "blah"}}},
-          {"dynamic.process.file_name": ["blah"]},
-          "IOC: blah", [{"file": "blah"}]),
-         ("moves_self", {"call": {"arguments": {}}},
-          {},
-          None, []),
-         ("moves_self", {"call": {"arguments": {"oldfilepath": "blah1", "newfilepath": "blah2"}}},
-          {"dynamic.process.file_name": ["blah1", "blah2"]},
-          '\tOld file path: blah1\n\tNew file path: blah2', [{"file": "blah1"},
-                                                             {"file": "blah2"}]),
-         ("moves_self", {"call": {"arguments": {"oldfilepath": "blah", "newfilepath": ""}}},
-          {"dynamic.process.file_name": ["blah"]},
-          '\tOld file path: blah\n\tNew file path: File deleted itself', [{"file": "blah"}]),
-         ("creates_service", {"call": {"arguments": {}}},
-          {},
-          None, []),
-         ("creates_service", {"call": {"arguments": {"service_name": "blah"}}},
-          {},
-          '\tNew service name: blah', []),
-         ("terminates_remote_process", {"call": {"arguments": {"process_identifier": 1}}},
-          {},
-          '\tTerminated Remote Process: blah (1)', []),
-         ("network_document_file",
-          {"call": {"time": 1, "arguments": {"filepath": "C:\\bad.exe", "url": "http://bad.com"}}},
-          {"dynamic.process.file_name": ["C:\\bad.exe"],
-           "network.dynamic.uri": ["http://bad.com"],
-           "network.dynamic.domain": ["bad.com"]},
-          '\tThe file at http://bad.com was attempted to be downloaded to C:\\bad.exe',
-          [{"file": "C:\\bad.exe"},
-           {"uri": "http://bad.com"}]), ])
+        [
+            ("blah", {"blah": "blah"}, {}, None, []),
+            ("creates_hidden_file", {"call": {"arguments": {}}}, {}, None, []),
+            (
+                "creates_hidden_file",
+                {"call": {"arguments": {"filepath": "blah"}}},
+                {"dynamic.process.file_name": ["blah"]},
+                "IOC: blah",
+                [{"file": "blah"}],
+            ),
+            ("moves_self", {"call": {"arguments": {}}}, {}, None, []),
+            (
+                "moves_self",
+                {"call": {"arguments": {"oldfilepath": "blah1", "newfilepath": "blah2"}}},
+                {"dynamic.process.file_name": ["blah1", "blah2"]},
+                "\tOld file path: blah1\n\tNew file path: blah2",
+                [{"file": "blah1"}, {"file": "blah2"}],
+            ),
+            (
+                "moves_self",
+                {"call": {"arguments": {"oldfilepath": "blah", "newfilepath": ""}}},
+                {"dynamic.process.file_name": ["blah"]},
+                "\tOld file path: blah\n\tNew file path: File deleted itself",
+                [{"file": "blah"}],
+            ),
+            ("creates_service", {"call": {"arguments": {}}}, {}, None, []),
+            ("creates_service", {"call": {"arguments": {"service_name": "blah"}}}, {}, "\tNew service name: blah", []),
+            (
+                "terminates_remote_process",
+                {"call": {"arguments": {"process_identifier": 1}}},
+                {},
+                "\tTerminated Remote Process: blah (1)",
+                [],
+            ),
+            (
+                "network_document_file",
+                {"call": {"time": 1, "arguments": {"filepath": "C:\\bad.exe", "url": "http://bad.com"}}},
+                {
+                    "dynamic.process.file_name": ["C:\\bad.exe"],
+                    "network.dynamic.uri": ["http://bad.com"],
+                    "network.dynamic.domain": ["bad.com"],
+                },
+                "\tThe file at http://bad.com was attempted to be downloaded to C:\\bad.exe",
+                [{"file": "C:\\bad.exe"}, {"uri": "http://bad.com"}],
+            ),
+        ],
+    )
     def test_tag_and_describe_call_signature(signature_name, mark, expected_tags, expected_body, expected_iocs):
         from assemblyline_v4_service.common.result import ResultSection
         from cape.cape_result import _tag_and_describe_call_signature
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology, Process
+
         safelist = []
         expected_result = ResultSection("blah", body=expected_body, tags=expected_tags)
         actual_result = ResultSection("blah")
@@ -862,14 +1112,13 @@ class TestCapeResult:
         from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
         from cape.cape_result import _get_dns_sec
         from json import dumps
+
         resolved_ips = {}
         safelist = []
         assert _get_dns_sec(resolved_ips, safelist) is None
         resolved_ips = {"1.1.1.1": {"domain": "blah.com"}}
         expected_res_sec = ResultSection(
-            "Protocol: DNS",
-            body_format=BODY_FORMAT.TABLE,
-            body=dumps([{"domain": "blah.com", "ip": "1.1.1.1"}])
+            "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=dumps([{"domain": "blah.com", "ip": "1.1.1.1"}])
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
@@ -884,115 +1133,302 @@ class TestCapeResult:
         [
             ([], {}, "", {}),
             ([{"answers": []}], {}, "", {}),
-            ([{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}], {}, "", {
-             'answer': {'domain': 'request', "guid": None, "process_id": None, "process_name": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}], {}, "INetSim", {
-             'answer': {'domain': 'request', "guid": None, "process_id": None, "process_name": None, "time": None, "type": "dns_type"}}),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "guid": None,
+                        "process_id": None,
+                        "process_name": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {},
+                "INetSim",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "guid": None,
+                        "process_id": None,
+                        "process_name": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
             ([{"answers": [{"data": "answer"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
-            ([{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
-             {}, "Internet", {'10.10.10.10': {'domain': 'answer'}}),
-            ([{"answers": [{"data": "10.10.10.10"}], "request": "answer", "type": "A"}, {"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa",
-             "type": "PTR"}], {}, "Internet", {'10.10.10.10': {'domain': 'answer', "guid": None, "process_id": None, "process_name": None, "time": None, "type": "A"}}),
+            (
+                [{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
+                {},
+                "Internet",
+                {"10.10.10.10": {"domain": "answer"}},
+            ),
+            (
+                [
+                    {"answers": [{"data": "10.10.10.10"}], "request": "answer", "type": "A"},
+                    {"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"},
+                ],
+                {},
+                "Internet",
+                {
+                    "10.10.10.10": {
+                        "domain": "answer",
+                        "guid": None,
+                        "process_id": None,
+                        "process_name": None,
+                        "time": None,
+                        "type": "A",
+                    }
+                },
+            ),
             ([{"answers": [{"data": "answer"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}], {}, "Internet", {}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
-             "",
-             {'answer': {'domain': 'request', "guid": None, "process_id": None, "process_name": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"blah": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', "guid": None, "process_id": None, "process_name": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', 'process_id': 1, 'process_name': 'blah', "guid": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"InternetConnectW": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', 'process_id': 1, 'process_name': 'blah', "guid": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"InternetConnectA": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', 'process_id': 1, 'process_name': 'blah', "guid": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"GetAddrInfoW": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', 'process_id': 1, 'process_name': 'blah', "guid": None, "time": None, "type": "dns_type"}}),
-            ([{"answers": [{"data": "answer"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}},
-             "",
-             {'answer': {'domain': 'request', 'process_id': 1, 'process_name': 'blah', "guid": None, "time": None, "type": "dns_type"}}),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "guid": None,
+                        "process_id": None,
+                        "process_name": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"blah": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "guid": None,
+                        "process_id": None,
+                        "process_name": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "process_id": 1,
+                        "process_name": "blah",
+                        "guid": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"InternetConnectW": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "process_id": 1,
+                        "process_name": "blah",
+                        "guid": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"InternetConnectA": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "process_id": 1,
+                        "process_name": "blah",
+                        "guid": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"GetAddrInfoW": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "process_id": 1,
+                        "process_name": "blah",
+                        "guid": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
+            (
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}},
+                "",
+                {
+                    "answer": {
+                        "domain": "request",
+                        "process_id": 1,
+                        "process_name": "blah",
+                        "guid": None,
+                        "time": None,
+                        "type": "dns_type",
+                    }
+                },
+            ),
             ([{"answers": []}], {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}}, "", {}),
-            ([{"answers": [{"data": "1.1.1.1"}],
-               "request": "request", "type": "dns_type"}],
-             {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}}, "", {}),
-        ]
+            (
+                [{"answers": [{"data": "1.1.1.1"}], "request": "request", "type": "dns_type"}],
+                {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
+                "",
+                {},
+            ),
+        ],
     )
     def test_get_dns_map(dns_calls, process_map, routing, expected_return):
         from cape.cape_result import _get_dns_map
+
         dns_servers = ["1.1.1.1"]
         assert _get_dns_map(dns_calls, process_map, routing, dns_servers) == expected_return
 
     @staticmethod
     @pytest.mark.parametrize(
         "resolved_ips, flows, expected_return",
-        [({},
-          {},
-          ([],
-           "")),
-         ({},
-          {"udp": []},
-          ([],
-           "")),
-         ({},
-          {"udp": [{"dst": "blah", "src": "1.1.1.1", "time": "blah", "dport": "blah"}]},
-          ([{'dest_ip': 'blah', 'dest_port': 'blah', 'domain': None, 'image': None, 'pid': None,
-             'protocol': 'udp', 'src_ip': None, 'src_port': None, 'timestamp': 'blah'}],
-           "")),
-         ({},
-          {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
-          ([{'dest_ip': 'blah', 'dest_port': 'blah', 'domain': None, 'image': None, 'pid': None,
-             'protocol': 'udp', 'src_ip': "blah", 'src_port': "blah", 'timestamp': 'blah'}],
-           "")),
-         ({"blah": {"domain": "blah"}},
-          {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
-          ([{'dest_ip': 'blah', 'dest_port': 'blah', 'domain': "blah", 'image': None, 'pid': None,
-             'protocol': 'udp', 'src_ip': "blah", 'src_port': "blah", 'timestamp': 'blah'}],
-           "")),
-         ({"blah": {"domain": "blah", "process_name": "blah", "process_id": "blah"}},
-          {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
-          ([{'dest_ip': 'blah', 'dest_port': 'blah', 'domain': "blah", 'image': "blah", 'pid': "blah",
-             'protocol': 'udp', 'src_ip': "blah", 'src_port': "blah", 'timestamp': 'blah'}],
-           "")),
-         ({},
-          {},
-          ([],
-           "flag"))])
+        [
+            ({}, {}, ([], "")),
+            ({}, {"udp": []}, ([], "")),
+            (
+                {},
+                {"udp": [{"dst": "blah", "src": "1.1.1.1", "time": "blah", "dport": "blah"}]},
+                (
+                    [
+                        {
+                            "dest_ip": "blah",
+                            "dest_port": "blah",
+                            "domain": None,
+                            "image": None,
+                            "pid": None,
+                            "protocol": "udp",
+                            "src_ip": None,
+                            "src_port": None,
+                            "timestamp": "blah",
+                        }
+                    ],
+                    "",
+                ),
+            ),
+            (
+                {},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                (
+                    [
+                        {
+                            "dest_ip": "blah",
+                            "dest_port": "blah",
+                            "domain": None,
+                            "image": None,
+                            "pid": None,
+                            "protocol": "udp",
+                            "src_ip": "blah",
+                            "src_port": "blah",
+                            "timestamp": "blah",
+                        }
+                    ],
+                    "",
+                ),
+            ),
+            (
+                {"blah": {"domain": "blah"}},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                (
+                    [
+                        {
+                            "dest_ip": "blah",
+                            "dest_port": "blah",
+                            "domain": "blah",
+                            "image": None,
+                            "pid": None,
+                            "protocol": "udp",
+                            "src_ip": "blah",
+                            "src_port": "blah",
+                            "timestamp": "blah",
+                        }
+                    ],
+                    "",
+                ),
+            ),
+            (
+                {"blah": {"domain": "blah", "process_name": "blah", "process_id": "blah"}},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                (
+                    [
+                        {
+                            "dest_ip": "blah",
+                            "dest_port": "blah",
+                            "domain": "blah",
+                            "image": "blah",
+                            "pid": "blah",
+                            "protocol": "udp",
+                            "src_ip": "blah",
+                            "src_port": "blah",
+                            "timestamp": "blah",
+                        }
+                    ],
+                    "",
+                ),
+            ),
+            ({}, {}, ([], "flag")),
+        ],
+    )
     def test_get_low_level_flows(resolved_ips, flows, expected_return):
         from cape.cape_result import _get_low_level_flows
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection
+
         expected_network_flows_table, expected_netflows_sec_body = expected_return
         correct_netflows_sec = ResultTableSection(title_text="TCP/UDP Network Traffic")
         if expected_netflows_sec_body == "flag":
             too_many_unique_ips_sec = ResultSection(title_text="Too Many Unique IPs")
-            too_many_unique_ips_sec.set_body(f"The number of TCP calls displayed has been capped "
-                                             f"at 100. The full results can be found "
-                                             f"in the supplementary PCAP file included with the analysis.")
+            too_many_unique_ips_sec.set_body(
+                f"The number of TCP calls displayed has been capped "
+                f"at 100. The full results can be found "
+                f"in the supplementary PCAP file included with the analysis."
+            )
             correct_netflows_sec.add_subsection(too_many_unique_ips_sec)
             flows = {"udp": []}
             expected_network_flows_table = []
             for i in range(101):
                 flows["udp"].append({"dst": "blah", "src": "1.1.1.1", "dport": f"blah{i}", "time": "blah"})
-                expected_network_flows_table.append({"protocol": "udp", "domain": None, "dest_ip": "blah",
-                                                     "src_ip": None, "src_port": None, "dest_port": f"blah{i}",
-                                                     "timestamp": "blah", "image": None, "pid": None})
+                expected_network_flows_table.append(
+                    {
+                        "protocol": "udp",
+                        "domain": None,
+                        "dest_ip": "blah",
+                        "src_ip": None,
+                        "src_port": None,
+                        "dest_port": f"blah{i}",
+                        "timestamp": "blah",
+                        "image": None,
+                        "pid": None,
+                    }
+                )
             expected_network_flows_table = expected_network_flows_table[:100]
 
         safelist = {"regex": {"network.dynamic.ip": ["(^1\.1\.1\.1$)|(^8\.8\.8\.8$)"]}}
@@ -1006,55 +1442,519 @@ class TestCapeResult:
         [
             ({}, {}, []),
             ({}, {"http": [], "https": [], "http_ex": [], "https_ex": []}, []),
-            ({}, {"http": [{"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah", "method": "blah"}], "https": [], "http_ex": [], "https_ex": []}, []),
-            ({}, {"http": [{"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}], "https": [], "http_ex": [], "https_ex": []}, [
-             {'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [], "https": [{"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}], "http_ex": [], "https_ex": []}, [
-             {'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [], "https": [], "http_ex": [{"host": "blah", "request": "blah", "dport": "blah", "uri": "http://blah.com", "protocol": "http", "method": "blah"}], "https_ex": []}, [
-             {'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [], "https": [], "http_ex": [{"host": "nope.com", "request": "blah", "dport": "blah", "uri": "/blah", "protocol": "http", "method": "blah"}], "https_ex": []}, [
-             {'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': 'http://nope.com/blah', 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [], "https": [], "http_ex": [], "https_ex": [{"host": "nope.com", "request": "blah", "dport": "blah", "uri": "/blah", "protocol": "https", "method": "blah"}]}, [
-             {'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': 'https://nope.com/blah', 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [{"host": "192.168.0.1", "path": "blah", "data": "blah", "port": "blah",
-             "uri": "blah", "method": "blah"}], "https": [], "http_ex": [], "https_ex": []}, []),
-            ({}, {"http": [{"host": "something.adobe.com", "path": "blah", "data": "blah", "port": "blah",
-             "uri": "blah", "method": "blah"}], "https": [], "http_ex": [], "https_ex": []}, []),
-            ({}, {"http": [{"host": "blah", "path": "blah", "data": "blah", "port": "blah",
-             "uri": "http://localhost/blah", "method": "blah"}], "https": [], "http_ex": [], "https_ex": []}, []),
             (
                 {},
                 {
-                    "http":
-                    [{"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"},
-                     {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}],
+                    "http": [
+                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah", "method": "blah"}
+                    ],
                     "https": [],
                     "http_ex": [],
-                    "https_ex": []},
-                [{'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({1: {"network_calls": [{"send": {"service": 3}}], "name": "blah"}}, {"http": [{"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}], "https": [], "http_ex": [
-            ], "https_ex": []}, [{'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({1: {"network_calls": [{"InternetConnectW": {"buffer": "check me"}}], "name": "blah"}}, {"http": [{"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "http://blah.com", "method": "blah"}], "https": [
-            ], "http_ex": [], "https_ex": []}, [{'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({1: {"network_calls": [{"InternetConnectA": {"buffer": "check me"}}], "name": "blah"}}, {"http": [{"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "http://blah.com", "method": "blah"}], "https": [
-            ], "http_ex": [], "https_ex": []}, [{'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': "http://blah.com", 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({1: {"network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}], "name": "blah"}}, {"http": [{"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "bad.evil", "method": "blah"}], "https": [
-            ], "http_ex": [], "https_ex": []}, [{'connection_details': {'objectid': {'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': None, 'source_port': None, 'destination_ip': None, 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': 'bad.evil', 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': None, 'response_body_path': None}]),
-            ({}, {"http": [], "https": [], "http_ex": [], "https_ex": [{"host": "nope.com", "req": {"path": "/blahblah/network/blahblah"}, "resp": {"path": "blahblah/network/blahblah"}, "dport": "blah", "uri": "/blah", "protocol": "https", "method": "blah", "sport": 123, "dst": "blah", "src": "blah", "response": "blah", "request": "blah"}]}, [
-             {'connection_details': {'objectid': {'tag': 'blah:blah', 'treeid': None, 'processtree': None, 'time_observed': None}, 'process': None, 'source_ip': 'blah', 'source_port': 123, 'destination_ip': 'blah', 'destination_port': 'blah', 'transport_layer_protocol': 'tcp', 'direction': 'outbound'}, 'request_uri': 'https://nope.com/blah', 'request_headers': {}, 'request_body': None, 'request_method': 'blah', 'response_headers': {}, 'response_status_code': None, 'response_body': None, 'request_body_path': 'network/blahblah', 'response_body_path': 'network/blahblah'}]),
-
-        ]
+                    "https_ex": [],
+                },
+                [],
+            ),
+            (
+                {},
+                {
+                    "http": [
+                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [],
+                    "https": [
+                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                    ],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [],
+                    "https": [],
+                    "http_ex": [
+                        {
+                            "host": "blah",
+                            "request": "blah",
+                            "dport": "blah",
+                            "uri": "http://blah.com",
+                            "protocol": "http",
+                            "method": "blah",
+                        }
+                    ],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [],
+                    "https": [],
+                    "http_ex": [
+                        {
+                            "host": "nope.com",
+                            "request": "blah",
+                            "dport": "blah",
+                            "uri": "/blah",
+                            "protocol": "http",
+                            "method": "blah",
+                        }
+                    ],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://nope.com/blah",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [
+                        {
+                            "host": "nope.com",
+                            "request": "blah",
+                            "dport": "blah",
+                            "uri": "/blah",
+                            "protocol": "https",
+                            "method": "blah",
+                        }
+                    ],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "https://nope.com/blah",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [
+                        {"host": "192.168.0.1", "path": "blah", "data": "blah", "port": "blah", "uri": "blah", "method": "blah"}
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [],
+            ),
+            (
+                {},
+                {
+                    "http": [
+                        {
+                            "host": "something.adobe.com",
+                            "path": "blah",
+                            "data": "blah",
+                            "port": "blah",
+                            "uri": "blah",
+                            "method": "blah",
+                        }
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [],
+            ),
+            (
+                {},
+                {
+                    "http": [
+                        {
+                            "host": "blah",
+                            "path": "blah",
+                            "data": "blah",
+                            "port": "blah",
+                            "uri": "http://localhost/blah",
+                            "method": "blah",
+                        }
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [],
+            ),
+            (
+                {},
+                {
+                    "http": [
+                        {
+                            "host": "blah",
+                            "path": "blah",
+                            "data": "blah",
+                            "port": "blah",
+                            "uri": "http://blah.com",
+                            "method": "blah",
+                        },
+                        {
+                            "host": "blah",
+                            "path": "blah",
+                            "data": "blah",
+                            "port": "blah",
+                            "uri": "http://blah.com",
+                            "method": "blah",
+                        },
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {1: {"network_calls": [{"send": {"service": 3}}], "name": "blah"}},
+                {
+                    "http": [
+                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {1: {"network_calls": [{"InternetConnectW": {"buffer": "check me"}}], "name": "blah"}},
+                {
+                    "http": [
+                        {
+                            "host": "blah",
+                            "path": "blah",
+                            "data": "check me",
+                            "port": "blah",
+                            "uri": "http://blah.com",
+                            "method": "blah",
+                        }
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {1: {"network_calls": [{"InternetConnectA": {"buffer": "check me"}}], "name": "blah"}},
+                {
+                    "http": [
+                        {
+                            "host": "blah",
+                            "path": "blah",
+                            "data": "check me",
+                            "port": "blah",
+                            "uri": "http://blah.com",
+                            "method": "blah",
+                        }
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "http://blah.com",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {1: {"network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}], "name": "blah"}},
+                {
+                    "http": [
+                        {"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "bad.evil", "method": "blah"}
+                    ],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": None,
+                            "source_port": None,
+                            "destination_ip": None,
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "bad.evil",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": None,
+                        "response_body_path": None,
+                    }
+                ],
+            ),
+            (
+                {},
+                {
+                    "http": [],
+                    "https": [],
+                    "http_ex": [],
+                    "https_ex": [
+                        {
+                            "host": "nope.com",
+                            "req": {"path": "/blahblah/network/blahblah"},
+                            "resp": {"path": "blahblah/network/blahblah"},
+                            "dport": "blah",
+                            "uri": "/blah",
+                            "protocol": "https",
+                            "method": "blah",
+                            "sport": 123,
+                            "dst": "blah",
+                            "src": "blah",
+                            "response": "blah",
+                            "request": "blah",
+                        }
+                    ],
+                },
+                [
+                    {
+                        "connection_details": {
+                            "objectid": {"tag": "blah:blah", "treeid": None, "processtree": None, "time_observed": None},
+                            "process": None,
+                            "source_ip": "blah",
+                            "source_port": 123,
+                            "destination_ip": "blah",
+                            "destination_port": "blah",
+                            "transport_layer_protocol": "tcp",
+                            "direction": "outbound",
+                        },
+                        "request_uri": "https://nope.com/blah",
+                        "request_headers": {},
+                        "request_body": None,
+                        "request_method": "blah",
+                        "response_headers": {},
+                        "response_status_code": None,
+                        "response_body": None,
+                        "request_body_path": "network/blahblah",
+                        "response_body_path": "network/blahblah",
+                    }
+                ],
+            ),
+        ],
     )
     def test_process_http_calls(process_map, http_level_flows, expected_req_table):
         from cape.cape_result import _process_http_calls
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+
         default_so = SandboxOntology()
         safelist = {
-            "regex":
-            {"network.dynamic.ip": ["(?:127\.|10\.|192\.168|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.).*"],
-             "network.dynamic.domain": [".*\.adobe\.com$"],
-             "network.dynamic.uri": ["(?:ftp|http)s?://localhost(?:$|/.*)"]}}
+            "regex": {
+                "network.dynamic.ip": ["(?:127\.|10\.|192\.168|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.).*"],
+                "network.dynamic.domain": [".*\.adobe\.com$"],
+                "network.dynamic.uri": ["(?:ftp|http)s?://localhost(?:$|/.*)"],
+            }
+        }
         dns_servers = []
         _process_http_calls(http_level_flows, process_map, dns_servers, safelist, default_so)
         actual_req_table = []
@@ -1069,23 +1969,35 @@ class TestCapeResult:
     @staticmethod
     @pytest.mark.parametrize(
         "header_string, expected_header_dict",
-        [("", {}),
-         (None, {}),
-         ("GET /blah/blah/blah.doc HTTP/1.1", {}),
-         ("GET /blah/blah/blah.doc HTTP/1.1\r\n", {}),
-         ("GET /blah/blah/blah.doc HTTP/1.1\r\nblah", {}),
-         (
-            "GET /blah/blah/blah.doc HTTP/1.1\r\nConnection: Keep-Alive\r\nAccept: */*\r\nIf-Modified-Since: Sat, 01 Jul 2022 00:00:00 GMT\r\nUser-Agent: Microsoft-CryptoAPI/10.0\r\nHost: blah.blah.com",
-            {'Connection': 'Keep-Alive', 'Accept': '*/*', 'IfModifiedSince': 'Sat, 01 Jul 2022 00:00:00 GMT',
-             'UserAgent': 'Microsoft-CryptoAPI/10.0', 'Host': 'blah.blah.com'})])
+        [
+            ("", {}),
+            (None, {}),
+            ("GET /blah/blah/blah.doc HTTP/1.1", {}),
+            ("GET /blah/blah/blah.doc HTTP/1.1\r\n", {}),
+            ("GET /blah/blah/blah.doc HTTP/1.1\r\nblah", {}),
+            (
+                "GET /blah/blah/blah.doc HTTP/1.1\r\nConnection: Keep-Alive\r\nAccept: */*\r\nIf-Modified-Since: Sat, 01 Jul 2022"
+                " 00:00:00 GMT\r\nUser-Agent: Microsoft-CryptoAPI/10.0\r\nHost: blah.blah.com",
+                {
+                    "Connection": "Keep-Alive",
+                    "Accept": "*/*",
+                    "IfModifiedSince": "Sat, 01 Jul 2022 00:00:00 GMT",
+                    "UserAgent": "Microsoft-CryptoAPI/10.0",
+                    "Host": "blah.blah.com",
+                },
+            ),
+        ],
+    )
     def test_handle_http_headers(header_string, expected_header_dict):
         from cape.cape_result import _handle_http_headers
+
         assert _handle_http_headers(header_string) == expected_header_dict
 
     @staticmethod
     def test_extract_iocs_from_encrypted_buffers():
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
         from cape.cape_result import _extract_iocs_from_encrypted_buffers
+
         test_parent_section = ResultSection("blah")
         correct_result_section = ResultTableSection("IOCs found in encrypted buffers used in network calls")
         correct_result_section.set_heuristic(1006)
@@ -1093,8 +2005,10 @@ class TestCapeResult:
         correct_result_section.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.ca"}))
         correct_result_section.add_tag("network.dynamic.domain", "blah.com")
         correct_result_section.add_tag("network.dynamic.domain", "blah.ca")
-        _extract_iocs_from_encrypted_buffers({1: {"network_calls": [{"send": {"buffer": "blah.com"}}]}, 2: {
-                                         "network_calls": [{"send": {"buffer": "blah.ca"}}]}}, test_parent_section)
+        _extract_iocs_from_encrypted_buffers(
+            {1: {"network_calls": [{"send": {"buffer": "blah.com"}}]}, 2: {"network_calls": [{"send": {"buffer": "blah.ca"}}]}},
+            test_parent_section,
+        )
         assert check_section_equality(test_parent_section.subsections[0], correct_result_section)
 
     @staticmethod
@@ -1102,9 +2016,12 @@ class TestCapeResult:
         from json import dumps
         from cape.cape_result import _process_non_http_traffic_over_http
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
+
         test_parent_section = ResultSection("blah")
-        network_flows = [{"dest_port": 80, "dest_ip": "127.0.0.1", "domain": "blah.com"},
-                         {"dest_port": 443, "dest_ip": "127.0.0.2", "domain": "blah2.com"}]
+        network_flows = [
+            {"dest_port": 80, "dest_ip": "127.0.0.1", "domain": "blah.com"},
+            {"dest_port": 443, "dest_ip": "127.0.0.2", "domain": "blah2.com"},
+        ]
         correct_result_section = ResultSection("Non-HTTP Traffic Over HTTP Ports")
         correct_result_section.set_heuristic(1005)
         correct_result_section.add_tag("network.dynamic.ip", "127.0.0.1")
@@ -1122,15 +2039,29 @@ class TestCapeResult:
         from cape.cape_result import process_all_events
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
+
         default_so = SandboxOntology()
         al_result = ResultSection("blah")
         p = default_so.create_process(
-            pid=1, ppid=1, guid="{12345678-1234-5678-1234-567812345679}", command_line="blah blah.com", image="blah",
-            start_time=2, pguid="{12345678-1234-5678-1234-567812345679}")
+            pid=1,
+            ppid=1,
+            guid="{12345678-1234-5678-1234-567812345679}",
+            command_line="blah blah.com",
+            image="blah",
+            start_time=2,
+            pguid="{12345678-1234-5678-1234-567812345679}",
+        )
         default_so.add_process(p)
         nc = default_so.create_network_connection(
-            time_observed=1, source_port=1, destination_ip="1.1.1.1", source_ip="2.2.2.2", destination_port=1,
-            transport_layer_protocol="blah", direction="outbound", process=p)
+            time_observed=1,
+            source_port=1,
+            destination_ip="1.1.1.1",
+            source_ip="2.2.2.2",
+            destination_port=1,
+            transport_layer_protocol="blah",
+            direction="outbound",
+            process=p,
+        )
 
         default_so.add_network_connection(nc)
         dns = default_so.create_network_dns(domain="blah", resolved_ips=["1.1.1.1"], connection_details=nc)
@@ -1143,14 +2074,22 @@ class TestCapeResult:
 
         correct_result_section.add_row(
             TableRow(
-                **
-                {"time_observed": "1970-01-01 00:00:01.000", "process_name": "blah (1)",
-                 "details": {"protocol": "blah", "domain": "blah", "dest_ip": "1.1.1.1", "dest_port": 1}}))
+                **{
+                    "time_observed": "1970-01-01 00:00:01.000",
+                    "process_name": "blah (1)",
+                    "details": {"protocol": "blah", "domain": "blah", "dest_ip": "1.1.1.1", "dest_port": 1},
+                }
+            )
+        )
         correct_result_section.add_row(
             TableRow(
-                **
-                {"time_observed": "1970-01-01 00:00:02.000", "process_name": "blah (1)",
-                 "details": {"command_line": "blah blah.com"}}))
+                **{
+                    "time_observed": "1970-01-01 00:00:02.000",
+                    "process_name": "blah (1)",
+                    "details": {"command_line": "blah blah.com"},
+                }
+            )
+        )
 
         correct_ioc_table = ResultTableSection("Event Log IOCs")
         correct_ioc_table.add_tag("network.dynamic.domain", "blah.com")
@@ -1167,13 +2106,20 @@ class TestCapeResult:
         "curtain, process_map",
         [
             ({}, {0: {"blah": "blah"}}),
-            ({"1": {"events": [{"command": {"original": "blah", "altered": "blah"}}],
-             "behaviors": ["blah"]}}, {0: {"blah": "blah"}}),
-            ({"1": {"events": [{"command": {"original": "blah", "altered": "No alteration of event"}}],
-             "behaviors": ["blah"]}}, {0: {"blah": "blah"}}),
-            ({"1": {"events": [{"command": {"original": "blah", "altered": "No alteration of event"}}],
-             "behaviors": ["blah"]}}, {1: {"name": "blah.exe"}}),
-        ])
+            (
+                {"1": {"events": [{"command": {"original": "blah", "altered": "blah"}}], "behaviors": ["blah"]}},
+                {0: {"blah": "blah"}},
+            ),
+            (
+                {"1": {"events": [{"command": {"original": "blah", "altered": "No alteration of event"}}], "behaviors": ["blah"]}},
+                {0: {"blah": "blah"}},
+            ),
+            (
+                {"1": {"events": [{"command": {"original": "blah", "altered": "No alteration of event"}}], "behaviors": ["blah"]}},
+                {1: {"name": "blah.exe"}},
+            ),
+        ],
+    )
     def test_process_curtain(curtain, process_map):
         from cape.cape_result import process_curtain
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
@@ -1186,11 +2132,7 @@ class TestCapeResult:
             process_name = process_map[int(pid)]["name"] if process_map.get(int(pid)) else "powershell.exe"
             for event in curtain[pid]["events"]:
                 for command in event.keys():
-                    curtain_item = {
-                        "process_name": process_name,
-                        "original": event[command]["original"],
-                        "reformatted": None
-                    }
+                    curtain_item = {"process_name": process_name, "original": event[command]["original"], "reformatted": None}
                     altered = event[command]["altered"]
                     if altered != "No alteration of event.":
                         curtain_item["reformatted"] = altered
@@ -1208,98 +2150,195 @@ class TestCapeResult:
     @staticmethod
     @pytest.mark.parametrize(
         "sysmon, expected_process",
-        [([],
-          {}),
-         ([{"System": {"EventID": 2},
-            "EventData":
-            {
-             "Data":
-             [{"@Name": "ParentProcessId", "#text": "2"},
-              {"@Name": "Image", "#text": "blah.exe"},
-              {"@Name": "CommandLine", "#text": "./blah"},
-              {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"}]}}],
-          {}),
-         ([{"System": {"EventID": 2},
-            "EventData":
-            {
-             "Data":
-             [{"@Name": "ProcessId", "#text": "1"},
-              {"@Name": "ParentProcessId", "#text": "2"},
-              {"@Name": "Image", "#text": "blah.exe"},
-              {"@Name": "CommandLine", "#text": "./blah"},
-              {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"}]}}],
-          {'start_time': float("-inf"),
-           'end_time': float("inf"),
-           'objectid':
-           {'guid': '{12345678-1234-5678-1234-567812345679}', 'tag': 'blah.exe', 'treeid': None,
-            'time_observed': float("-inf"),
-            'processtree': None},
-           'pobjectid': {'guid': None, 'tag': None, 'treeid': None, 'time_observed': None, 'processtree': None},
-           'pimage': None, 'pcommand_line': None, 'ppid': 2, 'pid': 1, 'image': 'blah.exe', 'command_line': './blah',
-           'integrity_level': None, 'image_hash': None, 'original_file_name': None}),
-         ([{"System": {"EventID": 2},
-            "EventData":
-            {
-             "Data":
-             [{"@Name": "ProcessId", "#text": "1"},
-              {"@Name": "ParentProcessId", "#text": "2"},
-              {"@Name": "Image", "#text": "blah.exe"},
-              {"@Name": "CommandLine", "#text": "./blah"},
-              {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"},
-              {"@Name": "SourceProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"}]}}],
-          {'start_time': float("-inf"),
-           'end_time': float("inf"),
-           'objectid':
-           {'guid': '{12345678-1234-5678-1234-567812345679}', 'tag': 'blah.exe', 'treeid': None,
-            'time_observed': float("-inf"),
-            'processtree': None},
-           'pobjectid':
-           {'guid': '{12345678-1234-5678-1234-567812345678}', 'tag': None, 'treeid': None, 'time_observed': None,
-            'processtree': None},
-           'pimage': None, 'pcommand_line': None, 'ppid': 2, 'pid': 1, 'image': 'blah.exe', 'command_line': './blah',
-           'integrity_level': None, 'image_hash': None, 'original_file_name': None}),
-         ([{"System": {"EventID": 1},
-            "EventData":
-            {
-             "Data":
-             [{"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
-              {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
-              {"@Name": "ProcessId", "#text": "123"},
-              {"@Name": "Image", "#text": "blah"}]}}],
-          {'start_time': 45630.123, 'end_time': float("inf"),
-           'objectid':
-           {'guid': '{12345678-1234-5678-1234-567812345678}', 'tag': 'blah', 'treeid': None, 'processtree': None,
-            'time_observed': 45630.123},
-           'pobjectid': {'guid': None, 'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None},
-           'pimage': None, 'pcommand_line': None, 'ppid': None, 'pid': 123, 'image': 'blah', 'command_line': None,
-           'integrity_level': None, 'image_hash': None, 'original_file_name': None}),
-         ([{"System": {"EventID": 1},
-            "EventData":
-            {
-             "Data":
-             [{"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
-              {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
-              {"@Name": "ProcessId", "#text": "123"},
-              {"@Name": "Image", "#text": "blah"}]}},
-           {"System": {"EventID": 5},
-            "EventData":
-            {
-               "Data":
-               [{"@Name": "UtcTime", "#text": "1970-01-01 12:40:31.123"},
-                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
-                   {"@Name": "ProcessId", "#text": "123"},
-                   {"@Name": "Image", "#text": "blah"}]}}],
-          {'start_time': 45630.123, 'end_time': 45631.123,
-           'objectid':
-           {'guid': '{12345678-1234-5678-1234-567812345678}', 'tag': 'blah', 'treeid': None, 'processtree': None,
-            'time_observed': 45630.123},
-           'pobjectid': {'guid': None, 'tag': None, 'treeid': None, 'processtree': None, 'time_observed': None},
-           'pimage': None, 'pcommand_line': None, 'ppid': None, 'pid': 123, 'image': 'blah', 'command_line': None,
-           'integrity_level': None, 'image_hash': None, 'original_file_name': None}), ])
+        [
+            ([], {}),
+            (
+                [
+                    {
+                        "System": {"EventID": 2},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "ParentProcessId", "#text": "2"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "CommandLine", "#text": "./blah"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"},
+                            ]
+                        },
+                    }
+                ],
+                {},
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": 2},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "ProcessId", "#text": "1"},
+                                {"@Name": "ParentProcessId", "#text": "2"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "CommandLine", "#text": "./blah"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"},
+                            ]
+                        },
+                    }
+                ],
+                {
+                    "start_time": float("-inf"),
+                    "end_time": float("inf"),
+                    "objectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345679}",
+                        "tag": "blah.exe",
+                        "treeid": None,
+                        "time_observed": float("-inf"),
+                        "processtree": None,
+                    },
+                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "time_observed": None, "processtree": None},
+                    "pimage": None,
+                    "pcommand_line": None,
+                    "ppid": 2,
+                    "pid": 1,
+                    "image": "blah.exe",
+                    "command_line": "./blah",
+                    "integrity_level": None,
+                    "image_hash": None,
+                    "original_file_name": None,
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": 2},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "ProcessId", "#text": "1"},
+                                {"@Name": "ParentProcessId", "#text": "2"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "CommandLine", "#text": "./blah"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345679}"},
+                                {"@Name": "SourceProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
+                            ]
+                        },
+                    }
+                ],
+                {
+                    "start_time": float("-inf"),
+                    "end_time": float("inf"),
+                    "objectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345679}",
+                        "tag": "blah.exe",
+                        "treeid": None,
+                        "time_observed": float("-inf"),
+                        "processtree": None,
+                    },
+                    "pobjectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "tag": None,
+                        "treeid": None,
+                        "time_observed": None,
+                        "processtree": None,
+                    },
+                    "pimage": None,
+                    "pcommand_line": None,
+                    "ppid": 2,
+                    "pid": 1,
+                    "image": "blah.exe",
+                    "command_line": "./blah",
+                    "integrity_level": None,
+                    "image_hash": None,
+                    "original_file_name": None,
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": 1},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah"},
+                            ]
+                        },
+                    }
+                ],
+                {
+                    "start_time": 45630.123,
+                    "end_time": float("inf"),
+                    "objectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "tag": "blah",
+                        "treeid": None,
+                        "processtree": None,
+                        "time_observed": 45630.123,
+                    },
+                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                    "pimage": None,
+                    "pcommand_line": None,
+                    "ppid": None,
+                    "pid": 123,
+                    "image": "blah",
+                    "command_line": None,
+                    "integrity_level": None,
+                    "image_hash": None,
+                    "original_file_name": None,
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": 1},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah"},
+                            ]
+                        },
+                    },
+                    {
+                        "System": {"EventID": 5},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "1970-01-01 12:40:31.123"},
+                                {"@Name": "ProcessGuid", "#text": "{12345678-1234-5678-1234-567812345678}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah"},
+                            ]
+                        },
+                    },
+                ],
+                {
+                    "start_time": 45630.123,
+                    "end_time": 45631.123,
+                    "objectid": {
+                        "guid": "{12345678-1234-5678-1234-567812345678}",
+                        "tag": "blah",
+                        "treeid": None,
+                        "processtree": None,
+                        "time_observed": 45630.123,
+                    },
+                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                    "pimage": None,
+                    "pcommand_line": None,
+                    "ppid": None,
+                    "pid": 123,
+                    "image": "blah",
+                    "command_line": None,
+                    "integrity_level": None,
+                    "image_hash": None,
+                    "original_file_name": None,
+                },
+            ),
+        ],
+    )
     def test_convert_sysmon_processes(sysmon, expected_process):
         from cape.cape_result import convert_sysmon_processes
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from uuid import UUID
+
         so = SandboxOntology()
         safelist = {}
         convert_sysmon_processes(sysmon, safelist, so)
@@ -1318,112 +2357,183 @@ class TestCapeResult:
         [
             ([], {}, {}),
             ([], {}, {}),
-            ([{"System": {"EventID": '1'}}], {}, {}),
-            ([{
-                "System": {"EventID": '3'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessGuid", "#text": "{blah}"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "SourceIp", "#text": "10.10.10.10"},
-                                  {"@Name": "SourcePort", "#text": "123"},
-                                  {"@Name": "DestinationIp", "#text": "11.11.11.11"},
-                                  {"@Name": "DestinationPort", "#text": "321"},
-                              ]
-                              }}], {"tcp": []}, {'tcp': []}),
-            ([{
-                "System": {"EventID": '3'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessGuid", "#text": "{blah}"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "Protocol", "#text": "tcp"},
-                                  {"@Name": "SourceIp", "#text": "10.10.10.10"},
-                                  {"@Name": "SourcePort", "#text": "123"},
-                                  {"@Name": "DestinationIp", "#text": "11.11.11.11"},
-                                  {"@Name": "DestinationPort", "#text": "321"},
-                              ]
-                              }}], {"tcp": []}, {'tcp': [{'dport': 321, 'dst': '11.11.11.11', 'guid': '{blah}', 'image': 'blah.exe', 'pid': 123, 'sport': 123, 'src': '10.10.10.10', 'time': 1627054921.001}]}),
-            ([{
-                "System": {"EventID": '3'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessGuid", "#text": "{blah}"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "Protocol", "#text": "tcp"},
-                                  {"@Name": "SourceIp", "#text": "10.10.10.10"},
-                                  {"@Name": "SourcePort", "#text": "123"},
-                                  {"@Name": "DestinationIp", "#text": "11.11.11.11"},
-                                  {"@Name": "DestinationPort", "#text": "321"},
-                              ]
-                              }}], {"tcp": [{"dst": '11.11.11.11', "dport": 321, "src": '10.10.10.10', "sport": 123}]}, {'tcp': [
-                                  {'dport': 321, 'dst': '11.11.11.11', 'guid': '{blah}', 'image': 'blah.exe', 'pid': 123, 'sport': 123,
-                                   'src': '10.10.10.10', 'time': 1627054921.001}]}),
-            ([{
-                "System": {"EventID": '22'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessGuid", "#text": "{blah}"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "QueryName", "#text": "blah.com"},
-                                  {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
-                              ]
-                              }}], {"dns": []}, {'dns': [
-                                  {
-                                      'answers': [{'data': '10.10.10.10', 'type': 'A'}],
-                                      'guid': '{blah}',
-                                      'image': 'blah.exe',
-                                      'pid': 123,
-                                      'request': 'blah.com',
-                                      'time': 1627054921.001,
-                                      'type': 'A'
-                                  }]}),
-            ([{
-                "System": {"EventID": '22'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "QueryName", "#text": "blah.com"},
-                                  {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
-                              ]
-                              }}], {"dns": []}, {'dns': []}),
-            ([{
-                "System": {"EventID": '22'},
-                "EventData": {"Data":
-                              [
-                                  {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
-                                  {"@Name": "ProcessGuid", "#text": "{blah}"},
-                                  {"@Name": "ProcessId", "#text": "123"},
-                                  {"@Name": "Image", "#text": "blah.exe"},
-                                  {"@Name": "QueryName", "#text": "blah.com"},
-                                  {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
-                              ]
-                              }}], {"dns": [{"request": "blah.com"}]}, {'dns': [
-                                  {
-                                      'answers': [{'data': '10.10.10.10', 'type': 'A'}],
-                                      'guid': '{blah}',
-                                      'image': 'blah.exe',
-                                      'pid': 123,
-                                      'request': 'blah.com',
-                                      'time': 1627054921.001,
-                                      'type': 'A'
-                                  }]}
-             ),
-
-        ]
+            ([{"System": {"EventID": "1"}}], {}, {}),
+            (
+                [
+                    {
+                        "System": {"EventID": "3"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessGuid", "#text": "{blah}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "SourceIp", "#text": "10.10.10.10"},
+                                {"@Name": "SourcePort", "#text": "123"},
+                                {"@Name": "DestinationIp", "#text": "11.11.11.11"},
+                                {"@Name": "DestinationPort", "#text": "321"},
+                            ]
+                        },
+                    }
+                ],
+                {"tcp": []},
+                {"tcp": []},
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": "3"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessGuid", "#text": "{blah}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "Protocol", "#text": "tcp"},
+                                {"@Name": "SourceIp", "#text": "10.10.10.10"},
+                                {"@Name": "SourcePort", "#text": "123"},
+                                {"@Name": "DestinationIp", "#text": "11.11.11.11"},
+                                {"@Name": "DestinationPort", "#text": "321"},
+                            ]
+                        },
+                    }
+                ],
+                {"tcp": []},
+                {
+                    "tcp": [
+                        {
+                            "dport": 321,
+                            "dst": "11.11.11.11",
+                            "guid": "{blah}",
+                            "image": "blah.exe",
+                            "pid": 123,
+                            "sport": 123,
+                            "src": "10.10.10.10",
+                            "time": 1627054921.001,
+                        }
+                    ]
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": "3"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessGuid", "#text": "{blah}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "Protocol", "#text": "tcp"},
+                                {"@Name": "SourceIp", "#text": "10.10.10.10"},
+                                {"@Name": "SourcePort", "#text": "123"},
+                                {"@Name": "DestinationIp", "#text": "11.11.11.11"},
+                                {"@Name": "DestinationPort", "#text": "321"},
+                            ]
+                        },
+                    }
+                ],
+                {"tcp": [{"dst": "11.11.11.11", "dport": 321, "src": "10.10.10.10", "sport": 123}]},
+                {
+                    "tcp": [
+                        {
+                            "dport": 321,
+                            "dst": "11.11.11.11",
+                            "guid": "{blah}",
+                            "image": "blah.exe",
+                            "pid": 123,
+                            "sport": 123,
+                            "src": "10.10.10.10",
+                            "time": 1627054921.001,
+                        }
+                    ]
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": "22"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessGuid", "#text": "{blah}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "QueryName", "#text": "blah.com"},
+                                {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
+                            ]
+                        },
+                    }
+                ],
+                {"dns": []},
+                {
+                    "dns": [
+                        {
+                            "answers": [{"data": "10.10.10.10", "type": "A"}],
+                            "guid": "{blah}",
+                            "image": "blah.exe",
+                            "pid": 123,
+                            "request": "blah.com",
+                            "time": 1627054921.001,
+                            "type": "A",
+                        }
+                    ]
+                },
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": "22"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "QueryName", "#text": "blah.com"},
+                                {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
+                            ]
+                        },
+                    }
+                ],
+                {"dns": []},
+                {"dns": []},
+            ),
+            (
+                [
+                    {
+                        "System": {"EventID": "22"},
+                        "EventData": {
+                            "Data": [
+                                {"@Name": "UtcTime", "#text": "2021-07-23 15:42:01.001"},
+                                {"@Name": "ProcessGuid", "#text": "{blah}"},
+                                {"@Name": "ProcessId", "#text": "123"},
+                                {"@Name": "Image", "#text": "blah.exe"},
+                                {"@Name": "QueryName", "#text": "blah.com"},
+                                {"@Name": "QueryResults", "#text": "::ffffff:10.10.10.10;"},
+                            ]
+                        },
+                    }
+                ],
+                {"dns": [{"request": "blah.com"}]},
+                {
+                    "dns": [
+                        {
+                            "answers": [{"data": "10.10.10.10", "type": "A"}],
+                            "guid": "{blah}",
+                            "image": "blah.exe",
+                            "pid": 123,
+                            "request": "blah.com",
+                            "time": 1627054921.001,
+                            "type": "A",
+                        }
+                    ]
+                },
+            ),
+        ],
     )
     def test_convert_sysmon_network(sysmon, actual_network, correct_network):
         from cape.cape_result import convert_sysmon_network
+
         safelist = {}
         convert_sysmon_network(sysmon, actual_network, safelist)
         assert actual_network == correct_network
@@ -1440,7 +2550,9 @@ class TestCapeResult:
         process_hollowshunter(hollowshunter, al_result, process_map)
         assert al_result.subsections == []
 
-        hollowshunter = {"123": {"scanned": {"modified": {"implanted_pe": 1}}, "scans": [{"workingset_scan": {"has_pe": 1, "module": "400000"}}]}}
+        hollowshunter = {
+            "123": {"scanned": {"modified": {"implanted_pe": 1}}, "scans": [{"workingset_scan": {"has_pe": 1, "module": "400000"}}]}
+        }
         hollowshunter_body = [{"Process": "blah (123)", "Indicator": "Implanted PE", "Description": "Modules found: ['400000']"}]
         correct_result_section = ResultTableSection("HollowsHunter Analysis")
         [correct_result_section.add_row(TableRow(**row)) for row in hollowshunter_body]
@@ -1448,33 +2560,34 @@ class TestCapeResult:
         process_hollowshunter(hollowshunter, al_result, process_map)
         assert check_section_equality(al_result.subsections[0], correct_result_section)
 
-
     @staticmethod
-    @pytest.mark.parametrize("process_map, correct_buffer_body, correct_tags, correct_body",
-                             [({0: {"decrypted_buffers": []}},
-                               None, {},
-                               []),
-                              ({0: {"decrypted_buffers": [{"blah": "blah"}]}},
-                               None, {},
-                               []),
-                              ({0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}},
-                               '[{"Decrypted Buffer": "blah"}]', {},
-                               []),
-                              ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}},
-                               '[{"Decrypted Buffer": "blah"}]', {},
-                               []),
-                              ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
-                               '[{"Decrypted Buffer": "127.0.0.1"}]', {'network.dynamic.ip': ['127.0.0.1']},
-                               [{"ioc_type": "ip", "ioc": "127.0.0.1"}]),
-                              ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.ca"}}]}},
-                               '[{"Decrypted Buffer": "blah.ca"}]', {'network.dynamic.domain': ['blah.ca']},
-                               [{"ioc_type": "domain", "ioc": "blah.ca"}]),
-                              ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
-                               '[{"Decrypted Buffer": "127.0.0.1:999"}]',
-                               {'network.dynamic.ip': ['127.0.0.1'],
-                                "network.dynamic.uri": ["127.0.0.1:999"]},
-                               [{"ioc_type": "ip", "ioc": "127.0.0.1"},
-                                {"ioc_type": "uri", "ioc": "127.0.0.1:999"}]), ])
+    @pytest.mark.parametrize(
+        "process_map, correct_buffer_body, correct_tags, correct_body",
+        [
+            ({0: {"decrypted_buffers": []}}, None, {}, []),
+            ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, []),
+            ({0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}}, '[{"Decrypted Buffer": "blah"}]', {}, []),
+            ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}}, '[{"Decrypted Buffer": "blah"}]', {}, []),
+            (
+                {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
+                '[{"Decrypted Buffer": "127.0.0.1"}]',
+                {"network.dynamic.ip": ["127.0.0.1"]},
+                [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.ca"}}]}},
+                '[{"Decrypted Buffer": "blah.ca"}]',
+                {"network.dynamic.domain": ["blah.ca"]},
+                [{"ioc_type": "domain", "ioc": "blah.ca"}],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
+                '[{"Decrypted Buffer": "127.0.0.1:999"}]',
+                {"network.dynamic.ip": ["127.0.0.1"], "network.dynamic.uri": ["127.0.0.1:999"]},
+                [{"ioc_type": "ip", "ioc": "127.0.0.1"}, {"ioc_type": "uri", "ioc": "127.0.0.1:999"}],
+            ),
+        ],
+    )
     def test_process_decrypted_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
         from cape.cape_result import process_decrypted_buffers
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
@@ -1505,36 +2618,235 @@ class TestCapeResult:
         [
             ([], {}),
             ([{"module_path": "C:\\windows\\System32\\lsass.exe", "calls": [], "process_id": 1}], {}),
-            ([{"module_path": "blah.exe", "calls": [], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"api": "blah"}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "getaddrinfo", "arguments": [{"name": "hostname", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"getaddrinfo": {"hostname": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "GetAddrInfoW", "arguments": [{"name": "hostname", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"GetAddrInfoW": {"hostname": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "connect", "arguments": [{"name": "ip_address", "value": "blah"},{"name": "port", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"connect": {"ip_address": "blah", "port": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "InternetConnectW", "arguments": [{"name": "username", "value": "blah"}, {"name": "service", "value": "blah"}, {"name": "password", "value": "blah"}, {"name": "hostname", "value": "blah"}, {"name": "port", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"InternetConnectW": {"username": "blah", "service": "blah", "password": "blah", "hostname": "blah", "port": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "InternetConnectA", "arguments": [{"name": "username", "value": "blah"}, {"name": "service", "value": "blah"}, {"name": "password", "value": "blah"}, {"name": "hostname", "value": "blah"}, {"name": "port", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"InternetConnectA": {"username": "blah", "service": "blah", "password": "blah", "hostname": "blah", "port": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "send", "arguments": [{"name": "buffer", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"send": {"buffer": "blah"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "crypto", "api": "CryptDecrypt", "arguments": [{"name": "buffer", "value": "blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [], 'decrypted_buffers': [{"CryptDecrypt": {"buffer": "blah"}}]}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "system", "api": "OutputDebugStringA", "arguments": [{
-             "name": "string", "value": "blah"}]}], "process_id": 1}], {1: {'name': 'blah.exe', 'network_calls': [], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "system", "api": "OutputDebugStringA", "arguments": [{"name": "string", "value": "cfg:blah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [], 'decrypted_buffers': [{"OutputDebugStringA": {"string": "cfg:blah"}}]}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "URLDownloadToFileW", "arguments": [{"name": "url", "value": "bad.evil"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"URLDownloadToFileW": {"url": "bad.evil"}}], 'decrypted_buffers': []}}),
-            ([{"module_path": "blah.exe", "calls": [{"category": "network", "api": "WSASend", "arguments": [{"name": "buffer", "value": "blahblahblah bad.evil blahblahblah"}]}], "process_id": 1}], {
-             1: {'name': 'blah.exe', 'network_calls': [{"WSASend": {"buffer": "blahblahblah bad.evil blahblahblah"}}], 'decrypted_buffers': []}}),
-        ]
+            (
+                [{"module_path": "blah.exe", "calls": [], "process_id": 1}],
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+            ),
+            (
+                [{"module_path": "blah.exe", "calls": [{"api": "blah"}], "process_id": 1}],
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {"category": "network", "api": "getaddrinfo", "arguments": [{"name": "hostname", "value": "blah"}]}
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [{"getaddrinfo": {"hostname": "blah"}}], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {"category": "network", "api": "GetAddrInfoW", "arguments": [{"name": "hostname", "value": "blah"}]}
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [{"GetAddrInfoW": {"hostname": "blah"}}], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "network",
+                                "api": "connect",
+                                "arguments": [{"name": "ip_address", "value": "blah"}, {"name": "port", "value": "blah"}],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {
+                    1: {
+                        "name": "blah.exe",
+                        "network_calls": [{"connect": {"ip_address": "blah", "port": "blah"}}],
+                        "decrypted_buffers": [],
+                    }
+                },
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "network",
+                                "api": "InternetConnectW",
+                                "arguments": [
+                                    {"name": "username", "value": "blah"},
+                                    {"name": "service", "value": "blah"},
+                                    {"name": "password", "value": "blah"},
+                                    {"name": "hostname", "value": "blah"},
+                                    {"name": "port", "value": "blah"},
+                                ],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {
+                    1: {
+                        "name": "blah.exe",
+                        "network_calls": [
+                            {
+                                "InternetConnectW": {
+                                    "username": "blah",
+                                    "service": "blah",
+                                    "password": "blah",
+                                    "hostname": "blah",
+                                    "port": "blah",
+                                }
+                            }
+                        ],
+                        "decrypted_buffers": [],
+                    }
+                },
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "network",
+                                "api": "InternetConnectA",
+                                "arguments": [
+                                    {"name": "username", "value": "blah"},
+                                    {"name": "service", "value": "blah"},
+                                    {"name": "password", "value": "blah"},
+                                    {"name": "hostname", "value": "blah"},
+                                    {"name": "port", "value": "blah"},
+                                ],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {
+                    1: {
+                        "name": "blah.exe",
+                        "network_calls": [
+                            {
+                                "InternetConnectA": {
+                                    "username": "blah",
+                                    "service": "blah",
+                                    "password": "blah",
+                                    "hostname": "blah",
+                                    "port": "blah",
+                                }
+                            }
+                        ],
+                        "decrypted_buffers": [],
+                    }
+                },
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [{"category": "network", "api": "send", "arguments": [{"name": "buffer", "value": "blah"}]}],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah"}}], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {"category": "crypto", "api": "CryptDecrypt", "arguments": [{"name": "buffer", "value": "blah"}]}
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {"category": "system", "api": "OutputDebugStringA", "arguments": [{"name": "string", "value": "blah"}]}
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "system",
+                                "api": "OutputDebugStringA",
+                                "arguments": [{"name": "string", "value": "cfg:blah"}],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {
+                    1: {
+                        "name": "blah.exe",
+                        "network_calls": [],
+                        "decrypted_buffers": [{"OutputDebugStringA": {"string": "cfg:blah"}}],
+                    }
+                },
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "network",
+                                "api": "URLDownloadToFileW",
+                                "arguments": [{"name": "url", "value": "bad.evil"}],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {1: {"name": "blah.exe", "network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}], "decrypted_buffers": []}},
+            ),
+            (
+                [
+                    {
+                        "module_path": "blah.exe",
+                        "calls": [
+                            {
+                                "category": "network",
+                                "api": "WSASend",
+                                "arguments": [{"name": "buffer", "value": "blahblahblah bad.evil blahblahblah"}],
+                            }
+                        ],
+                        "process_id": 1,
+                    }
+                ],
+                {
+                    1: {
+                        "name": "blah.exe",
+                        "network_calls": [{"WSASend": {"buffer": "blahblahblah bad.evil blahblahblah"}}],
+                        "decrypted_buffers": [],
+                    }
+                },
+            ),
+        ],
     )
     def test_get_process_map(processes, correct_process_map):
         from cape.cape_result import get_process_map
+
         safelist = {"regex": {"dynamic.process.file_name": [r"C:\\Windows\\System32\\lsass\.exe"]}}
         print("")
         print(get_process_map(processes, safelist))
@@ -1548,10 +2860,11 @@ class TestCapeResult:
             ([], []),
             ([{"name": "network_cnc_http"}], [{"name": "network_cnc_http"}]),
             ([{"name": "network_cnc_http"}, {"name": "network_http"}], [{"name": "network_cnc_http"}]),
-        ]
+        ],
     )
     def test_remove_network_http_noise(sigs, correct_sigs):
         from cape.cape_result import _remove_network_http_noise
+
         assert _remove_network_http_noise(sigs) == correct_sigs
 
     @staticmethod
