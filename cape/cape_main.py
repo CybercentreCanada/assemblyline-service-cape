@@ -1161,6 +1161,7 @@ class CAPE(ServiceBase):
         # Do DLL specific stuff
         if dll_function:
             task_options.append(f'function={dll_function}')
+        task_options.append('enable_multi=true')
         task_options.append('use_export_name=true')
         task_options.append(f"max_dll_exports={self.config['max_dll_exports_exec']}")
 
