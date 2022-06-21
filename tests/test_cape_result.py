@@ -146,8 +146,8 @@ class TestCapeResult:
             ({"errors": ["BLAH"], "log": ""}, "BLAH"),
             ({"errors": ["BLAH", "BLAH"], "log": ""}, "BLAH\nBLAH"),
             ({"errors": [], "log": "blah"}, None),
-            ({"errors": [], "log": "ERROR: blah"}, "blah"),
-            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "blah\nblah"),
+            ({"errors": [], "log": "ERROR: blah"}, "Blah"),
+            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "Blah\nBlah"),
         ],
     )
     def test_process_debug(debug, correct_body):

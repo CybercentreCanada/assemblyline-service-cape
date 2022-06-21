@@ -1052,7 +1052,8 @@ class CAPE(ServiceBase):
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
 
-        self._prepare_dll_submission(kwargs, task_options, file_ext, parent_section)
+        if "dll" in self.request.file_type:
+            self._prepare_dll_submission(task_options)
 
         if not sysmon_enabled:
             task_options.append("sysmon=0")
@@ -1150,93 +1151,18 @@ class CAPE(ServiceBase):
                 available_images.add(image)
         return list(available_images)
 
-    def _prepare_dll_submission(self, kwargs: Dict[str, Any], task_options: List[str], file_ext: str,
-                                parent_section: ResultSection) -> None:
+    def _prepare_dll_submission(self, task_options: List[str]) -> None:
         """
         This method handles if a specific function was requested to be run for a DLL, or what functions to run for a DLL
-        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
-        about the run
         :param task_options: A list of parameters detailing the specifics of the task
-        :param file_ext: The file extension of the file to be submitted
-        :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: None
         """
         dll_function = self.request.get_param("dll_function")
         # Do DLL specific stuff
         if dll_function:
             task_options.append(f'function={dll_function}')
-
-            # Check to see if there are pipes in the dll_function
-            # This is reliant on analyzer/windows/modules/packages/dll_multi.py
-            if "|" in dll_function:
-                # TODO: check if dll_multi package exists
-                kwargs["package"] = "dll_multi"
-
-        if not dll_function and file_ext == ".dll":
-            self._parse_dll(kwargs, task_options, parent_section)
-
-    def _parse_dll(self, kwargs: Dict[str, Any], task_options: List[str], parent_section: ResultSection) -> None:
-        """
-        This method parses a DLL file and determines which functions to try and run with the DLL
-        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
-        about the run
-        :param task_options: A list of parameters detailing the specifics of the task
-        :param parent_section: The overarching result section detailing what image this task is being sent to
-        :return: None
-        """
-        # TODO: check if dll_multi package exists
-        # TODO: dedup exports available
-        exports_available: List[str] = []
-        # only proceed if it looks like we have dll_multi
-        # We have a DLL file, but no user specified function(s) to run. let's try to pick a few...
-        # This is reliant on analyzer/windows/modules/packages/dll_multi.py
-        dll_parsed = self._create_pe_from_file_contents()
-
-        # Do we have any exports?
-        if hasattr(dll_parsed, "DIRECTORY_ENTRY_EXPORT"):
-            for export_symbol in dll_parsed.DIRECTORY_ENTRY_EXPORT.symbols:
-                if export_symbol.name is not None:
-                    if type(export_symbol.name) == str:
-                        exports_available.append(export_symbol.name)
-                    elif type(export_symbol.name) == bytes:
-                        exports_available.append(export_symbol.name.decode())
-                else:
-                    exports_available.append(f"#{export_symbol.ordinal}")
-        else:
-            # No Exports available? Try DllMain and DllRegisterServer
-            exports_available.append("DllMain")
-            exports_available.append("DllRegisterServer")
-
-        max_dll_exports = self.config.get("max_dll_exports_exec", 5)
-        task_options.append(f"function={'|'.join(exports_available[:max_dll_exports])}")
-        kwargs["package"] = "dll_multi"
-        self.log.debug(
-            f"Trying to run DLL with following function(s): {'|'.join(exports_available[:max_dll_exports])}")
-
-        if len(exports_available) > 0:
-            dll_multi_section = ResultTextSection("Executed Multiple DLL Exports")
-            dll_multi_section.add_line(
-                f"The following exports were executed: {', '.join(exports_available[:max_dll_exports])}")
-            remaining_exports = len(exports_available) - max_dll_exports
-            if remaining_exports > 0:
-                available_exports_str = ",".join(exports_available[max_dll_exports:])
-                dll_multi_section.add_line(f"There were {remaining_exports} other exports: {available_exports_str}")
-
-            parent_section.add_subsection(dll_multi_section)
-
-    # Isolating this sequence out because I can't figure out how to mock PE construction
-    def _create_pe_from_file_contents(self) -> PE:
-        """
-        This file parses a DLL file and handles PEFormatErrors
-        :return: An optional parsed PE
-        """
-        # TODO: What is this type?
-        dll_parsed = None
-        try:
-            dll_parsed = PE(data=self.request.file_contents)
-        except PEFormatError as e:
-            self.log.warning(f"Could not parse PE file due to {safe_str(e)}")
-        return dll_parsed
+        task_options.append('use_export_name=true')
+        task_options.append(f"max_dll_exports={self.config['max_dll_exports_exec']}")
 
     def _generate_report(
             self, file_ext: str, cape_task: CapeTask, parent_section: ResultSection, so: SandboxOntology) -> None:
