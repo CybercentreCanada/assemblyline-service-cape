@@ -250,9 +250,9 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     # Including error that is not reported conveniently by CAPE for whatever reason
     debug_log = debug["log"].split("\n")
     for analyzer_log in debug_log:
-        if "ERROR:" in analyzer_log:  # Hoping that CAPE logs as ERROR
-            split_log = analyzer_log.split("ERROR:")
-            error_res.add_line(split_log[1].lstrip().rstrip("\n"))
+        if "error:" in analyzer_log.lower():  # Hoping that CAPE logs as ERROR
+            split_log = analyzer_log.lower().split("error:")
+            error_res.add_line(split_log[1].lstrip().capitalize().rstrip("\n"))
 
     if error_res.body and len(error_res.body) > 0:
         parent_result_section.add_subsection(error_res)
@@ -1439,9 +1439,13 @@ def _create_signature_result_section(
             break
         mark_body = KVSectionBody()
         for k, v in mark.items():
-            mark_body.set_item(k, v)
-        sig_res.add_section_part(mark_body)
-        mark_count += 1
+            if dumps({k: v}) in sig_res.section_body.body:
+                continue
+            else:
+                mark_body.set_item(k, v)
+        if mark_body.body:
+            sig_res.add_section_part(mark_body)
+            mark_count += 1
 
     so_sig.update(name=name, description=description, score=translated_score)
     return sig_res
