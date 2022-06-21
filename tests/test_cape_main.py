@@ -1335,6 +1335,7 @@ class TestCapeMain:
 
         cape_class_instance.request = dummy_request_class(**params)
         cape_class_instance.request.deep_scan = deep_scan
+        cape_class_instance.request.file_type = "blah"
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
         if dump_memory:
             correct_kwargs["memory"] = True
@@ -1343,92 +1344,29 @@ class TestCapeMain:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "params, file_ext",
+        "params",
         [
-            ({"dll_function": ""}, "blah"),
-            ({"dll_function": "blah"}, "blah"),
-            ({"dll_function": "blah|blah"}, "blah"),
-            ({"dll_function": ""}, ".dll"),
+            ({"dll_function": ""}),
+            ({"dll_function": "blah"}),
+            ({"dll_function": "blah,blah"}),
+            ({"dll_function": ""}),
         ]
     )
-    def test_prepare_dll_submission(params, file_ext, cape_class_instance, dummy_request_class, mocker):
-        from cape.cape_main import CAPE
-        from assemblyline_v4_service.common.result import ResultSection
-        mocker.patch.object(CAPE, '_parse_dll', return_value=None)
+    def test_prepare_dll_submission(params, cape_class_instance, dummy_request_class):
         kwargs = dict()
         correct_kwargs = dict()
         task_options = []
         correct_task_options = []
-        parent_section = ResultSection("blah")
 
         dll_function = params["dll_function"]
         if dll_function:
             correct_task_options.append(f'function={dll_function}')
-            if "|" in dll_function:
-                correct_kwargs["package"] = "dll_multi"
+        correct_task_options.extend(["use_export_name=true", "max_dll_exports=5"])
 
         cape_class_instance.request = dummy_request_class(**params)
-        cape_class_instance._prepare_dll_submission(kwargs, task_options, file_ext, parent_section)
+        cape_class_instance._prepare_dll_submission(task_options)
         assert kwargs == correct_kwargs
         assert task_options == correct_task_options
-
-    @staticmethod
-    @pytest.mark.parametrize("dll_parsed", [None, "blah"])
-    def test_parse_dll(dll_parsed, cape_class_instance, mocker):
-        from cape.cape_main import CAPE
-        from assemblyline_v4_service.common.result import ResultSection
-
-        kwargs = dict()
-        correct_kwargs = dict()
-        task_options = []
-
-        # Dummy Symbol class
-        class Symbol(object):
-            def __init__(self, name):
-                self.name = name
-                self.ordinal = "blah"
-
-        # Dummy DIRECTORY_ENTRY_EXPORT class
-        class DirectoryEntryExport(object):
-            def __init__(self):
-                self.symbols = [
-                    Symbol(None),
-                    Symbol("blah"),
-                    Symbol(b"blah"),
-                    Symbol("blah2"),
-                    Symbol("blah3"),
-                    Symbol("blah4")]
-
-        # Dummy PE class
-        class FakePE(object):
-            def __init__(self):
-                self.DIRECTORY_ENTRY_EXPORT = DirectoryEntryExport()
-
-        parent_section = ResultSection("blah")
-
-        if dll_parsed is None:
-            PE = None
-            correct_kwargs["package"] = "dll_multi"
-            correct_task_options = ['function=DllMain|DllRegisterServer']
-            correct_result_section = ResultSection(
-                title_text="Executed Multiple DLL Exports",
-                body=f"The following exports were executed: DllMain, DllRegisterServer"
-            )
-        else:
-            PE = FakePE()
-            correct_kwargs["package"] = "dll_multi"
-            correct_task_options = ['function=#blah|blah|blah|blah2|blah3']
-            correct_result_section = ResultSection(
-                title_text="Executed Multiple DLL Exports",
-                body="The following exports were executed: #blah, blah, blah, blah2, blah3"
-            )
-            correct_result_section.add_line("There were 1 other exports: blah4")
-
-        mocker.patch.object(CAPE, '_create_pe_from_file_contents', return_value=PE)
-        cape_class_instance._parse_dll(kwargs, task_options, parent_section)
-        assert kwargs == correct_kwargs
-        assert task_options == correct_task_options
-        assert check_section_equality(parent_section.subsections[0], correct_result_section)
 
     @staticmethod
     @pytest.mark.parametrize("zip_report", [None, "blah"])
@@ -1439,7 +1377,6 @@ class TestCapeMain:
         mocker.patch.object(CAPE, 'query_report', return_value=zip_report)
         mocker.patch.object(CAPE, '_extract_console_output', return_value=None)
         mocker.patch.object(CAPE, '_extract_injected_exes', return_value=None)
-        # mocker.patch.object(CAPE, 'check_dropped', return_value=None)
         mocker.patch.object(CAPE, 'check_powershell', return_value=None)
         mocker.patch.object(CAPE, '_unpack_zip', return_value=None)
 
