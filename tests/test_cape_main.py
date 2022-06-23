@@ -449,7 +449,6 @@ class TestCapeMain:
         assert cape_class_instance.session is None
         assert cape_class_instance.ssdeep_match_pct is None
         assert cape_class_instance.timeout is None
-        assert cape_class_instance.max_report_size is None
         assert cape_class_instance.allowed_images == []
         assert cape_class_instance.artifact_list is None
         assert cape_class_instance.hosts == []
@@ -466,7 +465,6 @@ class TestCapeMain:
             30)
         assert cape_class_instance.connection_attempts == cape_class_instance.config.get('connection_attempts', 3)
         assert cape_class_instance.timeout == cape_class_instance.config.get('rest_timeout_in_seconds', 150)
-        assert cape_class_instance.max_report_size == cape_class_instance.config.get('max_report_size', 275000000)
         assert cape_class_instance.allowed_images == cape_class_instance.config.get('allowed_images', [])
 
     @staticmethod
@@ -844,14 +842,13 @@ class TestCapeMain:
         ]
     )
     def test_query_report(task_id, fmt, status_code, headers, report_data, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, ReportSizeExceeded, MissingCapeReportException, \
+        from cape.cape_main import CAPE, MissingCapeReportException, \
             CapeTimeoutException, CapeTask
         from requests import Session, exceptions, ConnectionError
         from json import dumps
 
         # Prerequisites before we can mock query_report response
         cape_class_instance.session = Session()
-        cape_class_instance.max_report_size = cape_class_instance.config["max_report_size"]
 
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
@@ -869,10 +866,7 @@ class TestCapeMain:
                 else:
                     m.get(cape_task.query_report_url % task_id + fmt + '/zip/', headers=headers,
                           json=report_data, status_code=status_code)
-                    if int(headers["Content-Length"]) > cape_class_instance.max_report_size:
-                        with pytest.raises(ReportSizeExceeded):
-                            cape_class_instance.query_report(cape_task, fmt)
-                    elif status_code == 404:
+                    if status_code == 404:
                         with pytest.raises(MissingCapeReportException):
                             cape_class_instance.query_report(cape_task, fmt)
                     elif status_code != 200:
@@ -1245,10 +1239,7 @@ class TestCapeMain:
                 "no_monitor": False,
                 "custom_options": "",
                 "clock": "",
-                "max_total_size_of_uploaded_files": 0,
                 "force_sleepskip": False,
-                "take_screenshots": False,
-                "sysmon_enabled": False,
                 "simulate_user": False,
                 "deep_scan": False,
                 "package": "",
@@ -1262,10 +1253,7 @@ class TestCapeMain:
                 "no_monitor": True,
                 "custom_options": "blah",
                 "clock": "blah",
-                "max_total_size_of_uploaded_files": 1,
                 "force_sleepskip": True,
-                "take_screenshots": True,
-                "sysmon_enabled": True,
                 "simulate_user": True,
                 "deep_scan": True,
                 "package": "doc",
@@ -1281,17 +1269,13 @@ class TestCapeMain:
         kwargs = dict()
         correct_task_options = []
         correct_kwargs = dict()
-        file_ext = ""
 
         timeout = params["analysis_timeout_in_seconds"]
         arguments = params["arguments"]
         no_monitor = params["no_monitor"]
         custom_options = params["custom_options"]
         correct_kwargs["clock"] = params["clock"]
-        max_total_size_of_uploaded_files = params["max_total_size_of_uploaded_files"]
         force_sleepskip = params["force_sleepskip"]
-        take_screenshots = params["take_screenshots"]
-        sysmon_enabled = params["sysmon_enabled"]
         simulate_user = params["simulate_user"]
         package = params["package"]
         dump_memory = params["dump_memory"]
@@ -1302,22 +1286,14 @@ class TestCapeMain:
         else:
             correct_kwargs['enforce_timeout'] = False
             correct_kwargs['timeout'] = ANALYSIS_TIMEOUT
-        if not sysmon_enabled:
-            correct_task_options.append("sysmon=0")
         if arguments:
             correct_task_options.append(f"arguments={arguments}")
         if no_monitor:
             correct_task_options.append("free=yes")
-        if max_total_size_of_uploaded_files:
-            correct_task_options.append(f"max_total_size_of_uploaded_files={max_total_size_of_uploaded_files}")
         if force_sleepskip:
             correct_task_options.append("force-sleepskip=1")
-        if not take_screenshots:
-            correct_task_options.append("screenshots=0")
-        else:
-            correct_task_options.append("screenshots=1")
         if simulate_user not in [True, 'True']:
-            correct_task_options.append("human=0")
+            correct_task_options.append("nohuman=true")
 
         deep_scan = params.pop("deep_scan")
         if deep_scan:
@@ -1339,7 +1315,7 @@ class TestCapeMain:
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
         if dump_memory:
             correct_kwargs["memory"] = True
-        cape_class_instance._set_task_parameters(kwargs, file_ext, parent_section)
+        cape_class_instance._set_task_parameters(kwargs, parent_section)
         assert kwargs == correct_kwargs
 
     @staticmethod
@@ -1361,7 +1337,7 @@ class TestCapeMain:
         dll_function = params["dll_function"]
         if dll_function:
             correct_task_options.append(f'function={dll_function}')
-        correct_task_options.extend(["use_export_name=true", "max_dll_exports=5"])
+        correct_task_options.extend(["enable_multi=true", "use_export_name=true", "max_dll_exports=5"])
 
         cape_class_instance.request = dummy_request_class(**params)
         cape_class_instance._prepare_dll_submission(task_options)
