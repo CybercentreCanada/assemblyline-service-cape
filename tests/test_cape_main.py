@@ -483,7 +483,7 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_handle_specific_image", return_value=(False, {}))
         mocker.patch.object(CAPE, "_handle_specific_platform", return_value=(False, {}))
         mocker.patch.object(CAPE, "_general_flow")
-        mocker.patch.object(CAPE, "attach_ontological_result")
+        # mocker.patch.object(CAPE, "attach_ontological_result")
 
         service_task = ServiceTask(sample)
         task = Task(service_task)
