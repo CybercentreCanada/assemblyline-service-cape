@@ -42,7 +42,6 @@ config:
       x86: []
 
   # CAPE analysis configurations
-  max_file_size: 80000000
   default_analysis_timeout_in_seconds: 150
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
