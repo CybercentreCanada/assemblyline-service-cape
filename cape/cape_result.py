@@ -1431,24 +1431,51 @@ def _create_signature_result_section(
 
     # Get the evidence that supports why the signature was raised
     mark_count = 0
+    message_added = False
     for mark in signature["data"]:
-        if mark_count >= 10:
+        if mark_count >= 10 and not message_added:
             sig_res.add_section_part(
-                TextSectionBody(body=f"There were {len(signature['data']) - mark_count} marks that were not displayed.")
+                TextSectionBody(body=f"There were {len(signature['data']) - mark_count} more marks that were not displayed.")
             )
-            break
+            message_added = True
         mark_body = KVSectionBody()
         for k, v in mark.items():
+            if not v:
+                continue
             if dumps({k: v}) in sig_res.section_body.body:
                 continue
             else:
-                mark_body.set_item(k, v)
+                if mark_count < 10:
+                    mark_body.set_item(k, v)
+                _tag_mark_values(sig_res, k, v)
         if mark_body.body:
             sig_res.add_section_part(mark_body)
             mark_count += 1
 
     so_sig.update(name=name, description=description, score=translated_score)
     return sig_res
+
+
+def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
+    """
+    This method tags a given value accordingly by the key
+    :param sig_res: The signature result section
+    :param key: The mark's key
+    :param value: The mark's value for the given key
+    :return: None
+    """
+    if key.lower() in ["deletedfile", "cookie", "process", "binary"]:
+        add_tag(sig_res, "dynamic.process.file_name", value)
+    elif key.lower() in ["command"]:
+        add_tag(sig_res, "dynamic.process.command_line", value)
+    elif key.lower() in ["ip"]:
+        add_tag(sig_res, "network.dynamic.ip", value)
+    elif key.lower() in ["regkey"]:
+        add_tag(sig_res, "dynamic.registry_key", value)
+    elif key.lower() in ["http request", "url"]:
+        add_tag(sig_res, "network.dynamic.uri", value)
+    elif key.lower() in ["dynamicloader"]:
+        add_tag(sig_res, "file.pe.exports.function_name", value)
 
 
 def _write_console_output_to_file(task_id: int, marks: List[Dict[str, Any]]) -> None:
