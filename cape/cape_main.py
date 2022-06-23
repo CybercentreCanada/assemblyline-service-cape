@@ -1,7 +1,6 @@
 from email.header import decode_header
 from json import JSONDecodeError, loads
 import os
-from pefile import PE, PEFormatError
 from random import choice, random
 from re import compile, match
 from sys import maxsize, setrecursionlimit
@@ -26,11 +25,11 @@ from assemblyline.common.identify_defaults import type_to_extension, trusted_mim
 from assemblyline.common.exceptions import RecoverableError, ChainException
 # from assemblyline.odm.models.ontology.types.sandbox import Sandbox
 
-APIv2_BASE_ENDPOINT = "apiv2"
-
 from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
     SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS
 # from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+
+APIv2_BASE_ENDPOINT = "apiv2"
 
 HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
@@ -114,11 +113,6 @@ class CapeProcessingException(Exception):
 
 class CapeVMBusyException(Exception):
     """Exception class for busy VMs"""
-    pass
-
-
-class ReportSizeExceeded(Exception):
-    """Exception class for reports that are too large"""
     pass
 
 
@@ -208,7 +202,6 @@ class CAPE(ServiceBase):
         self.connection_timeout_in_seconds: Optional[int] = None
         self.timeout: Optional[int] = None
         self.connection_attempts: Optional[int] = None
-        self.max_report_size: Optional[int] = None
         self.allowed_images: List[str] = []
         self.artifact_list: Optional[List[Dict[str, str]]] = None
         self.hosts: List[Dict[str, Any]] = []
@@ -227,7 +220,6 @@ class CAPE(ServiceBase):
             "connection_timeout_in_seconds", DEFAULT_CONNECTION_TIMEOUT)
         self.timeout = self.config.get("rest_timeout_in_seconds", DEFAULT_REST_TIMEOUT)
         self.connection_attempts = self.config.get("connection_attempts", DEFAULT_CONNECTION_ATTEMPTS)
-        self.max_report_size = self.config.get('max_report_size', 275000000)
         self.allowed_images = self.config.get("allowed_images", [])
 
         try:
@@ -393,7 +385,7 @@ class CAPE(ServiceBase):
             parent_section = ResultSection(f"Reboot Analysis -> {parent_section.title_text}")
             self.file_res.add_section(parent_section)
         else:
-            self._set_task_parameters(kwargs, file_ext, parent_section)
+            self._set_task_parameters(kwargs, parent_section)
             host_to_use = self._determine_host_to_use(hosts)
 
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
@@ -688,10 +680,7 @@ class CAPE(ServiceBase):
             temp_report = SpooledTemporaryFile()
             with self.session.get(cape_task.query_report_url % cape_task.id + fmt + '/zip/',
                                   headers=cape_task.auth_header, timeout=self.timeout, stream=True) as resp:
-                if int(resp.headers["Content-Length"]) > self.max_report_size:
-                    # BAIL, TOO BIG and there is a strong chance it will crash the Docker container
-                    resp.status_code = 413  # Request Entity Too Large
-                elif resp.status_code == 200:
+                if resp.status_code == 200:
                     for chunk in resp.iter_content(chunk_size=8192):
                         temp_report.write(chunk)
         except requests.exceptions.Timeout:
@@ -706,11 +695,6 @@ class CAPE(ServiceBase):
                 # most common cause of getting to here seems to be odd/non-ascii filenames, where the CAPE agent
                 # inside the VM dies
                 raise MissingCapeReportException("Task or report not found")
-            elif resp.status_code == 413:
-                msg = f"CAPE report (type={fmt}) size is {int(resp.headers['Content-Length'])} for task " \
-                      f"#{cape_task.id} which is bigger than the allowed size of {self.max_report_size}"
-                self.log.error(msg)
-                raise ReportSizeExceeded(msg)
             else:
                 msg = f"Failed to query report (type={fmt}). Status code: {resp.status_code}. There is a " \
                       f"strong chance that this is due to the large size of file attempted to retrieve via API request."
@@ -1012,12 +996,11 @@ class CAPE(ServiceBase):
         self.file_name = original_ext[0] + file_ext
         return file_ext
 
-    def _set_task_parameters(self, kwargs: Dict[str, Any], file_ext: str, parent_section: ResultSection) -> None:
+    def _set_task_parameters(self, kwargs: Dict[str, Any], parent_section: ResultSection) -> None:
         """
         This method sets the specific details about the run, through the kwargs and the task_options
         :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
         about the run
-        :param file_ext: The file extension of the file to be submitted
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: None
         """
@@ -1044,19 +1027,13 @@ class CAPE(ServiceBase):
 
         custom_options = self.request.get_param("custom_options")
         kwargs["clock"] = self.request.get_param("clock")
-        max_total_size_of_uploaded_files = self.request.get_param("max_total_size_of_uploaded_files")
         force_sleepskip = self.request.get_param("force_sleepskip")
-        take_screenshots = self.request.get_param("take_screenshots")
-        sysmon_enabled = self.request.get_param("sysmon_enabled")
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
 
         if "dll" in self.request.file_type:
             self._prepare_dll_submission(task_options)
-
-        if not sysmon_enabled:
-            task_options.append("sysmon=0")
 
         if arguments:
             task_options.append(f"arguments={arguments}")
@@ -1069,19 +1046,11 @@ class CAPE(ServiceBase):
         if no_monitor:
             task_options.append("free=yes")
 
-        if max_total_size_of_uploaded_files:
-            task_options.append(f"max_total_size_of_uploaded_files={max_total_size_of_uploaded_files}")
-
         if force_sleepskip:
             task_options.append("force-sleepskip=1")
 
-        if not take_screenshots:
-            task_options.append("screenshots=0")
-        else:
-            task_options.append("screenshots=1")
-
         if not simulate_user:
-            task_options.append("human=0")
+            task_options.append("nohuman=true")
 
         # If deep_scan, then get 100 HH files of all types
         if self.request.deep_scan:
@@ -1161,6 +1130,7 @@ class CAPE(ServiceBase):
         # Do DLL specific stuff
         if dll_function:
             task_options.append(f'function={dll_function}')
+        task_options.append('enable_multi=true')
         task_options.append('use_export_name=true')
         task_options.append(f"max_dll_exports={self.config['max_dll_exports_exec']}")
 
@@ -1405,12 +1375,9 @@ class CAPE(ServiceBase):
             "macros": "Macros found during analysis",
         }
 
-        # Get the max size for extract files, used a few times after this
-        max_extracted_size = self.config.get('max_file_size', 80000000)
-        zip_obj_members = [x.filename for x in zip_obj.filelist if x.file_size < max_extracted_size]
         task_dir = os.path.join(self.working_directory, f"{task_id}")
         for key, value in zip_file_map.items():
-            key_hits = [x for x in zip_obj_members if x.startswith(key)]
+            key_hits = [x.filename for x in zip_obj.filelist if x.filename.startswith(key)]
             key_hits.sort()
 
             # We are going to get a snippet of the first 256 bytes of these files and

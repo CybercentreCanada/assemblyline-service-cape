@@ -42,7 +42,6 @@ config:
       x86: []
 
   # CAPE analysis configurations
-  max_file_size: 80000000
   default_analysis_timeout_in_seconds: 150
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
@@ -50,7 +49,6 @@ config:
 
   # CAPE reporting configurations
   recursion_limit: 10000
-  max_report_size: 275000000
 
   # INetSim specifications
   random_ip_range: 192.0.2.0/24
@@ -97,16 +95,6 @@ submission_params:
     type: bool
     value: true
 
-  - default: true
-    name: sysmon_enabled
-    type: bool
-    value: true
-
-  - default: false
-    name: take_screenshots
-    type: bool
-    value: false
-
   - default: false
     name: reboot
     type: bool
@@ -136,11 +124,6 @@ submission_params:
     name: specific_machine
     type: str
     value: ""
-
-  - default: 134217728
-    name: max_total_size_of_uploaded_files
-    type: int
-    value: 134217728
 
   - default: "none"
     name: platform
