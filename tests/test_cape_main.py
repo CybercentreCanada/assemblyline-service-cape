@@ -423,6 +423,26 @@ class TestModule:
             for word in split_words:
                 assert re.match(pattern, word)
 
+    @staticmethod
+    def test_tasks_are_similar():
+        from cape.cape_main import CapeTask, tasks_are_similar, ANALYSIS_FAILED
+
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+
+        item_to_find_1 = CapeTask("blahblah", host_to_use, timeout=123, custom="", package="blah", route="blah", options="blah", memory="blah", enforce_timeout="blah", tags="blah", clock="blah")
+
+        item_to_find_2 = CapeTask("blah", host_to_use, timeout=123, custom="", package="blah", route="blah", options="blah", memory="blah", enforce_timeout="blah", tags="blah", clock="blah")
+
+        items = [
+            {"status": ANALYSIS_FAILED},
+            {"status": "success", "target": "blah", "timeout": 321, "custom": "", "package": "blah", "route": "blah", "options": "blah", "memory": "blah", "enforce_timeout": "blah", "tags": ["blah"], "clock": "blah"},
+            {"status": "success", "target": "blah", "timeout": 123, "custom": "", "package": "blah", "route": "blah", "options": "blah", "memory": "blah", "enforce_timeout": "blah", "tags": ["blah"], "clock": "blah"},
+        ]
+
+        assert tasks_are_similar(item_to_find_1, items) is False
+        assert tasks_are_similar(item_to_find_2, items) is True
+
+
 
 class TestCapeMain:
     @classmethod
@@ -447,7 +467,6 @@ class TestCapeMain:
         assert cape_class_instance.file_res is None
         assert cape_class_instance.request is None
         assert cape_class_instance.session is None
-        assert cape_class_instance.ssdeep_match_pct is None
         assert cape_class_instance.timeout is None
         assert cape_class_instance.allowed_images == []
         assert cape_class_instance.artifact_list is None
@@ -458,8 +477,6 @@ class TestCapeMain:
     def test_start(cape_class_instance, dummy_api_interface_class, mocker):
         mocker.patch.object(cape_class_instance, "get_api_interface", return_value=dummy_api_interface_class)
         cape_class_instance.start()
-        assert cape_class_instance.ssdeep_match_pct == int(
-            cape_class_instance.config.get('dedup_similar_percent', 40))
         assert cape_class_instance.connection_timeout_in_seconds == cape_class_instance.config.get(
             'connection_timeout_in_seconds',
             30)
@@ -775,6 +792,35 @@ class TestCapeMain:
                 else:
                     with pytest.raises(RetryError):
                         cape_class_instance.poll_report(cape_task, parent_section)
+
+    @staticmethod
+    def test_sha256_check(cape_class_instance, mocker):
+        from requests import Session, exceptions, ConnectionError
+        from cape.cape_main import CapeTimeoutException, CAPE, CapeTask
+
+        sha256 = "blah"
+        cape_class_instance.session = Session()
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        correct_rest_response = {"data": [{"id": 1}]}
+
+        with requests_mock.Mocker() as m:
+            m.get(cape_task.sha256_search_url % sha256, exc=exceptions.Timeout)
+            with pytest.raises(CapeTimeoutException):
+                cape_class_instance.sha256_check(sha256, cape_task)
+            m.get(cape_task.sha256_search_url % sha256, exc=ConnectionError)
+            with pytest.raises(Exception):
+                cape_class_instance.sha256_check(sha256, cape_task)
+
+            with mocker.patch('cape.cape_main.tasks_are_similar', return_value=True):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is True
+                assert cape_task.id == 1
+
+                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=500)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is False
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1212,6 +1258,14 @@ class TestCapeMain:
         else:
             assert cape_class_instance._assign_file_extension(kwargs) == ""
             assert cape_class_instance.file_name == correct_file_name
+
+    @staticmethod
+    def test_set_hosts_that_contain_image(cape_class_instance, mocker):
+        mocker.patch.object(cape_class_instance, "_does_image_exist", return_value=True)
+        cape_class_instance.hosts = [{"machines": None, "ip": "blah"}]
+        relevant_images = {"blah": []}
+        cape_class_instance._set_hosts_that_contain_image("blah", relevant_images)
+        assert relevant_images["blah"] == ["blah"]
 
     @staticmethod
     @pytest.mark.parametrize(

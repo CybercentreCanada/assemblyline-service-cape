@@ -198,7 +198,6 @@ class CAPE(ServiceBase):
         self.file_res: Optional[Result] = None
         self.request: Optional[ServiceRequest] = None
         self.session: Optional[requests.sessions.Session] = None
-        self.ssdeep_match_pct: Optional[int] = None
         self.connection_timeout_in_seconds: Optional[int] = None
         self.timeout: Optional[int] = None
         self.connection_attempts: Optional[int] = None
@@ -215,7 +214,6 @@ class CAPE(ServiceBase):
             host["auth_header"] = {'Authorization': f"Bearer {host['token']}"}
             del host["token"]
         self.hosts = self.config["remote_host_details"]["hosts"]
-        self.ssdeep_match_pct = int(self.config.get("dedup_similar_percent", 40))
         self.connection_timeout_in_seconds = self.config.get(
             "connection_timeout_in_seconds", DEFAULT_CONNECTION_TIMEOUT)
         self.timeout = self.config.get("rest_timeout_in_seconds", DEFAULT_REST_TIMEOUT)
@@ -1365,14 +1363,15 @@ class CAPE(ServiceBase):
 
         # Extract buffers, screenshots and anything else
         zip_file_map = {
-            "CAPE": "CAPE extracted file",
+            # "CAPE": "CAPE extracted file",
             "shots": "Screenshots from CAPE analysis",
             "dump.pcap": "All traffic from TCPDUMP",
-            "sysmon/sysmon.evtx": "Sysmon Logging Captured",
+            "evtx/evtx.zip": "Sysmon Logging Captured",
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
-            "procdump": "Dumps of process memory",
-            "macros": "Macros found during analysis",
+            # "procdump": "Dumps of process memory",
+            # "macros": "Macros found during analysis",
+            "sum.pcap": "All traffic from PolarProxy and TCPDUMP",
         }
 
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -1794,12 +1793,7 @@ def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submi
         same_timeout = task_that_has_been_submitted["timeout"] == task_to_be_submitted["timeout"]
         same_custom = task_that_has_been_submitted["custom"] == task_to_be_submitted.get("custom", "")
         same_package = task_that_has_been_submitted["package"] == task_to_be_submitted.get("package", "")
-        if task_that_has_been_submitted["route"] == "false":
-            same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "") or \
-                "route=none" in task_to_be_submitted.get("options", "")
-        else:
-            same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "") or \
-                f"route={task_that_has_been_submitted['route']}" in task_to_be_submitted.get("options", "")
+        same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "")
         same_options = task_that_has_been_submitted["options"] == task_to_be_submitted.get("options", "")
         same_memory = task_that_has_been_submitted["memory"] == task_to_be_submitted.get("memory", False)
         # TODO: This value is somehow set to True when we want it to be false
@@ -1808,9 +1802,7 @@ def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submi
         # https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/core/database.py#L1297:L1314
         same_tags = [tag for tag in task_that_has_been_submitted["tags"] if tag not in
             [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]] == [task_to_be_submitted.get("tags", "")]
-        same_day_submission = task_that_has_been_submitted["clock"] \
-            and task_that_has_been_submitted["added_on"] == task_that_has_been_submitted["clock"] != ""
-
-        if same_file_name and same_timeout and same_custom and same_package and same_route and same_options and same_memory and same_enforce_timeout and same_tags and same_day_submission:
+        same_clock = task_to_be_submitted["clock"] == task_that_has_been_submitted["clock"]
+        if same_file_name and same_timeout and same_custom and same_package and same_route and same_options and same_memory and same_enforce_timeout and same_tags and same_clock:
             return True
     return False
