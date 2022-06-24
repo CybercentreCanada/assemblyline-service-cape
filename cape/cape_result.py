@@ -1337,8 +1337,7 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
         _ = add_tag(sig_res, "network.dynamic.uri", value)
     elif key.lower() in ["dynamicloader"]:
         _ = add_tag(sig_res, "file.pe.exports.function_name", value)
-
-    if key.endswith("_exe"):
+    elif key.endswith("_exe"):
         _ = add_tag(sig_res, "dynamic.process.file_name", key.replace("_", "."))
 
 
