@@ -1363,16 +1363,17 @@ class CAPE(ServiceBase):
 
         # Extract buffers, screenshots and anything else
         zip_file_map = {
-            # "CAPE": "CAPE extracted file",
             "shots": "Screenshots from CAPE analysis",
             "dump.pcap": "All traffic from TCPDUMP",
             "evtx/evtx.zip": "Sysmon Logging Captured",
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
-            # "procdump": "Dumps of process memory",
-            # "macros": "Macros found during analysis",
             "sum.pcap": "All traffic from PolarProxy and TCPDUMP",
         }
+        if self.config["extract_cape_dumps"]:
+            zip_file_map["CAPE"] = "CAPE extracted file"
+            zip_file_map["procdump"] = "Dumps of process memory"
+            zip_file_map["macros"] = "Macros found during analysis"
 
         task_dir = os.path.join(self.working_directory, f"{task_id}")
         for key, value in zip_file_map.items():

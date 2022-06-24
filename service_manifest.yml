@@ -46,15 +46,13 @@ config:
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
   reboot_supported: false
+  extract_cape_dumps: false
 
   # CAPE reporting configurations
   recursion_limit: 10000
 
   # INetSim specifications
   random_ip_range: 192.0.2.0/24
-
-  # Assemblyline service specifications
-  dedup_similar_percent: 40
 
 submission_params:
   - default: 0
@@ -64,11 +62,11 @@ submission_params:
 
   # value = auto + auto_all + all + allowed_images
   # This has the third-highest precedence when submitting a file
-  - default: "auto"
+  - default: "win10x64"
     name: specific_image
     type: list
     value: "auto"
-    list: ["auto", "auto_all", "all"]
+    list: ["auto", "auto_all", "all", "win10x64"]
 
   - default: ""
     name: dll_function
