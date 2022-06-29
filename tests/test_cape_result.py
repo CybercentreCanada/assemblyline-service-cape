@@ -146,7 +146,7 @@ class TestCapeResult:
             ({"errors": ["BLAH", "BLAH"], "log": ""}, "BLAH\nBLAH"),
             ({"errors": [], "log": "blah"}, None),
             ({"errors": [], "log": "ERROR: blah"}, "Blah"),
-            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "Blah\nBlah"),
+            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "Blah"),
         ],
     )
     def test_process_debug(debug, correct_body):
@@ -219,7 +219,7 @@ class TestCapeResult:
                     "pobjectid": {"guid": None, "tag": None, "treeid": None, "time_observed": None, "processtree": None},
                     "pimage": None,
                     "pcommand_line": None,
-                    "ppid": None,
+                    "ppid": 1,
                     "pid": 0,
                     "image": "blah",
                     "command_line": "blah",
@@ -2143,6 +2143,10 @@ class TestCapeResult:
             ("setwindowshookexw", "process: blah", {"dynamic.process.file_name": ["blah"]}),
             # Standard key for dynamic.process.file_name, process: and delimiter in value
             ("setwindowshookexw", "process: blah -> blahblah", {"dynamic.process.file_name": ["blah"]}),
+            # Standard key for dynamic.process.file_name, delimiter in value, special case
+            ("file", "C:\\blah\\blah\\blah", {"dynamic.process.file_name": ["C:\\blah\\blah\\blah"]}),
+            # Standard key for dynamic.process.file_name, delimiter in value, order of delimiters matters
+            ("process", "regsrv32.exe, PID 123", {"dynamic.process.file_name": ["regsrv32.exe"]}),
             # Standard key for dynamic.process.command_line, nothing special with value
             ("command", "blah", {"dynamic.process.command_line": ["blah"]}),
             # Standard key for network.dynamic.ip, nothing special with value

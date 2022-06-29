@@ -1365,7 +1365,8 @@ class CAPE(ServiceBase):
         zip_file_map = {
             "shots": "Screenshots from CAPE analysis",
             "dump.pcap": "All traffic from TCPDUMP",
-            "evtx/evtx.zip": "Sysmon Logging Captured",
+            # This description is relevant to the evtx files within the zip
+            "evtx/evtx.zip": "EVTX File Generated During Analysis",
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
             "sum.pcap": "All traffic from PolarProxy and TCPDUMP",
@@ -1396,6 +1397,24 @@ class CAPE(ServiceBase):
                         nh.update(request_body=contents)
                     elif nh.response_body_path == f:
                         nh.update(response_body=contents)
+                continue
+            # We receive the evtx.zip file and want to extract the files found inside
+            elif key == "evtx/evtx.zip" and len(key_hits) == 1:
+                destination_file_path = os.path.join(task_dir, key)
+                zip_obj.extract(key, path=task_dir)
+                evtx_zip_obj = ZipFile(destination_file_path)
+                for x in evtx_zip_obj.filelist:
+                    evtx_file_path = os.path.join(task_dir, x.filename)
+                    evtx_zip_obj.extract(x.filename, path=task_dir)
+                    artifact = {
+                        "name": x.filename,
+                        "path": evtx_file_path,
+                        "description": value,
+                        "to_be_extracted": True
+                    }
+                    self.artifact_list.append(artifact)
+                    self.log.debug(f"Adding extracted file for task {task_id}: {x.filename}")
+                os.remove(destination_file_path)
                 continue
 
             for f in key_hits:
