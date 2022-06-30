@@ -1418,6 +1418,9 @@ class CAPE(ServiceBase):
                 continue
 
             for f in key_hits:
+                # No empty files!
+                if "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" in f:
+                    continue
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
                 file_name = f"{task_id}_{f}"
