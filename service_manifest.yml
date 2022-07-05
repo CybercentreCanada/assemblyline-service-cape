@@ -62,11 +62,11 @@ submission_params:
 
   # value = auto + auto_all + all + allowed_images
   # This has the third-highest precedence when submitting a file
-  - default: "win10x64"
+  - default: "auto"
     name: specific_image
     type: list
     value: "auto"
-    list: ["auto", "auto_all", "all", "win10x64"]
+    list: ["auto", "auto_all", "all"]
 
   - default: ""
     name: dll_function
@@ -130,10 +130,10 @@ submission_params:
     list: ["none", "windows", "linux"]
 
   # https://capev2.readthedocs.io/en/latest/installation/host/routing.html?highlight=per-analysis
-  - default: "inetsim"
+  - default: "none"
     name: routing
     type: list
-    value: none
+    value: "none"
     list: ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
   - default: false
