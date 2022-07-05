@@ -5,7 +5,7 @@ from logging import getLogger
 from re import match as re_match, search
 from typing import Any, Dict, List, Optional, Tuple
 
-from assemblyline.common.str_utils import safe_str
+from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.net import is_valid_ip
@@ -246,10 +246,15 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
 
     # Including error that is not reported conveniently by CAPE for whatever reason
     debug_log = debug["log"].split("\n")
+    unique_errors: set[str] = set()
     for analyzer_log in debug_log:
         if "error:" in analyzer_log.lower():  # Hoping that CAPE logs as ERROR
-            split_log = analyzer_log.lower().split("error:")
-            error_res.add_line(split_log[1].lstrip().capitalize().rstrip("\n"))
+            split_log = analyzer_log.lower().split("error:")[1].strip()
+            if split_log in unique_errors:
+                continue
+            else:
+                unique_errors.add(split_log)
+            error_res.add_line(split_log.capitalize())
 
     if error_res.body and len(error_res.body) > 0:
         parent_result_section.add_subsection(error_res)
@@ -570,6 +575,7 @@ def process_network(
                 TableRow(
                     process_name=f"{http_call.get_process_image()} ({http_call.get_process_pid()})",
                     request=http_call.request_headers,
+                    uri=http_call.request_uri,
                 )
             )
         if remote_file_access_sec.heuristic:
@@ -1289,6 +1295,8 @@ def _create_signature_result_section(
                 continue
             else:
                 if mark_count < 10:
+                    if len(v) > 512:
+                        v = truncate(v, 512)
                     mark_body.set_item(k, v)
                 _tag_mark_values(sig_res, k, v)
         if mark_body.body:
@@ -1307,18 +1315,21 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
     :param value: The mark's value for the given key
     :return: None
     """
-    delimiters = [":", "->", " ", "(", ","]
-    if key.lower() in ["deletedfile", "cookie", "process", "binary", "file_executed", "data", "copy", "office_martian", "dead_binary", "dropped_executable", "file", "service_path", "getasynckeystate", "setwindowshookexw"]:
+    delimiters = [":", "->", ",", " ", "("]
+    if key.lower() in ["cookie", "process", "binary", "data", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
         if "process: " in value.lower():
             value = value.lower().replace("process: ", "")
         if any(delimiter in value for delimiter in delimiters):
             for delimiter in delimiters:
                 if delimiter in value:
+                    # Special case to not split if : is present but it's a file path with a drive
+                    if delimiter == ":" and ":\\" in value:
+                        continue
                     split_values = value.split(delimiter)
                     value = split_values[0].strip()
                     break
         _ = add_tag(sig_res, "dynamic.process.file_name", value)
-    elif key.lower() in ["command", "commandline_executed"]:
+    elif key.lower() in ["command", "service_path"]:
         _ = add_tag(sig_res, "dynamic.process.command_line", value)
     elif key.lower() in ["ip"]:
         if ":" in value:
