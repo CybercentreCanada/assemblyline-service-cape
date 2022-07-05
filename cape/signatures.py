@@ -662,6 +662,7 @@ CAPE_SIGNATURES = {
     "heapspray_js": "Exploit",
     "hides_recycle_bin_icon": "Ransomware",
     "http_request": "Network",
+    "https_urls": "Network",
     "ie_disables_process_tab": "Banker",
     "ie_martian_children": "Martians",
     "infostealer_bitcoin": "Infostealer",
