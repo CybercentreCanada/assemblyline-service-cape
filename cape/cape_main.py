@@ -338,7 +338,7 @@ class CAPE(ServiceBase):
             self._general_flow(kwargs, file_ext, parent_section, hosts, so)
 
         # Adding sandbox artifacts using the SandboxOntology helper class
-        artifact_section = SandboxOntology.handle_artifacts(self.artifact_list, self.request, collapsed=True)
+        artifact_section = SandboxOntology.handle_artifacts(self.artifact_list, self.request, collapsed=True, injection_heur_id=32)
         if artifact_section:
             self.file_res.add_section(artifact_section)
 
@@ -1365,7 +1365,8 @@ class CAPE(ServiceBase):
         zip_file_map = {
             "shots": "Screenshots from CAPE analysis",
             "dump.pcap": "All traffic from TCPDUMP",
-            "evtx/evtx.zip": "Sysmon Logging Captured",
+            # This description is relevant to the evtx files within the zip
+            "evtx/evtx.zip": "EVTX File Generated During Analysis",
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
             "sum.pcap": "All traffic from PolarProxy and TCPDUMP",
@@ -1397,8 +1398,29 @@ class CAPE(ServiceBase):
                     elif nh.response_body_path == f:
                         nh.update(response_body=contents)
                 continue
+            # We receive the evtx.zip file and want to extract the files found inside
+            elif key == "evtx/evtx.zip" and len(key_hits) == 1:
+                destination_file_path = os.path.join(task_dir, key)
+                zip_obj.extract(key, path=task_dir)
+                evtx_zip_obj = ZipFile(destination_file_path)
+                for x in evtx_zip_obj.filelist:
+                    evtx_file_path = os.path.join(task_dir, x.filename)
+                    evtx_zip_obj.extract(x.filename, path=task_dir)
+                    artifact = {
+                        "name": x.filename,
+                        "path": evtx_file_path,
+                        "description": value,
+                        "to_be_extracted": True
+                    }
+                    self.artifact_list.append(artifact)
+                    self.log.debug(f"Adding extracted file for task {task_id}: {x.filename}")
+                os.remove(destination_file_path)
+                continue
 
             for f in key_hits:
+                # No empty files!
+                if "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" in f:
+                    continue
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
                 file_name = f"{task_id}_{f}"

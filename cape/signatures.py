@@ -672,7 +672,7 @@ CAPE_SIGNATURES = {
     "infostealer_im": "Infostealer",
     "infostealer_keylog": "Infostealer",
     "infostealer_mail": "Infostealer",
-    "injection_createremotethread": "Injection",
+    "injection_create_remote_thread": "Injection",
     "injection_explorer": "Injection",
     "injection_needextension": "Injection",
     "injection_network_traffic": "Injection",
