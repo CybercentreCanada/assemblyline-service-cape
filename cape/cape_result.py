@@ -109,8 +109,8 @@ GUEST_LOST_CONNECTIVITY = 5
 SIGNATURES_SECTION_TITLE = "Signatures"
 ENCRYPTED_BUFFER_LIMIT = 25
 SYSTEM_PROCESS_ID = 4
-
 MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
+BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
 
 
 # noinspection PyBroadException
@@ -201,7 +201,7 @@ def generate_al_result(
         process_hollowshunter(hollowshunter, al_result, process_map)
 
     if process_map:
-        process_decrypted_buffers(process_map, al_result)
+        process_buffers(process_map, al_result)
 
 
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, so: SandboxOntology) -> None:
@@ -587,8 +587,6 @@ def process_network(
             network_res.add_subsection(http_sec)
     else:
         _process_non_http_traffic_over_http(network_res, unique_netflows)
-
-    _extract_iocs_from_encrypted_buffers(process_map, network_res)
 
     if len(network_res.subsections) > 0:
         parent_result_section.add_subsection(network_res)
@@ -1135,22 +1133,21 @@ def process_hollowshunter(
         parent_result_section.add_subsection(hollowshunter_res)
 
 
-def process_decrypted_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_section: ResultSection) -> None:
+def process_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_section: ResultSection) -> None:
     """
-    This method checks for any decrypted buffers found in the process map, and adds them to the Assemblyline report
-    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
+    This method checks for any buffers found in the process map, and adds them to the Assemblyline report
+    :param process_map: A map of process IDs to process names, network calls, and buffers
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :return:
     """
-    buffer_res = ResultTableSection("Decrypted Buffers")
-    buffer_ioc_table = ResultTableSection("Decrypted Buffer IOCs")
+    buffer_res = ResultTableSection("Buffers", auto_collapse=True)
+    buffer_ioc_table = ResultTableSection("Buffer IOCs")
     buffer_body = []
 
-    for process in process_map:
-        buffer_calls = process_map[process]["decrypted_buffers"]
-        if not buffer_calls:
-            continue
-        for call in buffer_calls:
+    for process, process_details in process_map.items():
+        count_per_source_per_process = 0
+        process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
+        for call in process_details.get("decrypted_buffers", []):
             buffer = ""
             if call.get("CryptDecrypt"):
                 buffer = call["CryptDecrypt"]["buffer"]
@@ -1159,8 +1156,22 @@ def process_decrypted_buffers(process_map: Dict[int, Dict[str, Any]], parent_res
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table)
-            if {"Decrypted Buffer": safe_str(buffer)} not in buffer_body:
-                buffer_body.append({"Decrypted Buffer": safe_str(buffer)})
+            table_row = {"Process": process_name_to_be_displayed, "Source": "Windows API", "Buffer": safe_str(buffer)}
+            if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
+                buffer_body.append(table_row)
+                count_per_source_per_process += 1
+
+        count_per_source_per_process = 0
+        for network_call in process_details.get("network_calls", []):
+            for api_call in BUFFER_API_CALLS:
+                if api_call in network_call:
+                    buffer = network_call[api_call]["buffer"]
+                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
+                    table_row = {"Process": process_name_to_be_displayed, "Source": "Network", "Buffer": safe_str(buffer)}
+                    if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
+                        buffer_body.append(table_row)
+                        count_per_source_per_process += 1
+
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
         if buffer_ioc_table.body:
@@ -1350,25 +1361,6 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
         _ = add_tag(sig_res, "file.pe.exports.function_name", value)
     elif key.endswith("_exe"):
         _ = add_tag(sig_res, "dynamic.process.file_name", key.replace("_", "."))
-
-
-def _extract_iocs_from_encrypted_buffers(process_map: Dict[int, Dict[str, Any]], network_res: ResultSection) -> None:
-    """
-    Extract IOCs from encrypted buffers observed during network analysis
-    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
-    :param network_res: The result section containing details about the network behaviour
-    :return: None
-    """
-    encrypted_buffer_ioc_table = ResultTableSection("IOCs found in encrypted buffers used in network calls")
-    for _, process_details in process_map.items():
-        for network_call in process_details["network_calls"]:
-            for api_call in BUFFER_API_CALLS:
-                if api_call in network_call:
-                    buffer = network_call[api_call]["buffer"]
-                    extract_iocs_from_text_blob(buffer, encrypted_buffer_ioc_table)
-    if encrypted_buffer_ioc_table.body:
-        encrypted_buffer_ioc_table.set_heuristic(1006)
-        network_res.add_subsection(encrypted_buffer_ioc_table)
 
 
 def _process_non_http_traffic_over_http(network_res: ResultSection, unique_netflows: List[Dict[str, Any]]) -> None:

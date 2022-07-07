@@ -344,6 +344,9 @@ heuristics:
     attack_id: T1055
     name: Injection
     score: 0
+    signature_score_map:
+      hollowshunter_exe: 1000
+      hollowshunter_dll: 100
     filetype: '*'
     description: Input is not properly validated and gets processed by an interpreter as part of a command or query.
 
