@@ -1676,15 +1676,15 @@ class TestCapeMain:
             "description": 'HollowsHunter report (json)', "to_be_extracted": False}
         assert cape_class_instance.artifact_list[2] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.exe",
-            'name': f'{task_id}_hollowshunter/hh_process_123_blah.exe', "description": 'HollowsHunter Dump',
+            'name': f'{task_id}_hollowshunter/hh_process_123_blah.exe', "description": 'Memory Dump',
             "to_be_extracted": True}
         assert cape_class_instance.artifact_list[3] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.shc",
-            'name': f'{task_id}_hollowshunter/hh_process_123_blah.shc', "description": 'HollowsHunter Dump',
+            'name': f'{task_id}_hollowshunter/hh_process_123_blah.shc', "description": 'Memory Dump',
             "to_be_extracted": True}
         assert cape_class_instance.artifact_list[4] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.dll",
-            'name': f'{task_id}_hollowshunter/hh_process_123_blah.dll', "description": 'HollowsHunter Dump',
+            'name': f'{task_id}_hollowshunter/hh_process_123_blah.dll', "description": 'Memory Dump',
             "to_be_extracted": True}
 
     @staticmethod
