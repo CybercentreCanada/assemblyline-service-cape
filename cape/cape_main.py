@@ -1363,15 +1363,15 @@ class CAPE(ServiceBase):
 
         # Extract buffers, screenshots and anything else
         zip_file_map = {
-            "shots": "Screenshots from CAPE analysis",
-            "dump.pcap": "All traffic from TCPDUMP",
+            "shots": "Screenshot captured during analysis",
+            "dump.pcap": "TCPDUMP captured during analysis",
             # This description is relevant to the evtx files within the zip
-            "evtx/evtx.zip": "EVTX File Generated During Analysis",
+            "evtx/evtx.zip": "EVTX generated during analysis",
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
-            "sum.pcap": "All traffic from PolarProxy and TCPDUMP",
+            "sum.pcap": "TCPDUMP captured during analysis",
         }
-        if self.config["extract_cape_dumps"]:
+        if self.request.deep_scan and self.config["extract_cape_dumps"]:
             zip_file_map["CAPE"] = "CAPE extracted file"
             zip_file_map["procdump"] = "Dumps of process memory"
             zip_file_map["macros"] = "Macros found during analysis"
@@ -1407,13 +1407,13 @@ class CAPE(ServiceBase):
                     evtx_file_path = os.path.join(task_dir, x.filename)
                     evtx_zip_obj.extract(x.filename, path=task_dir)
                     artifact = {
-                        "name": x.filename,
+                        "name": f"{task_id}_{x.filename}",
                         "path": evtx_file_path,
                         "description": value,
                         "to_be_extracted": True
                     }
                     self.artifact_list.append(artifact)
-                    self.log.debug(f"Adding extracted file for task {task_id}: {x.filename}")
+                    self.log.debug(f"Adding extracted file for task {task_id}: {task_id}_{x.filename}")
                 os.remove(destination_file_path)
                 continue
 
@@ -1461,7 +1461,7 @@ class CAPE(ServiceBase):
 
         hh_tuples = [
             (report_list, "HollowsHunter report (json)", False),
-            (dump_list, "HollowsHunter Dump", True),
+            (dump_list, "Memory Dump", True),
         ]
         for hh_tuple in hh_tuples:
             paths, desc, to_be_extracted = hh_tuple

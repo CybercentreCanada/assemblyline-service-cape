@@ -65,7 +65,7 @@ class TestCapeResult:
         mocker.patch("cape.cape_result.build_process_tree")
         mocker.patch("cape.cape_result.process_curtain")
         mocker.patch("cape.cape_result.process_hollowshunter")
-        mocker.patch("cape.cape_result.process_decrypted_buffers")
+        mocker.patch("cape.cape_result.process_buffers")
         so = SandboxOntology()
         al_result = ResultSection("blah")
         file_ext = "blah"
@@ -1245,24 +1245,6 @@ class TestCapeResult:
         assert _handle_http_headers(header_string) == expected_header_dict
 
     @staticmethod
-    def test_extract_iocs_from_encrypted_buffers():
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import _extract_iocs_from_encrypted_buffers
-
-        test_parent_section = ResultSection("blah")
-        correct_result_section = ResultTableSection("IOCs found in encrypted buffers used in network calls")
-        correct_result_section.set_heuristic(1006)
-        correct_result_section.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
-        correct_result_section.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.ca"}))
-        correct_result_section.add_tag("network.dynamic.domain", "blah.com")
-        correct_result_section.add_tag("network.dynamic.domain", "blah.ca")
-        _extract_iocs_from_encrypted_buffers(
-            {1: {"network_calls": [{"send": {"buffer": "blah.com"}}]}, 2: {"network_calls": [{"send": {"buffer": "blah.ca"}}]}},
-            test_parent_section,
-        )
-        assert check_section_equality(test_parent_section.subsections[0], correct_result_section)
-
-    @staticmethod
     def test_process_non_http_traffic_over_http():
         from json import dumps
         from cape.cape_result import _process_non_http_traffic_over_http
@@ -1817,41 +1799,47 @@ class TestCapeResult:
         [
             ({0: {"decrypted_buffers": []}}, None, {}, []),
             ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, []),
-            ({0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}}, '[{"Decrypted Buffer": "blah"}]', {}, []),
-            ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}}, '[{"Decrypted Buffer": "blah"}]', {}, []),
+            ({0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}}, '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]', {}, []),
+            ({0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}}, '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]', {}, []),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
-                '[{"Decrypted Buffer": "127.0.0.1"}]',
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
                 {"network.dynamic.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.ca"}}]}},
-                '[{"Decrypted Buffer": "blah.ca"}]',
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.ca"}]',
                 {"network.dynamic.domain": ["blah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.ca"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
-                '[{"Decrypted Buffer": "127.0.0.1:999"}]',
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
                 {"network.dynamic.ip": ["127.0.0.1"], "network.dynamic.uri": ["127.0.0.1:999"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}, {"ioc_type": "uri", "ioc": "127.0.0.1:999"}],
             ),
+            (
+                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah.com"}}]}, 2: {"name": "yaba.exe", "network_calls": [{"send": {"buffer": "blahblah.ca"}}]}},
+                '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
+                {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
+                [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
+            ),
         ],
     )
-    def test_process_decrypted_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
-        from cape.cape_result import process_decrypted_buffers
+    def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
+        from cape.cape_result import process_buffers
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
 
         parent_section = ResultSection("blah")
-        process_decrypted_buffers(process_map, parent_section)
+        process_buffers(process_map, parent_section)
 
         if correct_buffer_body is None:
             assert parent_section.subsections == []
         else:
-            correct_result_section = ResultSection(title_text="Decrypted Buffers")
+            correct_result_section = ResultSection(title_text="Buffers", auto_collapse=True)
             correct_result_section.set_body(correct_buffer_body, BODY_FORMAT.TABLE)
-            buffer_ioc_table = ResultTableSection("Decrypted Buffer IOCs")
+            buffer_ioc_table = ResultTableSection("Buffer IOCs")
 
             for item in correct_body:
                 buffer_ioc_table.add_row(TableRow(**item))
