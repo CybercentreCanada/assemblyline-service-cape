@@ -520,12 +520,6 @@ heuristics:
     filetype: '*'
     description: CAPE detected a suspicious user agent used for HTTP calls
 
-  - heur_id: 1008
-    name: AntiVirus Hit
-    score: 1000
-    filetype: '*'
-    description: AntiVirus hit. File is infected.
-
   - heur_id: 9999
     name: Unknown
     score: 0

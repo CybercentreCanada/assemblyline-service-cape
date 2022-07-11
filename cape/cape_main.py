@@ -656,6 +656,15 @@ class CAPE(ServiceBase):
             resp_dict = resp.json()
             if "error" in resp_dict and resp_dict['error']:
                 self.log.error(f"Failed to submit the file due to '{resp_dict['error_value']}'.")
+                if "errors" in resp_dict and resp_dict["errors"]:
+                    try:
+                        for error in resp_dict["errors"]:
+                            for error_dict in error.values():
+                                for k, v in error_dict.items():
+                                    if k == "error":
+                                        self.log.error(f'Further details about the error are: {v}')
+                    except Exception:
+                        pass
                 return 0
             task_ids = resp_dict["data"].get("task_ids", [])
             if isinstance(task_ids, list) and len(task_ids) > 0:
@@ -1180,13 +1189,12 @@ class CAPE(ServiceBase):
             no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
-            self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            cape_artifact_pids = self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         # Check for any extra files in full report to add as extracted files
-        # special 'supplementary' directory
         try:
             self._extract_hollowshunter(zip_obj, cape_task.id)
-            self._extract_artifacts(zip_obj, cape_task.id, parent_section, so)
+            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, so)
 
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for "
@@ -1252,7 +1260,7 @@ class CAPE(ServiceBase):
         return report_json_path
 
     def _build_report(self, report_json_path: str, file_ext: str, cape_task: CapeTask,
-                      parent_section: ResultSection, so: SandboxOntology) -> None:
+                      parent_section: ResultSection, so: SandboxOntology) -> Dict[str, int]:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -1260,7 +1268,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
-        :return:
+        :return: A map of payloads and the pids that they were hollowed out of
         """
         try:
             # Setting environment recursion limit for large JSONs
@@ -1287,8 +1295,9 @@ class CAPE(ServiceBase):
             else:
                 self.report_machine_info(machine_name, cape_task, parent_section, so)
             self.log.debug(f"Generating AL Result from CAPE results for task {cape_task.id}.")
-            generate_al_result(cape_task.report, parent_section, file_ext, self.config.get("random_ip_range"),
-                               self.routing, self.safelist, so)
+            cape_artifact_pids = generate_al_result(cape_task.report, parent_section, file_ext,
+                                                    self.config.get("random_ip_range"), self.routing, self.safelist, so)
+            return cape_artifact_pids
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
             if cape_task and cape_task.id is not None:
@@ -1349,12 +1358,13 @@ class CAPE(ServiceBase):
             self.artifact_list.append(artifact)
             self.log.debug(f"Adding extracted file for task {task_id}: {injected_exe}")
 
-    def _extract_artifacts(self, zip_obj: ZipFile, task_id: int, parent_section: ResultSection,
+    def _extract_artifacts(self, zip_obj: ZipFile, task_id: int, cape_artifact_pids: Dict[str, int], parent_section: ResultSection,
                            so: SandboxOntology) -> None:
         """
         This method extracts certain artifacts from that zipfile
         :param zip_obj: The zipfile object, containing the analysis artifacts for the task
         :param task_id: An integer representing the CAPE Task ID
+        :param cape_artifact_pids: A map of payloads and the pids that they were hollowed out of
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
@@ -1372,8 +1382,8 @@ class CAPE(ServiceBase):
             "sum.pcap": "TCPDUMP captured during analysis",
         }
         if self.request.deep_scan and self.config["extract_cape_dumps"]:
-            zip_file_map["CAPE"] = "CAPE extracted file"
-            zip_file_map["procdump"] = "Dumps of process memory"
+            zip_file_map["CAPE"] = "Memory Dump"
+            zip_file_map["procdump"] = "Memory Dump"
             zip_file_map["macros"] = "Macros found during analysis"
 
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -1423,16 +1433,20 @@ class CAPE(ServiceBase):
                     continue
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
-                file_name = f"{task_id}_{f}"
-                to_be_extracted = False
+
+                if key in ["CAPE", "procdump"]:
+                    pid = next((pid for sha256, pid in cape_artifact_pids.items() if sha256 in f), None)
+                    file_name = f"{task_id}_{pid}_{f}" if pid else f"{task_id}_{f}"
+                else:
+                    file_name = f"{task_id}_{f}"
 
                 if key in ["shots"]:
+                    to_be_extracted = False
                     # AL generates thumbnails already
                     if "_small" not in f:
                         image_section.add_image(destination_file_path, file_name, value)
                     continue
-
-                if key not in ["supplementary"]:
+                else:
                     to_be_extracted = True
 
                 artifact = {
