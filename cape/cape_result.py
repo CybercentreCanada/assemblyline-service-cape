@@ -111,6 +111,7 @@ ENCRYPTED_BUFFER_LIMIT = 25
 SYSTEM_PROCESS_ID = 4
 MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
+YARA_RULE_EXTRACTOR = r"'(.\w+)'"
 
 
 # noinspection PyBroadException
@@ -123,7 +124,7 @@ def generate_al_result(
     routing: str,
     safelist: Dict[str, Dict[str, List[str]]],
     so: SandboxOntology,
-) -> None:
+) -> Dict[str, int]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
     :param api_report: The JSON report for the CAPE analysis
@@ -133,7 +134,7 @@ def generate_al_result(
     :param routing: What method of routing is being used in the CAPE environment
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param so: The sandbox ontology class object
-    :return: None
+    :return: A map of payloads and the pids that they were hollowed out of
     """
     global global_safelist
     global_safelist = safelist
@@ -147,6 +148,7 @@ def generate_al_result(
     curtain: Dict[str, Any] = api_report.get("curtain", {})
     sysmon: List[Dict[str, Any]] = api_report.get("sysmon", [])
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
+    cape: Dict[str, Any] = api_report.get("CAPE", {})
 
     if info:
         process_info(info, al_result, so)
@@ -202,6 +204,12 @@ def generate_al_result(
 
     if process_map:
         process_buffers(process_map, al_result)
+
+    cape_artifact_pids: Dict[str, int] = {}
+    if cape:
+        cape_artifact_pids = process_cape(cape)
+
+    return cape_artifact_pids
 
 
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, so: SandboxOntology) -> None:
@@ -1180,6 +1188,15 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_sectio
         parent_result_section.add_subsection(buffer_res)
 
 
+def process_cape(cape: Dict[str, Any]) -> Dict[str, int]:
+    """
+    This method creates a map of payloads and the pids that they were hollowed out of
+    :param cape: A dictionary containing the CAPE reporting output
+    :return: A map of payloads and the pids that they were hollowed out of
+    """
+    return {payload["sha256"]: payload["pid"] for payload in cape.get("payloads", [])}
+
+
 def get_process_map(processes: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]) -> Dict[int, Dict[str, Any]]:
     """
     This method creates a process map that maps process IDs with useful details
@@ -1306,7 +1323,7 @@ def _create_signature_result_section(
                 continue
             else:
                 if mark_count < 10:
-                    if len(v) > 512:
+                    if (isinstance(v, str) or isinstance(v, bytes)) and len(v) > 512:
                         v = truncate(v, 512)
                     mark_body.set_item(k, v)
                 _tag_mark_values(sig_res, k, v)
@@ -1328,6 +1345,8 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
     """
     delimiters = [":", "->", ",", " ", "("]
     if key.lower() in ["cookie", "process", "binary", "data", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
+        if not isinstance(value, str) and isinstance(value, list):
+            value = ','.join(value)
         if "process: " in value.lower():
             value = value.lower().replace("process: ", "")
         if any(delimiter in value for delimiter in delimiters):
@@ -1361,6 +1380,10 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
         _ = add_tag(sig_res, "file.pe.exports.function_name", value)
     elif key.endswith("_exe"):
         _ = add_tag(sig_res, "dynamic.process.file_name", key.replace("_", "."))
+    elif key.lower() in ["hit"]:
+        reg_match = search(YARA_RULE_EXTRACTOR, value)
+        if reg_match:
+            _ = add_tag(sig_res, "file.rule.yara", reg_match.group(1))
 
 
 def _process_non_http_traffic_over_http(network_res: ResultSection, unique_netflows: List[Dict[str, Any]]) -> None:
@@ -1485,7 +1508,7 @@ if __name__ == "__main__":
     # pip install PyYAML
     import yaml
     from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-    from assemblyline.odm.models.ontology.types.sandbox import Sandbox
+    # from assemblyline.odm.models.ontology.results.sandbox import Sandbox
 
     report_path = argv[1]
     file_ext = argv[2]
@@ -1508,4 +1531,4 @@ if __name__ == "__main__":
 
     so.preprocess_ontology(SAFE_PROCESS_TREE_LEAF_HASHES.keys())
     print(dumps(so.as_primitives(), indent=4))
-    Sandbox(data=so.as_primitives())
+    # Sandbox(data=so.as_primitives())
