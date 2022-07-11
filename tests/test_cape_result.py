@@ -44,6 +44,7 @@ class TestCapeResult:
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"summary": "blah"}}),
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processtree": "blah"}}),
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processes": "blah"}}),
+            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processes": "blah"}, "CAPE": {}}),
         ],
     )
     def test_generate_al_result(api_report, mocker):
@@ -66,12 +67,14 @@ class TestCapeResult:
         mocker.patch("cape.cape_result.process_curtain")
         mocker.patch("cape.cape_result.process_hollowshunter")
         mocker.patch("cape.cape_result.process_buffers")
+        mocker.patch("cape.cape_result.process_cape")
         so = SandboxOntology()
         al_result = ResultSection("blah")
         file_ext = "blah"
         safelist = {}
-        generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, so)
+        output = generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, so)
 
+        assert output == {}
         if api_report == {}:
             assert al_result.subsections == []
         elif api_report.get("behavior") == {"blah": "blah"}:
@@ -1853,6 +1856,19 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
+        "input, output",
+        [
+            ({}, {}),
+            ({"payloads": []}, {}),
+            ({"payloads": [{"sha256": "blah", "pid": 1}]}, {"blah": 1}),
+        ]
+    )
+    def test_process_cape(input, output):
+        from cape.cape_result import process_cape
+        assert process_cape(input) == output
+
+    @staticmethod
+    @pytest.mark.parametrize(
         "processes, correct_process_map",
         [
             ([], {}),
@@ -2151,6 +2167,8 @@ class TestCapeResult:
             ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}),
             # Key that ends in _exe for file.pe.exports.function_name, nothing special with value
             ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}),
+            # Standard key for file.rule.yara, nothing special with value
+            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
         ]
     )
     def test_tag_mark_values(key, value, expected_tags):

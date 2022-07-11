@@ -137,9 +137,8 @@ def dummy_zip_class():
                 "shots/0010.jpg",
                 "shots/0001_small.jpg",
                 "shots/0001.jpg",
-                "buffer/blahblah",
-                "supplementary/blahblah",
                 "network/blahblah",
+                "CAPE/ohmy.exe"
             ]
 
         def extract(self, output, path=None):
@@ -1535,7 +1534,7 @@ class TestCapeMain:
         mocker.patch("builtins.open")
         mocker.patch("cape.cape_main.loads", return_value=report_json)
         mocker.patch.object(CAPE, "report_machine_info")
-        mocker.patch("cape.cape_main.generate_al_result")
+        mocker.patch("cape.cape_main.generate_al_result", return_value={})
         mocker.patch.object(CAPE, "delete_task")
 
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -1545,32 +1544,33 @@ class TestCapeMain:
         cape_class_instance.query_report_url = "%s"
 
         parent_section = ResultSection("blah")
-        cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+        results = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
+        assert results == {}
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape_main.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
-            cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
-            cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         # Exception tests for json.loads
         mocker.patch("cape.cape_main.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
         with pytest.raises(JSONDecodeError):
-            cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         mocker.patch("cape.cape_main.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
     @staticmethod
     def test_extract_console_output(cape_class_instance, dummy_request_class, mocker):
@@ -1602,14 +1602,15 @@ class TestCapeMain:
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, ResultImageSection
         default_so = SandboxOntology()
-        tarball_file_map = {
-            "buffer": "Extracted buffer",
-            "extracted": "CAPE extracted file",
-            "memory": "Memory artifact",
-            "shots": "Screenshots from CAPE analysis",
-            "sum": "All traffic from TCPDUMP and PolarProxy",
-            "sysmon/sysmon.evtx": "Sysmon Logging Captured",
-            "supplementary": "Supplementary File"
+        zip_file_map = {
+            "shots": "Screenshot captured during analysis",
+            "dump.pcap": "TCPDUMP captured during analysis",
+            "evtx/evtx.zip": "EVTX generated during analysis",
+            "files/": "File extracted during analysis",
+            "sum.pcap": "TCPDUMP captured during analysis",
+            "CAPE": "Memory Dump",
+            "procdump": "Memory Dump",
+            "macros": "Macros found during analysis",
         }
         parent_section = ResultSection("blah")
         correct_artifact_list = []
@@ -1620,11 +1621,13 @@ class TestCapeMain:
             dummy_request_class,
             f"Screenshots taken during Task {task_id}",
         )
-        for f in zip_obj.namelist():
-            key = next((k for k in tarball_file_map if k in f), None)
+        names = zip_obj.namelist()
+        names.sort()
+        for f in names:
+            key = next((k for k in zip_file_map if k in f), None)
             if not key:
                 continue
-            val = tarball_file_map[key]
+            val = zip_file_map[key]
             correct_path = f"{cape_class_instance.working_directory}/{task_id}/{f}"
             dummy_zip_member = dummy_zip_member_class(f, 1)
             zip_obj.members.append(dummy_zip_member)
@@ -1640,7 +1643,7 @@ class TestCapeMain:
                                              "description": val, "to_be_extracted": True})
 
         cape_class_instance.request = dummy_request_class()
-        cape_class_instance._extract_artifacts(zip_obj, task_id, parent_section, default_so)
+        cape_class_instance._extract_artifacts(zip_obj, task_id, {}, parent_section, default_so)
 
         all_extracted = True
         for extracted in cape_class_instance.artifact_list:
@@ -1656,7 +1659,7 @@ class TestCapeMain:
                 break
         assert all_supplementary
 
-        check_section_equality(parent_section.subsections[0], correct_image_section)
+        assert check_section_equality(parent_section.subsections[0], correct_image_section)
 
     @staticmethod
     def test_extract_hollowshunter(cape_class_instance, dummy_request_class, dummy_zip_class):
