@@ -2,7 +2,7 @@ from datetime import datetime
 from ipaddress import ip_address, ip_network, IPv4Network
 from json import dumps
 from logging import getLogger
-from re import match as re_match, search
+from re import match as re_match, search, sub
 from typing import Any, Dict, List, Optional, Tuple
 
 from assemblyline.common.str_utils import safe_str, truncate
@@ -112,6 +112,8 @@ SYSTEM_PROCESS_ID = 4
 MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
 YARA_RULE_EXTRACTOR = r"'(.\w+)'"
+BYTE_CHAR = "x[a-z0-9]{2}"
+BUFFER_CHAR_MIN = 3
 
 
 # noinspection PyBroadException
@@ -423,7 +425,17 @@ def process_network(
     network_res = ResultSection("Network Activity")
 
     # DNS
-    dns_servers: List[str] = network.get("dns_servers", [])
+    # An assumption is being made here that the first UDP flow to port 53 is
+    # for DNS.
+    if len(network.get("udp", [])) > 0:
+        dst = next((udp_flow["dst"] for udp_flow in network["udp"] if udp_flow["dport"] == 53), None)
+        if dst:
+            dns_servers = [dst]
+        else:
+            dns_servers = []
+    else:
+        dns_servers = []
+
     dns_calls: List[Dict[str, Any]] = network.get("dns", [])
     resolved_ips: Dict[str, Dict[str, Any]] = _get_dns_map(dns_calls, process_map, routing, dns_servers)
     dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(resolved_ips, safelist)
@@ -528,7 +540,7 @@ def process_network(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    _process_http_calls(http_level_flows, process_map, dns_servers, safelist, so)
+    _process_http_calls(http_level_flows, process_map, dns_servers, resolved_ips, safelist, so)
     http_calls = so.get_network_http()
     if len(http_calls) > 0:
         http_sec = ResultTableSection("Protocol: HTTP/HTTPS")
@@ -764,6 +776,7 @@ def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
     process_map: Dict[int, Dict[str, Any]],
     dns_servers: List[str],
+    resolved_ips: Dict[str, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
     so: SandboxOntology,
 ) -> None:
@@ -772,6 +785,7 @@ def _process_http_calls(
     :param http_level_flows: A list of flows that represent HTTP calls
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param dns_servers: A list of DNS servers
+    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param so: The sandbox ontology class object
     :return: None
@@ -796,6 +810,13 @@ def _process_http_calls(
                 request = http_call["request"]
                 port = http_call["dport"]
                 uri = f"{http_call['protocol']}://{host}{path}"
+
+                # The dst could be the nest IP, so we want to replace this
+                if http_call["dst"] in dns_servers and any(host == item["domain"] for item in resolved_ips.values()):
+                    for ip, details in resolved_ips.items():
+                        if details["domain"] == host:
+                            http_call["dst"] = ip
+                            break
 
             else:
                 path = http_call["path"]
@@ -1174,7 +1195,13 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_sectio
             for api_call in BUFFER_API_CALLS:
                 if api_call in network_call:
                     buffer = network_call[api_call]["buffer"]
+                    buffer = _remove_bytes_from_buffer(buffer)
+                    length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
+                    # We only want to display network buffers if an IOC is found
+                    length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
+                    if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
+                        continue
                     table_row = {"Process": process_name_to_be_displayed, "Source": "Network", "Buffer": safe_str(buffer)}
                     if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
                         buffer_body.append(table_row)
@@ -1499,6 +1526,20 @@ def _update_process_map(process_map: Dict[int, Dict[str, Any]], processes: List[
             continue
 
         process_map[process.pid] = {"name": process.image, "network_calls": [], "decrypted_buffers": []}
+
+
+def _remove_bytes_from_buffer(buffer: str) -> str:
+    """
+    This method removes byte characters from a buffer string
+    """
+    non_byte_chars = []
+    for item in buffer.split("\\"):
+        if not item:
+            continue
+        res = sub(BYTE_CHAR, "", item)
+        if res and len(res) >= BUFFER_CHAR_MIN:
+            non_byte_chars.append(res)
+    return ''.join(non_byte_chars)
 
 
 if __name__ == "__main__":
