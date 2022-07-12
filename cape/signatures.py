@@ -674,6 +674,7 @@ CAPE_SIGNATURES = {
     "infostealer_mail": "Infostealer",
     "injection_create_remote_thread": "Injection",
     "injection_explorer": "Injection",
+    "injection_inter_process": "Injection",
     "injection_needextension": "Injection",
     "injection_network_traffic": "Injection",
     "injection_runpe": "Injection",

@@ -785,6 +785,7 @@ class TestCapeResult:
                         {
                             "host": "blah",
                             "request": "blah",
+                            "dst": "2.2.2.2",
                             "dport": "blah",
                             "uri": "http://blah.com",
                             "protocol": "http",
@@ -826,6 +827,7 @@ class TestCapeResult:
                         {
                             "host": "nope.com",
                             "request": "blah",
+                            "dst": "2.2.2.2",
                             "dport": "blah",
                             "uri": "/blah",
                             "protocol": "http",
@@ -837,11 +839,11 @@ class TestCapeResult:
                 [
                     {
                         "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "objectid": {"tag": "1.1.1.1:blah", "treeid": None, "processtree": None, "time_observed": None},
                             "process": None,
                             "source_ip": None,
                             "source_port": None,
-                            "destination_ip": None,
+                            "destination_ip": "1.1.1.1",
                             "destination_port": "blah",
                             "transport_layer_protocol": "tcp",
                             "direction": "outbound",
@@ -868,6 +870,7 @@ class TestCapeResult:
                         {
                             "host": "nope.com",
                             "request": "blah",
+                            "dst": "2.2.2.2",
                             "dport": "blah",
                             "uri": "/blah",
                             "protocol": "https",
@@ -878,11 +881,11 @@ class TestCapeResult:
                 [
                     {
                         "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                            "objectid": {"tag": "1.1.1.1:blah", "treeid": None, "processtree": None, "time_observed": None},
                             "process": None,
                             "source_ip": None,
                             "source_port": None,
-                            "destination_ip": None,
+                            "destination_ip": "1.1.1.1",
                             "destination_port": "blah",
                             "transport_layer_protocol": "tcp",
                             "direction": "outbound",
@@ -1209,8 +1212,9 @@ class TestCapeResult:
                 "network.dynamic.uri": ["(?:ftp|http)s?://localhost(?:$|/.*)"],
             }
         }
-        dns_servers = []
-        _process_http_calls(http_level_flows, process_map, dns_servers, safelist, default_so)
+        dns_servers = ["2.2.2.2"]
+        resolved_ips = {"1.1.1.1": {"domain": "nope.com"}}
+        _process_http_calls(http_level_flows, process_map, dns_servers, resolved_ips, safelist, default_so)
         actual_req_table = []
         for nh in default_so.get_network_http():
             nh_as_prim = nh.__dict__
@@ -1828,6 +1832,12 @@ class TestCapeResult:
                 {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
             ),
+            (
+                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "\\x12\\x23\\x34\\x45blah.com\\x45y\\x67o"}}]}},
+                '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
+                {"network.dynamic.domain": ["blah.com"]},
+                [{"ioc_type": "domain", "ioc": "blah.com"}],
+            ),
         ],
     )
     def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
@@ -2177,3 +2187,18 @@ class TestCapeResult:
         actual_res_sec = ResultSection("blah")
         _tag_mark_values(actual_res_sec, key, value)
         assert actual_res_sec.tags == expected_tags
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "buffer, expected_output",
+        [
+            ("", ""),
+            ("blah", "blah"),
+            ("\\x12blah", "blah"),
+            ("\\x12\\x23\\x34\\x45\\x56blah\\x67\\x78", "blah"),
+            ("\\x12a\\x23b\\x34c\\x45de\\x56blah\\x67\\x78", "blah"),
+        ]
+    )
+    def test_remove_bytes_from_buffer(buffer, expected_output):
+        from cape.cape_result import _remove_bytes_from_buffer
+        assert _remove_bytes_from_buffer(buffer) == expected_output
