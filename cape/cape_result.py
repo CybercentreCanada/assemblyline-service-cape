@@ -30,6 +30,7 @@ from assemblyline_v4_service.common.dynamic_service_helper import (
     SandboxOntology,
     Process,
     NetworkConnection,
+    MIN_DOMAIN_CHARS
 )
 
 al_log.init_logging("service.cape.cape_result")
@@ -113,7 +114,6 @@ MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
 YARA_RULE_EXTRACTOR = r"'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
-BUFFER_CHAR_MIN = 3
 
 
 # noinspection PyBroadException
@@ -1537,9 +1537,9 @@ def _remove_bytes_from_buffer(buffer: str) -> str:
         if not item:
             continue
         res = sub(BYTE_CHAR, "", item)
-        if res and len(res) >= BUFFER_CHAR_MIN:
+        if res and len(res) >= MIN_DOMAIN_CHARS:
             non_byte_chars.append(res)
-    return ''.join(non_byte_chars)
+    return ','.join(non_byte_chars)
 
 
 if __name__ == "__main__":
