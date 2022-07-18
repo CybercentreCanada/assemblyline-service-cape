@@ -2193,10 +2193,11 @@ class TestCapeResult:
         "buffer, expected_output",
         [
             ("", ""),
-            ("blah", "blah"),
-            ("\\x12blah", "blah"),
-            ("\\x12\\x23\\x34\\x45\\x56blah\\x67\\x78", "blah"),
-            ("\\x12a\\x23b\\x34c\\x45de\\x56blah\\x67\\x78", "blah"),
+            ("blah", ""),
+            ("blahblah", "blahblah"),
+            ("\\x12blahblah", "blahblah"),
+            ("\\x12\\x23\\x34\\x45\\x56blahblah\\x67\\x78", "blahblah"),
+            ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78", "blahblah"),
         ]
     )
     def test_remove_bytes_from_buffer(buffer, expected_output):
