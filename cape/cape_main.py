@@ -1197,6 +1197,8 @@ class CAPE(ServiceBase):
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
             cape_artifact_pids = self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+        else:
+            cape_artifact_pids: Dict[str, Any] = {}
 
         # Check for any extra files in full report to add as extracted files
         try:
