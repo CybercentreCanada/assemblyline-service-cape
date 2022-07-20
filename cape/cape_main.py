@@ -89,6 +89,7 @@ TASK_STARTING = "starting"
 TASK_COMPLETED = "completed"
 TASK_REPORTED = "reported"
 ANALYSIS_FAILED = "failed_analysis"
+PROCESSING_FAILED = "failed_processing"
 ANALYSIS_EXCEEDED_TIMEOUT = "analysis_exceeded_timeout"
 
 MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
@@ -501,11 +502,11 @@ class CAPE(ServiceBase):
             cape_task.id = None
             self.log.error(err_msg)
             raise RecoverableError(err_msg)
-        elif status == ANALYSIS_FAILED:
+        elif status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
             # Add a subsection detailing what's happening and then moving on
-            analysis_failed_sec = ResultTextSection("CAPE Analysis Failed.")
+            analysis_failed_sec = ResultTextSection("CAPE Analysis/Processing Failed.")
             analysis_failed_sec.add_line(
-                f"The analysis of CAPE task {cape_task.id} has failed."
+                f"The analysis/processing of CAPE task {cape_task.id} has failed."
                 " Contact the CAPE administrator for details.")
             parent_section.add_subsection(analysis_failed_sec)
             raise AnalysisFailed()
@@ -579,6 +580,12 @@ class CAPE(ServiceBase):
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
             return ANALYSIS_FAILED
+        elif status == PROCESSING_FAILED:
+            self.log.error(f"Processing has failed for task {cape_task.id}.")
+            processing_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
+            processing_errors_sec.add_line(f"Processing has failed for task {cape_task.id}.")
+            parent_section.add_subsection(processing_errors_sec)
+            return PROCESSING_FAILED
         elif status == TASK_COMPLETED:
             self.log.debug(f"Analysis has completed for task {cape_task.id}, waiting on report to be produced.")
         elif status == TASK_REPORTED:

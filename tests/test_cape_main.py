@@ -618,18 +618,19 @@ class TestCapeMain:
             (1, "started", "service_container_disconnected"),
             (1, "started", "missing_report"),
             (1, "started", "analysis_failed"),
+            (1, "started", "processing_failed"),
             (1, "started", "reboot"),
         ]
     )
     def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, dummy_request_class, mocker):
         from cape.cape_main import TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG, \
-            SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, CapeTask, \
+            SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, PROCESSING_FAILED, CapeTask, \
             AnalysisTimeoutExceeded, AnalysisFailed
         from retrying import RetryError
         from assemblyline.common.exceptions import RecoverableError
         from assemblyline_v4_service.common.result import ResultSection
         all_statuses = [TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG,
-                        SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT]
+                        SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, PROCESSING_FAILED]
         file_content = b"blah"
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
@@ -670,7 +671,7 @@ class TestCapeMain:
             with pytest.raises(RecoverableError):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
             assert cape_task.id is None
-        elif (poll_started_status == ANALYSIS_FAILED and poll_report_status is None) or (poll_report_status == ANALYSIS_FAILED and poll_started_status == TASK_STARTED):
+        elif (poll_started_status == ANALYSIS_FAILED and poll_report_status is None) or (poll_report_status in [ANALYSIS_FAILED, PROCESSING_FAILED] and poll_started_status == TASK_STARTED):
             with pytest.raises(AnalysisFailed):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
         elif poll_report_status == "reboot":
@@ -751,12 +752,14 @@ class TestCapeMain:
             {"id": 1, "status": "fail", "errors": []},
             {"id": 1, "status": "completed"},
             {"id": 1, "status": "reported"},
-            {"id": 1, "status": "still_trucking"}
+            {"id": 1, "status": "still_trucking"},
+            {"id": 1, "status": "failed_analysis", "errors": ["blah"]},
+            {"id": 1, "status": "failed_processing"},
         ]
     )
     def test_poll_report(return_value, cape_class_instance, mocker):
         from cape.cape_main import CAPE, TASK_MISSING, ANALYSIS_FAILED, TASK_COMPLETED, TASK_REPORTED, \
-            CapeTask, ANALYSIS_ERRORS
+            CapeTask, ANALYSIS_ERRORS, PROCESSING_FAILED
         from retrying import RetryError
         from assemblyline_v4_service.common.result import ResultSection
 
@@ -777,9 +780,14 @@ class TestCapeMain:
                         cape_class_instance.poll_report(cape_task, parent_section)
                 elif ANALYSIS_FAILED == return_value["status"]:
                     test_result = cape_class_instance.poll_report(cape_task, parent_section)
-                    correct_result = ResultSection(ANALYSIS_ERRORS, body='')
+                    correct_result = ResultSection(ANALYSIS_ERRORS, body=return_value["errors"][0])
                     assert check_section_equality(parent_section.subsections[0], correct_result)
                     assert ANALYSIS_FAILED == test_result
+                elif PROCESSING_FAILED == return_value["status"]:
+                    test_result = cape_class_instance.poll_report(cape_task, parent_section)
+                    correct_result = ResultSection(ANALYSIS_ERRORS, body="Processing has failed for task 1.")
+                    assert check_section_equality(parent_section.subsections[0], correct_result)
+                    assert PROCESSING_FAILED == test_result
                 elif return_value["status"] == TASK_COMPLETED:
                     with pytest.raises(RetryError):
                         cape_class_instance.poll_report(cape_task, parent_section)
