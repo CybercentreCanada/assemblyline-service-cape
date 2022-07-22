@@ -316,7 +316,7 @@ def convert_cape_processes(
         # If process pid doesn't match any processes that Sysmon already picked up
         if item["process_id"] not in existing_pids:
             process_path = item.get("module_path")
-            command_line = item["environ"]["CommandLine"]
+            command_line = item["environ"].get("CommandLine")
             if (
                 not process_path
                 or not command_line
