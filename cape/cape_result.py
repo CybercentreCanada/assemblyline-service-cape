@@ -23,7 +23,7 @@ from assemblyline_v4_service.common.result import (
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
 from assemblyline_v4_service.common.tag_helper import add_tag
 
-from cape.signatures import get_category_id
+from cape.signatures import get_category_id, CAPE_DROPPED_SIGNATURES
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 from assemblyline_v4_service.common.dynamic_service_helper import (
     extract_iocs_from_text_blob,
@@ -384,6 +384,9 @@ def process_signatures(
 
     for sig in sigs:
         sig_name = sig["name"]
+
+        if sig_name in CAPE_DROPPED_SIGNATURES:
+            continue
 
         if not is_process_martian and sig_name == "process_martian":
             is_process_martian = True
