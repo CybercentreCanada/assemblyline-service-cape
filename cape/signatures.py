@@ -873,7 +873,7 @@ CAPE_SIGNATURE_CATEGORIES = {
     "Virus": {"id": 54, "description": "Malicious software program."},
 }
 
-CAPE_DROPPED_SIGNATURES = []
+CAPE_DROPPED_SIGNATURES = ["powershell_scriptblock_logging"]
 
 
 def get_category_id(sig: str) -> int:
