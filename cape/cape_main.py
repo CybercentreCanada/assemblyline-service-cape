@@ -21,6 +21,7 @@ from assemblyline_v4_service.common.result import Result, ResultSection, ResultI
 from assemblyline_v4_service.common.tag_helper import add_tag
 
 from assemblyline.common.str_utils import safe_str
+from assemblyline.common.forge import get_identify
 from assemblyline.common.identify_defaults import type_to_extension, trusted_mimes, magic_patterns
 from assemblyline.common.exceptions import RecoverableError, ChainException
 # from assemblyline.odm.models.ontology.types.sandbox import Sandbox
@@ -207,6 +208,7 @@ class CAPE(ServiceBase):
         self.hosts: List[Dict[str, Any]] = []
         self.routing = ""
         self.safelist: Dict[str, Dict[str, List[str]]] = {}
+        self.identify = get_identify(use_cache=os.environ.get('PRIVILEGED', 'false').lower() == 'true')
         # self.sandbox_ontologies: List[SandboxOntology] = None
 
     def start(self) -> None:
@@ -1442,11 +1444,24 @@ class CAPE(ServiceBase):
                     continue
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
+                file_name = None
 
                 if key in ["CAPE", "procdump"]:
                     pid = next((pid for sha256, pid in cape_artifact_pids.items() if sha256 in f), None)
-                    file_name = f"{task_id}_{pid}_{f}" if pid else f"{task_id}_{f}"
-                else:
+                    if pid:
+                        file_name = f"{task_id}_{pid}_{f}"
+                # The majority of files extracted by CAPE are junk and follow a similar file type pattern
+                elif key in ["files/"]:
+                    file_type_details = self.identify.fileinfo(destination_file_path)
+                    if file_type_details["type"] == "unknown" and \
+                        file_type_details["mime"] == "application/octet-stream" and \
+                            "SQLite Rollback Journal" in file_type_details["magic"]:
+                                self.log.debug(
+                                    f"We are not extracting {destination_file_path} for task {task_id} "
+                                    "because we suspect it is garbage.")
+                                continue
+
+                if not file_name:
                     file_name = f"{task_id}_{f}"
 
                 if key in ["shots"]:
