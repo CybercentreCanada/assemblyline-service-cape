@@ -1636,6 +1636,7 @@ class TestCapeMain:
         cape_class_instance.artifact_list = []
         cape_class_instance.request = dummy_request_class()
         cape_class_instance.request.deep_scan = True
+        cape_class_instance.config["extract_cape_dumps"] = True
         correct_image_section = ResultImageSection(
             dummy_request_class,
             f"Screenshots taken during Task {task_id}",
