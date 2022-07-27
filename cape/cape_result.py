@@ -171,7 +171,6 @@ def generate_al_result(
         sample_executed = [
             len(behaviour.get("processtree", [])),
             len(behaviour.get("processes", [])),
-            len(behaviour.get("summary", [])),
         ]
         if not any(item > 0 for item in sample_executed):
             noexec_res = ResultTextSection("Sample Did Not Execute")
