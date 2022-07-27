@@ -41,7 +41,7 @@ class TestCapeResult:
                     "hollowshunter": "blah",
                 }
             ),
-            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"summary": "blah"}}),
+            ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"summary": "blah", "blah": "blah"}}),
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processtree": "blah"}}),
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processes": "blah"}}),
             ({"signatures": [{"name": "blah"}], "info": {"id": "blah"}, "behavior": {"processes": "blah"}, "CAPE": {}}),
@@ -77,7 +77,7 @@ class TestCapeResult:
         assert output == {}
         if api_report == {}:
             assert al_result.subsections == []
-        elif api_report.get("behavior") == {"blah": "blah"}:
+        elif api_report.get("behavior", {}).get("blah") == "blah":
             correct_result_section = ResultSection(
                 title_text="Sample Did Not Execute",
                 body=f"No program available to execute a file with the following extension: {file_ext}",
