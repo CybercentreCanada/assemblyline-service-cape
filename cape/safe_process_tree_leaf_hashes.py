@@ -459,5 +459,235 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
                 "children": []
             }
         ]
-    }
+    },
+    '476af2541f60045ea6fb29913f65e83ad506e0377a9ddfaf200683ed0ed0457d': {
+        "image": '?sys32\\conhost.exe|?sys32\\cmd.exe',
+        "command_line": None,
+        "children": []
+    },
+    'd347dce729508445a629ec5824e89745a78ad5ca4ac5e438a435f5991b40c8cc': {
+        "image": '?sys32\\conhost.exe|?sys32\\wevtutil.exe',
+        "command_line": None,
+        "children": []
+    },
+    'c59c9356f5b4fe145261f2537853cf3d3e40bda7d687642d502d8a7804b1996b': {
+        "image": '?sys32\\conhost.exe|?sys32\\net.exe',
+        "command_line": None,
+        "children": []
+    },
+    'f907b893fb58d829ea064101eaea311fc3b349f4df57d98585d2a1e9947db152': {
+        "image": '?sys32\\conhost.exe|?sys32\\net1.exe',
+        "command_line": 'C:\\Windows\\system32\\net1 stop winmgmt /y',
+        "children": []
+    },
+    '994e09b156ed0844663bfce7510a7473ca574523c874ff47f3ed99f7d096f249': {
+        "image": '?sys32\\conhost.exe|?sys32\\sc.exe',
+        "command_line": None,
+        "children": []
+    },
+    '6fa48cc6d3ecd1c0f3a16aaa38a3a623da5340b78b0319839d3bd5952357a967': {
+        "image": '?sys32\\dinotify.exe',
+        "command_line": None,
+        "children": []
+    },
+    '3e3793b897525f211e7425c45df068b2594bb4ad8dcf731f5771fd30233d721b': {
+        "image": '?sys32\\rundll32.exe',
+        "command_line": None,
+        "children": []
+    },
+    'a364a5fcf64b5d9e29ba27262a73ccfbb88725651716677862622411c7d3d2f3': {
+        "image": '?sys32\\lsass.exe|?sys32\\services.exe',
+        "command_line": None,
+        "children": []
+    },
+    '7ebc8a21cfcc0374fdb80a24a23b21e568ffb58285782b115cde8315f58b3c58': {
+        "image": '?usr\\appdata\\local\\programs\\python\\python38-32\\pythonw.exe',
+        "command_line": None,
+        "children": []
+    },
+    '2a119d477c12829140fb54e41c8666a0a8a37aa8f71f41a61746e6b7c144d70a': {
+        "image": '?sys32\\sppextcomobj.exe',
+        "command_line": None,
+        "children": []
+    },
+    '72f73ead06808f10feb9f2fa35900fc8ca7ac1759a8928544251b33a0a6a9056': {
+        "image": '?sys32\\net.exe|?sys32\\net1.exe',
+        "command_line": None,
+        "children": []
+    },
+    'e1d55007ec820d344a9f4c752bb18d1b096fc3372c515c40a43ac1f2229e95b3': {
+        "image": '?sys32\\winlogon.exe|?sys32\\wlrmdr.exe',
+        "command_line": None,
+        "children": []
+    },
+    '2ae01e5403fb56f97aace63b3b309cc88cb8906602a60dece33058bbe327d156': {
+        "image": '?sys32\\remotefxvgpudisablement.exe',
+        "command_line": None,
+        "children": []
+    },
+    'cc02ea74d37fa271b43948cbe04647261f44090145b68b536d455252e9320e45': {
+        "image": '?sys32\\conhost.exe|?sys32\\net.exe|?sys32\\conhost.exe',
+        "command_line": None,
+        "children": []
+    },
+    'be60898adbbbb25571447e166b7dc47774caa0c08a25b58c702265d9493dd8cf': {
+        "image": '?pf86\\microsoft\\edgeupdate\\microsoftedgeupdate.exe',
+        "command_line": None,
+        "children": []
+    },
+    'ea90560a25a71393736af6dff232fa4e707745b1e51b9e2d20af68b778a9c462': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\taskhostw.exe',
+        "command_line": None,
+        "children": []
+    },
+    '94fac187f90124578fcfcd99dbfc76501dcdbb74482cb76e3545ffc50b95827d': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\sihost.exe',
+        "command_line": None,
+        "children": []
+    },
+    '732a810b6f08ed3fde5cb764c59946a6197c344b36fd56c8abd2a00986a20ac7': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\mqsvc.exe',
+        "command_line": None,
+        "children": []
+    },
+    'af7d460d7bcc554ac9277ff9f0339d8a939ccee8a22c439d6ba481c9a30ad7ec': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\spoolsv.exe',
+        "command_line": None,
+        "children": []
+    },
+    '05111d015b9fa4809d79c14b756fd3bf9a55d99833a8dce42217544502bb38ff': {
+        "image": '?sys32\\taskhostw.exe|memcompression',
+        "command_line": None,
+        "children": []
+    },
+    '1a90f8e75b218ea9801804bfcf3e3e245ddef01314772ab502a29aa16286073c': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\upfc.exe',
+        "command_line": None,
+        "children": []
+    },
+    '96424b2285f9dd53e399089db665b255e3b55fb08951645ac7f9594613da9344': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\dwm.exe',
+        "command_line": None,
+        "children": []
+    },
+    'aa403b97e40e054a43c628ff0635fdce84c28e6f6b5e724b3fce7c3616a29241': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\fontdrvhost.exe',
+        "command_line": None,
+        "children": []
+    },
+    'd101b5a95b6677a23bfad2460447393941496483e55dea5f78c658786abd3e1d': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\winlogon.exe',
+        "command_line": None,
+        "children": []
+    },
+    'b34be9e65d1916ab9124493b5749a2bacb14f95e5349177a074bd70128726639': {
+        "image": '?sys32\\taskhostw.exe|?sys32\\wininit.exe',
+        "command_line": None,
+        "children": []
+    },
+    '872491a30d60d598962de6e7b834ab76b2aa65fbab102c6ebaaae6acdc238822': {
+        "image": '?sys32\\taskhostw.exe|registry',
+        "command_line": None,
+        "children": []
+    },
+    '2b09601d34ebca15ce98aa08221975e013157761a6eb0daec182c51dd92576a1': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?sys32\\conhost.exe',
+        "command_line": None,
+        "children": []
+    },
+    'b0fc7cd8eb1d40f8b681311f34e84148a338fdeb70e6bf90177a33b11c7e8862': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?usr\\appdata\\local\\programs\\python\\python310-32\\pythonw.exe',
+        "command_line": None,
+        "children": []
+    },
+    'c22d9355dcb49b568dd8e3b30c2019b5ea3c9c0e502d3bbe0d1c5f0ee405979f': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?win\\pyw.exe',
+        "command_line": None,
+        "children": []
+    },
+    '03db4481cda2012d040b8c56ce97d547e51be86533df94efaada91db1a296bf4': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?sys32\\runtimebroker.exe',
+        "command_line": None,
+        "children": []
+    },
+    '2211f2326f9d4302da0fa358d24bd736b628b2d0d4938058bb3e0727d0f3f845': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?win\\systemapps\\microsoft.windows.search_cw5n1h2txyewy\\searchapp.exe',
+        "command_line": None,
+        "children": []
+    },
+    '276fb6cd289713d8c91031e3a503c267fbec6659ebae2a8f3483b2dff36b6ffd': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?win\\systemapps\\microsoft.windows.startmenuexperiencehost_cw5n1h2txyewy\\startmenuexperiencehost.exe',
+        "command_line": None,
+        "children": []
+    },
+    'b378c3777df2f27717f2aa11c90b2f81f6f16ea82256ad2258cabe4594e8d8c0': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?pf86\\microsoft\\edgeupdate\\microsoftedgeupdate.exe',
+        "command_line": None,
+        "children": []
+    },
+    '038e3fd4b9d5a183bbe6382607fd4d24bc396d519aacb32e91caeb4f4af75c87': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?win\\explorer.exe',
+        "command_line": None,
+        "children": []
+    },
+    'e6668b64d08edebb273525a1dba5c9b984d8d219d5da4a2109f8c1fb62f6d86f': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|?sys32\\net.exe',
+        "command_line": None,
+        "children": []
+    },
+    '440ce82d152195f945e8230ee313a275dc7c1833da63b5a8b059763f6eda624d': {
+        "image": '?sys32\\net.exe|?sys32\\taskhostw.exe|system',
+        "command_line": None,
+        "children": []
+    },
+    '47dedb344240a9c0508372c8218c6c53e742f2aee0fe07fad8f76dfb6c67730a': {
+        "image": '?sys32\\lsass.exe|?sys32\\net.exe|?sys32\\svchost.exe',
+        "command_line": None,
+        "children": []
+    },
+    '17fca5cfde9e73939fa33977a72231a88d3933e488b15b3817910b9188cd25f4': {
+        "image": '?usr\\appdata\\local\\programs\\python\\python310-32\\pythonw.exe',
+        "command_line": None,
+        "children": []
+    },
+    'ef6cf296627416a69dadbc347c7b1a52296a2f51c3ad7750dcf53de368a4b0b2': {
+        "image": '?sys32\\conhost.exe|?sys32\\wevtutil.exe|?sys32\\conhost.exe',
+        "command_line": None,
+        "children": []
+    },
+    'bab5cb464f970fcadb5f46b9554f1a2142d23811960e9d1b46e36b043571075c': {
+        "image": '?sys32\\lsass.exe|?win\\pyw.exe',
+        "command_line": None,
+        "children": []
+    },
+    '4b575bc41667cc714447b7121e2f4a163915e565d02793a5988e4a354f46d74a': {
+        "image": '?sys32\\net.exe|?sys32\\lsass.exe|?sys32\\net.exe',
+        "command_line": None,
+        "children": []
+    },
+    '0bdb827669bfae348b5b984888148bca0f4fc26fee4dba262f4b84e10bfca0e0': {
+        "image": '?sys32\\net.exe|?sys32\\lsass.exe|?sys32\\dwm.exe',
+        "command_line": None,
+        "children": []
+    },
+    'fd37eaa39260f8052a567f8c449799b8362e15ebdc68db7b18beeeb5abdc3da6': {
+        "image": '?sys32\\net.exe|?sys32\\lsass.exe|system',
+        "command_line": None,
+        "children": []
+    },
+    'a27e31d0e25fae7c489b1b34d0d52357e34e76e9133f840e97c88ab77f00ba6d': {
+        "image": '?sys32\\net.exe|?sys32\\lsass.exe|?win\\explorer.exe',
+        "command_line": None,
+        "children": []
+    },
+    'd5280faf227e83c39f7677e26b5bdadf8cb1fe0a60b98e81eeabd76716c02562': {
+        "image": '?sys32\\net.exe|?sys32\\lsass.exe|?usr\\appdata\\local\\programs\\python\\python310-32\\pythonw.exe',
+        "command_line": None,
+        "children": []
+    },
+    'b152d4568d35951e91e80d2cedce144dcc4714962da66c0abfdab397e31bbbbe': {
+        "image": '?sys32\\svchost.exe|?sys32\\rundll32.exe',
+        "command_line": None,
+        "children": []
+    },
 }
