@@ -1121,6 +1121,8 @@ def convert_sysmon_network(
                         network["dns"].remove(query)
                         network["dns"].append(dns_query)
             else:
+                if "dns" not in network:
+                    network["dns"] = []
                 network["dns"].append(dns_query)
 
 
