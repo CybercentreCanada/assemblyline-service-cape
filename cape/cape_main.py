@@ -97,6 +97,8 @@ MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
 
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
+DEFAULT_TOKEN_KEY = "Token"
+
 
 class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
@@ -213,8 +215,9 @@ class CAPE(ServiceBase):
 
     def start(self) -> None:
         self.log.debug("CAPE service started...")
+        token_key = self.config.get("token_key", DEFAULT_TOKEN_KEY)
         for host in self.config["remote_host_details"]["hosts"]:
-            host["auth_header"] = {'Authorization': f"Bearer {host['token']}"}
+            host["auth_header"] = {'Authorization': f"{token_key} {host['token']}"}
             del host["token"]
         self.hosts = self.config["remote_host_details"]["hosts"]
         self.connection_timeout_in_seconds = self.config.get(
