@@ -54,6 +54,9 @@ config:
   # INetSim specifications
   random_ip_range: 192.0.2.0/24
 
+  # This is the value of the token key to be used in authorization for API requests
+  token_key: Token
+
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds
