@@ -71,6 +71,10 @@ The method for interpretting this structure is that files are divided between Li
 * **random_ip_range** - [default: 192.0.2.0/24] This is the IP range that INetSim (if configured) will pick from in order to return a random IP for any DNS request that the victims make (note that this requires a patch to INetSim). This option is mainly for safelisting.
 **NB** : this functionality relies on the "INetSim - Random DNS Resolution" section below.
 
+#### API Token Configurations
+* **token_key** - [default: Token] This the default keyword for the Django Rest Framework.
+If you change it on the CAPE REST API, change this value to reflect that new value.
+
 ### CAPE Submission Options
 
 The options available for submissions to the CAPE service via REST API are not the clearest, but the [submission utility](https://capev2.readthedocs.io/en/latest/usage/submit.html#submission-utility) gives us a glimpse. These are the options you can select per analysis wittout having to go under the hood:

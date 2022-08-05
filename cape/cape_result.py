@@ -1114,7 +1114,7 @@ def convert_sysmon_network(
                     dns_query["image"] = text
             if any(dns_query[key] is None for key in dns_query.keys()):
                 continue
-            elif any(query["request"] == dns_query["request"] for query in network["dns"]):
+            elif any(query["request"] == dns_query["request"] for query in network.get("dns", [])):
                 # Replace record since we have more info from Sysmon
                 for query in network["dns"][:]:
                     if query["request"] == dns_query["request"]:
