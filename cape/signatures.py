@@ -279,6 +279,7 @@ CAPE_SIGNATURES = {
     "injection_inter_process": "Injection",
     "injection_needextension": "Injection",
     "injection_network_traffic": "Injection",
+    "injection_process_hollowing": "Injection",
     "injection_runpe": "Injection",
     "injection_rwx": "Injection",
     "injection_themeinitapihook": "Injection",
