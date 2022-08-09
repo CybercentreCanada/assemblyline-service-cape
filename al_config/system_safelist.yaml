@@ -129,6 +129,9 @@ regex:
   - C:\\Windows\\System32\\wevtutil\.exe query-events microsoft-windows-powershell/operational /rd:true /e:root /format:xml /uni:true
   - C:\\Windows\\System32\\wevtutil\.exe query-events microsoft-windows-sysmon/operational /format:xml /e:Events
   - C:\\Windows\\system32\\AUDIODG\.EXE 0x6e8
+  # CAPE
+  - C:\\WINDOWS\\system32\\cmd\.exe /c "C:\\.*\\bin\\procmon\.exe /Terminate"
+  - C:\\WINDOWS\\system32\\cmd\.exe /c "C:\\.*\\bin\\procmon\.exe /OpenLog C:\\.*\\bin\\procmon\.PML /LoadConfig C:\\.*\\bin\\procmon\.pmc /SaveAs C:\\.*\\bin\\procmon\.xml /SaveApplyFilter"
   network.dynamic.domain:
   # Adobe
   - .*\.adobe\.com$
