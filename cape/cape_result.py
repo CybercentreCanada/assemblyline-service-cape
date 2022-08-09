@@ -1472,6 +1472,9 @@ def convert_sysmon_processes(sysmon: List[Dict[str, Any]], safelist: Dict[str, D
     """
     for event in sysmon:
         event_id = int(event["System"]["EventID"])
+        # EventID 10: ProcessAccess causes too many misconfigurations of the process tree
+        if event_id == 10:
+            continue
         process: Dict[str, str] = {}
         event_data = event["EventData"]["Data"]
         for data in event_data:
