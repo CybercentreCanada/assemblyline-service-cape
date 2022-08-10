@@ -310,32 +310,30 @@ def convert_cape_processes(
     :param so: The sandbox ontology class object
     :return: None
     """
-    existing_pids = [proc.pid for proc in so.get_processes()]
     for item in cape_processes:
-        # If process pid doesn't match any processes that Sysmon already picked up
-        if item["process_id"] not in existing_pids:
-            process_path = item.get("module_path")
-            command_line = item["environ"].get("CommandLine")
-            if (
-                not process_path
-                or not command_line
-                or is_tag_safelisted(process_path, ["dynamic.process.file_name"], safelist)
-                or is_tag_safelisted(command_line, ["dynamic.process.command_line"], safelist)
-            ):
-                continue
-            so.update_process(
-                pid=item["process_id"],
-                ppid=item["parent_id"],
-                image=process_path,
-                command_line=command_line,
-                start_time=datetime.strptime(item["first_seen"], "%Y-%m-%d %H:%M:%S,%f").timestamp(),
-                guid=so.get_guid_by_pid_and_time(item["process_id"], item["first_seen"])
-                if not item.get("guid")
-                else item.get("guid"),
-                pguid=so.get_pguid_by_pid_and_time(item["process_id"], item["first_seen"])
-                if not item.get("pguid")
-                else item.get("pguid"),
-            )
+        process_path = item.get("module_path")
+        command_line = item["environ"].get("CommandLine")
+        if (
+            not process_path
+            or not command_line
+            or is_tag_safelisted(process_path, ["dynamic.process.file_name"], safelist)
+            or is_tag_safelisted(command_line, ["dynamic.process.command_line"], safelist)
+        ):
+            continue
+        first_seen = datetime.strptime(item["first_seen"], "%Y-%m-%d %H:%M:%S,%f").timestamp()
+        so.update_process(
+            pid=item["process_id"],
+            ppid=item["parent_id"],
+            image=process_path,
+            command_line=command_line,
+            start_time=first_seen,
+            guid=so.get_guid_by_pid_and_time(item["process_id"], first_seen)
+            if not item.get("guid")
+            else item.get("guid"),
+            pguid=so.get_pguid_by_pid_and_time(item["process_id"], first_seen)
+            if not item.get("pguid")
+            else item.get("pguid"),
+        )
 
 
 def build_process_tree(parent_result_section: ResultSection, is_process_martian: bool, so: SandboxOntology) -> None:

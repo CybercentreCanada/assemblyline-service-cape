@@ -690,4 +690,29 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
         "command_line": None,
         "children": []
     },
+    '7b554f89b82cc500e3d30bce6d21905c477c5584dff653c29aefc3d6dff7ef56': {
+        "image": '?sys32\\usoclient.exe',
+        "command_line": None,
+        "children": []
+    },
+    '15ab311950199c8f6f57dda0afa319b5dc0a26c2b889dc9775b5b2023a04ce55': {
+        "image": '?sys32\\net.exe',
+        "command_line": None,
+        "children": []
+    },
+    '94a5f5f7967fa4ff12f7d70cb76779385fbd3fc32ebed1583101cbe82a7691dc': {
+        "image": '?sys32\\sgrmbroker.exe',
+        "command_line": None,
+        "children": []
+    },
+    '17a5e7b851aed02b16665f240c7d5fb2259c62d534e3ca5a5847c76d9d51cb57': {
+        "image": '?sys32\\mousocoreworker.exe',
+        "command_line": None,
+        "children": []
+    },
+    'bb0efe6793884094938f2df541d1b614f18969679ebb181e8124bf665241b75b': {
+        "image": '?sys32\\cmd.exe|?sys32\\conhost.exe',
+        "command_line": None,
+        "children": []
+    }
 }
