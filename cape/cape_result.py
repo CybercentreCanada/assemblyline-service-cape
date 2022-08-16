@@ -9,7 +9,7 @@ from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.net import is_valid_ip
-from assemblyline.odm.base import IP_REGEX, IPV4_REGEX, FULL_URI
+from assemblyline.odm.base import IPV4_REGEX, FULL_URI
 from assemblyline_v4_service.common.result import (
     ResultSection,
     ResultKeyValueSection,
@@ -1106,10 +1106,9 @@ def convert_sysmon_network(
                     if not is_tag_safelisted(text, ["network.dynamic.domain"], safelist):
                         dns_query["request"] = text
                 elif name == "QueryResults":
-                    ip = findall(IP_REGEX, text)
+                    ip = findall(IPV4_REGEX, text)
                     for item in ip:
-                        if re_match(IPV4_REGEX, item):
-                            dns_query["answers"].append({"data": item, "type": "A"})
+                        dns_query["answers"].append({"data": item, "type": "A"})
                 elif name == "Image":
                     dns_query["image"] = text
             if any(dns_query[key] is None for key in dns_query.keys()):
