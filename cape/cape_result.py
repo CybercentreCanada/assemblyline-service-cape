@@ -2,14 +2,14 @@ from datetime import datetime
 from ipaddress import ip_address, ip_network, IPv4Network
 from json import dumps
 from logging import getLogger
-from re import match as re_match, search, sub
+from re import findall, match as re_match, search, sub
 from typing import Any, Dict, List, Optional, Tuple
 
 from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.net import is_valid_ip
-from assemblyline.odm.base import IP_REGEX, FULL_URI
+from assemblyline.odm.base import IPV4_REGEX, FULL_URI
 from assemblyline_v4_service.common.result import (
     ResultSection,
     ResultKeyValueSection,
@@ -1106,10 +1106,9 @@ def convert_sysmon_network(
                     if not is_tag_safelisted(text, ["network.dynamic.domain"], safelist):
                         dns_query["request"] = text
                 elif name == "QueryResults":
-                    ip = search(IP_REGEX, text)
-                    if ip:
-                        ip = ip.group(0)
-                        dns_query["answers"].append({"data": ip, "type": "A"})
+                    ip = findall(IPV4_REGEX, text)
+                    for item in ip:
+                        dns_query["answers"].append({"data": item, "type": "A"})
                 elif name == "Image":
                     dns_query["image"] = text
             if any(dns_query[key] is None for key in dns_query.keys()):
