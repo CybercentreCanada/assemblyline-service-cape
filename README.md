@@ -30,6 +30,16 @@ Since the REST APIv2 is the only API version that is [supported](https://capev2.
 
 It should be noted that this service grabs the `lite` format of the report bundle. So be sure you have `litereport` enabled in your `reporting.conf` file on your CAPE instance.
 
+The following configuration is required for the REST API on the CAPE host:
+```
+api.conf
+[api]
+ratelimit = no
+default_user_ratelimit = 99999999999999/s
+default_subscription_ratelimit = 99999999999999/s
+token_auth_enabled = yes
+```
+
 ### Service Options
 #### Host Configurations
 * **remote_host_details**: A list of JSON objects, where each JSON object represents a CAPE Host. Details regarding the CAPE API can be found [here](https://capev2.readthedocs.io/en/latest/usage/api.html). Each JSON object must have the following keys and values:
