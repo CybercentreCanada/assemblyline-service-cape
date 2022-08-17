@@ -349,8 +349,8 @@ heuristics:
     score: 0
     max_score: 1000
     signature_score_map:
-      hollowshunter_exe: 100
-      hollowshunter_dll: 100
+      hollowshunter_exe: 500
+      hollowshunter_dll: 500
     filetype: '*'
     description: Input is not properly validated and gets processed by an interpreter as part of a command or query.
 
