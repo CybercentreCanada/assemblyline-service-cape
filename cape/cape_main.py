@@ -1201,13 +1201,14 @@ class CAPE(ServiceBase):
             no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
-            cape_artifact_pids = self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            cape_artifact_pids, main_process_tuples = self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
         else:
             cape_artifact_pids: Dict[str, Any] = {}
+            main_process_tuples: List[Tuple[int, str]] = []
 
         # Check for any extra files in full report to add as extracted files
         try:
-            self._extract_hollowshunter(zip_obj, cape_task.id)
+            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
             self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, so)
 
         except Exception as e:
@@ -1274,7 +1275,7 @@ class CAPE(ServiceBase):
         return report_json_path
 
     def _build_report(self, report_json_path: str, file_ext: str, cape_task: CapeTask,
-                      parent_section: ResultSection, so: SandboxOntology) -> Dict[str, int]:
+                      parent_section: ResultSection, so: SandboxOntology) -> Tuple[Dict[str, int], List[Tuple[int, str]]]:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -1282,7 +1283,8 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
-        :return: A map of payloads and the pids that they were hollowed out of
+        :return: A map of payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
+        the initial process and the process name
         """
         try:
             # Setting environment recursion limit for large JSONs
@@ -1309,9 +1311,9 @@ class CAPE(ServiceBase):
             else:
                 self.report_machine_info(machine_name, cape_task, parent_section, so)
             self.log.debug(f"Generating AL Result from CAPE results for task {cape_task.id}.")
-            cape_artifact_pids = generate_al_result(cape_task.report, parent_section, file_ext,
+            cape_artifact_pids, main_process_tuples = generate_al_result(cape_task.report, parent_section, file_ext,
                                                     self.config.get("random_ip_range"), self.routing, self.safelist, so)
-            return cape_artifact_pids
+            return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
             if cape_task and cape_task.id is not None:
@@ -1487,11 +1489,13 @@ class CAPE(ServiceBase):
         if image_section.body:
             parent_section.add_subsection(image_section)
 
-    def _extract_hollowshunter(self, zip_obj: ZipFile, task_id: int) -> None:
+    def _extract_hollowshunter(self, zip_obj: ZipFile, task_id: int, main_process_tuples: List[Tuple[int, str]]) -> None:
         """
         This method extracts HollowsHunter dumps from the tarball
         :param zip_obj: The tarball object, containing the analysis artifacts for the task
         :param task_id: An integer representing the CAPE Task ID
+        :param main_process_tuple: A list of tuples representing both the PID of
+        the initial process and the process name
         :return: None
         """
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -1507,6 +1511,19 @@ class CAPE(ServiceBase):
         for hh_tuple in hh_tuples:
             paths, desc, to_be_extracted = hh_tuple
             for path in paths:
+                # CAPE injects the initial process with the monitor in a way that causes HollowsHunter to always
+                # dump the initial process. Therefore we want to avoid extracting this dump.
+                if ".exe" in path:
+                    hit = False
+                    for main_process_tuple in main_process_tuples:
+                        pid, image = main_process_tuple
+                        if f"hh_process_{pid}_" in path and image in path:
+                            hit = True
+                            break
+
+                    if hit:
+                        continue
+
                 full_path = os.path.join(task_dir, path)
                 file_name = f"{task_id}_{path}"
                 zip_obj.extract(path, path=task_dir)
