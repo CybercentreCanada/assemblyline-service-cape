@@ -131,6 +131,7 @@ def dummy_zip_class():
                 "hollowshunter/hh_process_123_dump_report.json",
                 "hollowshunter/hh_process_123_scan_report.json",
                 "hollowshunter/hh_process_123_blah.exe",
+                "hollowshunter/hh_process_321_main.exe",
                 "hollowshunter/hh_process_123_blah.shc",
                 "hollowshunter/hh_process_123_blah.dll",
                 "shots/0005.jpg",
@@ -1458,7 +1459,7 @@ class TestCapeMain:
 
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-        mocker.patch.object(CAPE, "_build_report")
+        mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
         mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
@@ -1558,7 +1559,7 @@ class TestCapeMain:
         mocker.patch("builtins.open")
         mocker.patch("cape.cape_main.loads", return_value=report_json)
         mocker.patch.object(CAPE, "report_machine_info")
-        mocker.patch("cape.cape_main.generate_al_result", return_value={})
+        mocker.patch("cape.cape_main.generate_al_result", return_value=({}, []))
         mocker.patch.object(CAPE, "delete_task")
 
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -1572,7 +1573,7 @@ class TestCapeMain:
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
-        assert results == {}
+        assert results == ({}, [])
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape_main.generate_al_result", side_effect=RecoverableError("blah"))
@@ -1690,7 +1691,8 @@ class TestCapeMain:
         zip_obj = dummy_zip_class()
         task_id = 1
         cape_class_instance.artifact_list = []
-        cape_class_instance._extract_hollowshunter(zip_obj, task_id)
+        main_process_tuples = [(321, "main.exe")]
+        cape_class_instance._extract_hollowshunter(zip_obj, task_id, main_process_tuples)
 
         assert cape_class_instance.artifact_list[0] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_dump_report.json",

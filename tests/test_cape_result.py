@@ -60,7 +60,7 @@ class TestCapeResult:
         mocker.patch("cape.cape_result.process_signatures", return_value=False)
         mocker.patch("cape.cape_result.convert_sysmon_processes", return_value=None)
         mocker.patch("cape.cape_result.convert_sysmon_network", return_value=None)
-        mocker.patch("cape.cape_result.process_behaviour", return_value=["blah"])
+        mocker.patch("cape.cape_result.process_behaviour", return_value=[])
         mocker.patch("cape.cape_result.process_network", return_value=["blah"])
         mocker.patch("cape.cape_result.process_all_events")
         mocker.patch("cape.cape_result.build_process_tree")
@@ -74,7 +74,7 @@ class TestCapeResult:
         safelist = {}
         output = generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, so)
 
-        assert output == {}
+        assert output == ({}, [])
         if api_report == {}:
             assert al_result.subsections == []
         elif api_report.get("behavior", {}).get("blah") == "blah":
@@ -167,8 +167,8 @@ class TestCapeResult:
             assert check_section_equality(al_result.subsections[0], correct_result_section)
 
     @staticmethod
-    @pytest.mark.parametrize("behaviour", [({"processes": []}), ({"processes": ["blah"], "apistats": {"blah": "blah"}})])
-    def test_process_behaviour(behaviour, mocker):
+    @pytest.mark.parametrize("behaviour, expected", [({"processes": []}, []), ({"processes": [{"parent_id": 123, "process_id": 321, "process_name": "blah.exe"}], "apistats": {"blah": "blah"}}, [(321, 'blah.exe')]),])
+    def test_process_behaviour(behaviour, expected, mocker):
         from cape.cape_result import process_behaviour
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
 
@@ -176,9 +176,8 @@ class TestCapeResult:
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
         so = SandboxOntology()
-        process_behaviour(behaviour, safelist, so)
-        # Code coverage!
-        assert True
+        main_process_tuples = process_behaviour(behaviour, safelist, so)
+        assert main_process_tuples == expected
 
     @staticmethod
     @pytest.mark.parametrize(
