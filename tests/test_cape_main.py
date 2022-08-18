@@ -388,7 +388,7 @@ class TestModule:
     def test_supported_extensions_constant():
         from cape.cape_main import SUPPORTED_EXTENSIONS
         assert SUPPORTED_EXTENSIONS == ['bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe',
-                                        'hta', 'htm', 'html', 'hwp', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
+                                        'hta', 'htm', 'html', 'hwp', 'iso', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
                                         'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt', 'pptm', 'pptx', 'ps1', 'pub',
                                         'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'vbs', 'wsf', 'xls', 'xlsm', 'xlsx']
 
