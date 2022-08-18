@@ -70,6 +70,7 @@ SUPPORTED_EXTENSIONS = [
     "htm",
     "html",
     "hwp",
+    "iso",
     "jar",
     "js",
     "lnk",
