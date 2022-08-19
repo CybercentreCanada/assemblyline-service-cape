@@ -714,5 +714,25 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
         "image": '?sys32\\cmd.exe|?sys32\\conhost.exe',
         "command_line": None,
         "children": []
+    },
+    '833315d9ffa1b1188e89ee2eae51a1c3720a4501d7a5ab9fdc9801902a0f6502': {
+        "image": '?sys32\\net.exe|?sys32\\net1.exe',
+        "command_line": 'C:\\Windows\\system32\\net1 stop winmgmt /y',
+        "children": []
+    },
+    '612562b4bade644efa0fd184731d01a1d9bb89f3fd5f0ee64e814626fc2d56d2': {
+        "image": '?sys32\\services.exe|?sys32\\taskhost.exe',
+        "command_line": None,
+        "children": []
+    },
+    '977836ec776aa8e541046a5047dbbcf07dfe0927ecb505792a653111e0309ad6': {
+        "image": '?sys32\\services.exe|?sys32\\sc.exe',
+        "command_line": 'C:\\Windows\\system32\\sc.exe start w32time task_started',
+        "children": []
+    },
+    '833315d9ffa1b1188e89ee2eae51a1c3720a4501d7a5ab9fdc9801902a0f6502': {
+        "image": '?sys32\\net.exe|?sys32\\net1.exe',
+        "command_line": 'C:\\Windows\\system32\\net1 start winmgmt',
+        "children": []
     }
 }
