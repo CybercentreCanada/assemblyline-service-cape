@@ -167,7 +167,30 @@ class TestCapeResult:
             assert check_section_equality(al_result.subsections[0], correct_result_section)
 
     @staticmethod
-    @pytest.mark.parametrize("behaviour, expected", [({"processes": []}, []), ({"processes": [{"parent_id": 123, "process_id": 321, "process_name": "blah.exe"}], "apistats": {"blah": "blah"}}, [(321, 'blah.exe')]),])
+    @pytest.mark.parametrize("behaviour, expected", [
+        ({"processes": []}, []),
+        (
+            {
+                "processes": [
+                    {"parent_id": 123, "process_id": 321, "process_name": "blah.exe"}
+                ],
+                "apistats": {
+                    "blah": "blah"
+                }
+            },
+        [(321, 'blah.exe')]),
+        (
+            {
+                "processes": [
+                    {"parent_id": 123, "process_id": 321, "process_name": "iexplore.exe"},
+                    {"parent_id": 321, "process_id": 999, "process_name": "iexplore.exe"}
+                ],
+                "apistats": {
+                    "blah": "blah"
+                }
+            },
+        [(321, 'iexplore.exe'), (999, 'iexplore.exe')]),
+    ])
     def test_process_behaviour(behaviour, expected, mocker):
         from cape.cape_result import process_behaviour
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology

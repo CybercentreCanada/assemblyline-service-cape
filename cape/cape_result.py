@@ -290,7 +290,14 @@ def process_behaviour(behaviour: Dict[str, Any], safelist: Dict[str, Dict[str, L
         return []
     else:
         parent_pid = processes[0]["parent_id"]
-        return [(process["process_id"], process["process_name"]) for process in processes if process["parent_id"] == parent_pid]
+        initial_process = processes[0]["process_name"]
+        initial_process_pid = processes[0]["process_id"]
+
+        # Adding special case for iexplore, since HH creates two dumps for the main process and it's child
+        if initial_process == "iexplore.exe":
+            return [(process["process_id"], process["process_name"]) for process in processes if process["parent_id"] == parent_pid or process["process_name"] == initial_process and process["parent_id"] == initial_process_pid]
+        else:
+            return [(process["process_id"], process["process_name"]) for process in processes if process["parent_id"] == parent_pid]
 
 
 def get_process_api_sums(apistats: Dict[str, Dict[str, int]]) -> Dict[str, int]:
