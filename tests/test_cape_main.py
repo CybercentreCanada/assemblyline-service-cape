@@ -506,7 +506,7 @@ class TestCapeMain:
         from assemblyline_v4_service.common.task import Task
         from assemblyline.odm.messages.task import Task as ServiceTask
         from assemblyline_v4_service.common.request import ServiceRequest
-        from cape.cape_main import CAPE, CapeHostsUnavailable
+        from cape.cape_main import CAPE
 
         mocker.patch('cape.cape_main.generate_random_words', return_value="blah")
         mocker.patch.object(CAPE, "_decode_mime_encoded_file_name", return_value=None)
@@ -525,8 +525,11 @@ class TestCapeMain:
 
         # Coverage test
         mocker.patch.object(CAPE, "_assign_file_extension", return_value=None)
-        with pytest.raises(CapeHostsUnavailable):
-            cape_class_instance.execute(service_request)
+
+        cape_class_instance.config["remote_host_details"]["hosts"] = [{"token": "blah"}]
+        cape_class_instance.execute(service_request)
+        assert cape_class_instance.hosts == [{"auth_header": {"Authorization": "Token blah"}}]
+
         cape_class_instance.hosts = [{"ip": "1.1.1.1"}]
         cape_class_instance.execute(service_request)
         assert True
@@ -683,7 +686,7 @@ class TestCapeMain:
                                         f"an issue on CAPE's machinery end. Contact the CAPE "
                                         f"administrator for details.")
             check_section_equality(parent_section.subsections[0], correct_sec)
-            assert cape_task.id is None
+            assert cape_task.id == 1
         elif (poll_started_status == TASK_MISSING and poll_report_status is None) or (poll_started_status == TASK_STARTED and poll_report_status == TASK_MISSING):
             with pytest.raises(RecoverableError):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
