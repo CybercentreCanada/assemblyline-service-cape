@@ -105,7 +105,6 @@ regex:
   # Windows
   - C:\\windows\\system32\\(SppExtComObj|mobsync)\.exe -Embedding
   - C:\\windows\\system32\\wbem\\wmiprvse\.exe -secured -Embedding
-  - (C:\\Windows\\)?explorer\.exe
   - \"C:\\Windows\\explorer\.exe\" /LOADSAVEDWINDOWS
   - wmiadap\.exe (/F /T /R|/D /T)
   - C:\\windows\\system32\\(sppsvc|wuauclt|appidpolicyconverter|appidcertstorecheck)\.exe

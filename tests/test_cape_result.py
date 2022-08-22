@@ -1,6 +1,7 @@
 import json
 import pytest
 from test_cape_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality
+from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
 
 
 class TestCapeResult:
@@ -49,7 +50,6 @@ class TestCapeResult:
     )
     def test_generate_al_result(api_report, mocker):
         from cape.cape_result import generate_al_result, ANALYSIS_ERRORS
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
 
@@ -68,11 +68,12 @@ class TestCapeResult:
         mocker.patch("cape.cape_result.process_hollowshunter")
         mocker.patch("cape.cape_result.process_buffers")
         mocker.patch("cape.cape_result.process_cape")
-        so = SandboxOntology()
+        so = OntologyResults()
         al_result = ResultSection("blah")
         file_ext = "blah"
         safelist = {}
-        output = generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, so)
+        machine_info = {}
+        output = generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, machine_info, so)
 
         assert output == ({}, [])
         if api_report == {}:
@@ -91,54 +92,54 @@ class TestCapeResult:
         "info, correct_body, expected_am",
         [
             (
-                {"started": "blah", "ended": "blah", "duration": "blah", "id": "blah", "route": "blah", "version": "blah"},
-                '{"CAPE Task ID": "blah", "Duration": -1, "Routing": "blah", "CAPE Version": "blah"}',
-                {"routing": "blah", "start_time": "blah", "end_time": "blah", "task_id": "blah"},
+                {"started": "blah", "ended": "blah", "duration": "blah", "id": 1, "route": "blah", "version": "blah"},
+                '{"CAPE Task ID": 1, "Duration": -1, "Routing": "blah", "CAPE Version": "blah"}',
+                {"routing": "blah", "start_time": "blah", "end_time": "blah", "task_id": 1},
             ),
             (
                 {
                     "started": "1970-01-01 00:00:01",
                     "ended": "1970-01-01 00:00:01",
                     "duration": "1",
-                    "id": "blah",
+                    "id": 1,
                     "route": "blah",
                     "version": "blah",
                 },
-                '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
+                '{"CAPE Task ID": 1, "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
                 ' "blah", "CAPE Version": "blah"}',
-                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"},
+                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": 1},
             ),
             (
                 {
-                    "id": "blah",
+                    "id": 1,
                     "started": "1970-01-01 00:00:01",
                     "ended": "1970-01-01 00:00:01",
                     "duration": "1",
                     "route": "blah",
                     "version": "blah",
                 },
-                '{"CAPE Task ID": "blah", "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
+                '{"CAPE Task ID": 1, "Duration": "00h 00m 01s\\t(1970-01-01 00:00:01 to 1970-01-01 00:00:01)", "Routing":'
                 ' "blah", "CAPE Version": "blah"}',
-                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": "blah"},
+                {"routing": "blah", "start_time": "1970-01-01 00:00:01", "end_time": "1970-01-01 00:00:01", "task_id": 1},
             ),
         ],
     )
     def test_process_info(info, correct_body, expected_am):
         from cape.cape_result import process_info
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
 
         al_result = ResultSection("blah")
-        so = SandboxOntology()
-        default_am = so.analysis_metadata.as_primitives()
+        so = OntologyResults(service_name="CAPE")
+        # default_am = so.analysis_metadata.as_primitives()
         process_info(info, al_result, so)
         correct_res_sec = ResultSection("Analysis Information")
         correct_res_sec.set_body(correct_body, BODY_FORMAT.KEY_VALUE)
         assert check_section_equality(al_result.subsections[0], correct_res_sec)
-        for key, value in expected_am.items():
-            default_am[key] = value
-        assert so.analysis_metadata.as_primitives() == default_am
-        assert so.sandbox_version == "blah"
+        # for key, value in expected_am.items():
+        #     default_am[key] = value
+        expected_am["machine_metadata"] = None
+        assert so.sandboxes[0].analysis_metadata.as_primitives() == expected_am
+        assert so.sandboxes[0].sandbox_version == "blah"
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -194,12 +195,11 @@ class TestCapeResult:
     ])
     def test_process_behaviour(behaviour, expected, mocker):
         from cape.cape_result import process_behaviour
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
 
         mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
-        so = SandboxOntology()
+        so = OntologyResults()
         main_process_tuples = process_behaviour(behaviour, safelist, so)
         assert main_process_tuples == expected
 
@@ -233,16 +233,18 @@ class TestCapeResult:
                     }
                 ],
                 {
-                    "start_time": 1.0,
-                    "end_time": float("inf"),
+                    "start_time": "1970-01-01 00:00:01",
+                    "end_time": "9999-12-31 23:59:59",
                     "objectid": {
                         "guid": "{12345678-1234-5678-1234-567812345678}",
                         "tag": "blah",
                         "treeid": None,
-                        "time_observed": 1.0,
+                        "time_observed": "1970-01-01 00:00:01",
                         "processtree": None,
+                        "ontology_id": "process_2YK9t8RtV7Kuz78PASKGw0",
+                        "service_name": "CAPE",
                     },
-                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "time_observed": None, "processtree": None},
+                    "pobjectid": None,
                     "pimage": None,
                     "pcommand_line": None,
                     "ppid": 1,
@@ -270,19 +272,16 @@ class TestCapeResult:
             ([], {}),
         ],
     )
-    def test_convert_cape_processes(processes, correct_event):
+    def test_convert_cape_processes(processes, correct_event, mocker):
         from cape.cape_result import convert_cape_processes
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from uuid import UUID
 
         safelist = {}
-        so = SandboxOntology()
+        so = OntologyResults(service_name="CAPE")
+        mocker.patch.object(so, "sandboxes", return_value="blah")
         convert_cape_processes(processes, safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
-            if proc_as_prims["pobjectid"]["guid"]:
-                assert str(UUID(proc_as_prims["pobjectid"].pop("guid")))
-                proc_as_prims["pobjectid"]["guid"] = None
+            _ = proc_as_prims["objectid"].pop("session")
             assert proc_as_prims == correct_event
         else:
             assert so.get_processes() == []
@@ -299,8 +298,9 @@ class TestCapeResult:
                         "command_line": "blah",
                         "ppid": 1,
                         "guid": "{12345678-1234-5678-1234-567812345678}",
-                        "start_time": 1.0,
+                        "start_time": "1970-01-01 00:00:01",
                         "pguid": "{12345678-1234-5678-1234-567812345678}",
+                        "objectid": OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
                     }
                 ],
                 False,
@@ -320,8 +320,9 @@ class TestCapeResult:
                         "command_line": "blah",
                         "ppid": 1,
                         "guid": "{12345678-1234-5678-1234-567812345678}",
-                        "start_time": 1.0,
+                        "start_time": "1970-01-01 00:00:01",
                         "pguid": "{12345678-1234-5678-1234-567812345678}",
+                        "objectid": OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
                     }
                 ],
                 True,
@@ -342,8 +343,9 @@ class TestCapeResult:
                         "command_line": "blah",
                         "ppid": 1,
                         "guid": "{12345678-1234-5678-1234-567812345678}",
-                        "start_time": 1.0,
+                        "start_time": "1970-01-01 00:00:01",
                         "pguid": "{12345678-1234-5678-1234-567812345678}",
+                        "objectid": OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
                     }
                 ],
                 False,
@@ -359,10 +361,9 @@ class TestCapeResult:
     )
     def test_build_process_tree(events, is_process_martian, correct_body):
         from cape.cape_result import build_process_tree
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultProcessTreeSection, ResultSection, ProcessItem
 
-        default_so = SandboxOntology()
+        default_so = OntologyResults()
         for event in events:
             p = default_so.create_process(**event)
             default_so.add_process(p)
@@ -594,17 +595,17 @@ class TestCapeResult:
             ({}, {"udp": []}, ([], "")),
             (
                 {},
-                {"udp": [{"dst": "blah", "src": "1.1.1.1", "time": "blah", "dport": "blah"}]},
+                {"udp": [{"dst": "blah", "src": "1.1.1.1", "time": "blah", "dport": 123}]},
                 (
                     [
                         {
                             "dest_ip": "blah",
-                            "dest_port": "blah",
+                            "dest_port": 123,
                             "domain": None,
                             "image": None,
                             "pid": None,
                             "protocol": "udp",
-                            "src_ip": None,
+                            "src_ip": "1.1.1.1",
                             "src_port": None,
                             "timestamp": "blah",
                         }
@@ -614,12 +615,12 @@ class TestCapeResult:
             ),
             (
                 {},
-                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": 123}]},
                 (
                     [
                         {
                             "dest_ip": "blah",
-                            "dest_port": "blah",
+                            "dest_port": 123,
                             "domain": None,
                             "image": None,
                             "pid": None,
@@ -634,12 +635,12 @@ class TestCapeResult:
             ),
             (
                 {"blah": {"domain": "blah"}},
-                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": 123}]},
                 (
                     [
                         {
                             "dest_ip": "blah",
-                            "dest_port": "blah",
+                            "dest_port": 123,
                             "domain": "blah",
                             "image": None,
                             "pid": None,
@@ -654,12 +655,12 @@ class TestCapeResult:
             ),
             (
                 {"blah": {"domain": "blah", "process_name": "blah", "process_id": "blah"}},
-                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": "blah"}]},
+                {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": 123}]},
                 (
                     [
                         {
                             "dest_ip": "blah",
-                            "dest_port": "blah",
+                            "dest_port": 123,
                             "domain": "blah",
                             "image": "blah",
                             "pid": "blah",
@@ -698,7 +699,7 @@ class TestCapeResult:
                         "protocol": "udp",
                         "domain": None,
                         "dest_ip": "blah",
-                        "src_ip": None,
+                        "src_ip": "1.1.1.1",
                         "src_port": None,
                         "dest_port": f"blah{i}",
                         "timestamp": "blah",
@@ -708,8 +709,7 @@ class TestCapeResult:
                 )
             expected_network_flows_table = expected_network_flows_table[:100]
 
-        safelist = {"regex": {"network.dynamic.ip": ["(^1\.1\.1\.1$)|(^8\.8\.8\.8$)"]}}
-        network_flows_table, netflows_sec = _get_low_level_flows(resolved_ips, flows, safelist)
+        network_flows_table, netflows_sec = _get_low_level_flows(resolved_ips, flows)
         assert network_flows_table == expected_network_flows_table
         assert check_section_equality(netflows_sec, correct_netflows_sec)
 
@@ -723,7 +723,7 @@ class TestCapeResult:
                 {},
                 {
                     "http": [
-                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah", "method": "blah"}
+                        {"host": "blah", "path": "blah", "data": "blah", "port": 123, "uri": "http://blah", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -735,7 +735,7 @@ class TestCapeResult:
                 {},
                 {
                     "http": [
-                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                        {"host": "3.3.3.3", "path": "blah", "data": "blah", "port": 123, "uri": "http://blah.com", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -743,16 +743,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -770,23 +760,13 @@ class TestCapeResult:
                 {
                     "http": [],
                     "https": [
-                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                        {"host": "3.3.3.3", "path": "blah", "data": "blah", "port": 123, "uri": "http://blah.com", "method": "blah"}
                     ],
                     "http_ex": [],
                     "https_ex": [],
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -809,7 +789,7 @@ class TestCapeResult:
                             "host": "blah",
                             "request": "blah",
                             "dst": "2.2.2.2",
-                            "dport": "blah",
+                            "dport": 123,
                             "uri": "http://blah.com",
                             "protocol": "http",
                             "method": "blah",
@@ -817,29 +797,7 @@ class TestCapeResult:
                     ],
                     "https_ex": [],
                 },
-                [
-                    {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
-                        "request_uri": "http://blah.com",
-                        "request_headers": {},
-                        "request_body": None,
-                        "request_method": "blah",
-                        "response_headers": {},
-                        "response_status_code": None,
-                        "response_body": None,
-                        "request_body_path": None,
-                        "response_body_path": None,
-                    }
-                ],
+                [],
             ),
             (
                 {},
@@ -851,7 +809,7 @@ class TestCapeResult:
                             "host": "nope.com",
                             "request": "blah",
                             "dst": "2.2.2.2",
-                            "dport": "blah",
+                            "dport": 123,
                             "uri": "/blah",
                             "protocol": "http",
                             "method": "blah",
@@ -861,16 +819,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": "1.1.1.1:blah", "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": "1.1.1.1",
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://nope.com/blah",
                         "request_headers": {},
                         "request_body": None,
@@ -894,7 +842,7 @@ class TestCapeResult:
                             "host": "nope.com",
                             "request": "blah",
                             "dst": "2.2.2.2",
-                            "dport": "blah",
+                            "dport": 123,
                             "uri": "/blah",
                             "protocol": "https",
                             "method": "blah",
@@ -903,16 +851,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": "1.1.1.1:blah", "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": "1.1.1.1",
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "https://nope.com/blah",
                         "request_headers": {},
                         "request_body": None,
@@ -929,7 +867,7 @@ class TestCapeResult:
                 {},
                 {
                     "http": [
-                        {"host": "192.168.0.1", "path": "blah", "data": "blah", "port": "blah", "uri": "blah", "method": "blah"}
+                        {"host": "192.168.0.1", "path": "blah", "data": "blah", "port": 123, "uri": "blah", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -945,7 +883,7 @@ class TestCapeResult:
                             "host": "something.adobe.com",
                             "path": "blah",
                             "data": "blah",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "blah",
                             "method": "blah",
                         }
@@ -964,7 +902,7 @@ class TestCapeResult:
                             "host": "blah",
                             "path": "blah",
                             "data": "blah",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "http://localhost/blah",
                             "method": "blah",
                         }
@@ -980,18 +918,18 @@ class TestCapeResult:
                 {
                     "http": [
                         {
-                            "host": "blah",
+                            "host": "3.3.3.3",
                             "path": "blah",
                             "data": "blah",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "http://blah.com",
                             "method": "blah",
                         },
                         {
-                            "host": "blah",
+                            "host": "3.3.3.3",
                             "path": "blah",
                             "data": "blah",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "http://blah.com",
                             "method": "blah",
                         },
@@ -1002,16 +940,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -1028,7 +956,7 @@ class TestCapeResult:
                 {1: {"network_calls": [{"send": {"service": 3}}], "name": "blah"}},
                 {
                     "http": [
-                        {"host": "blah", "path": "blah", "data": "blah", "port": "blah", "uri": "http://blah.com", "method": "blah"}
+                        {"host": "3.3.3.3", "path": "blah", "data": "blah", "port": 123, "uri": "http://blah.com", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -1036,16 +964,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -1063,10 +981,10 @@ class TestCapeResult:
                 {
                     "http": [
                         {
-                            "host": "blah",
+                            "host": "3.3.3.3",
                             "path": "blah",
                             "data": "check me",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "http://blah.com",
                             "method": "blah",
                         }
@@ -1077,16 +995,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -1104,10 +1012,10 @@ class TestCapeResult:
                 {
                     "http": [
                         {
-                            "host": "blah",
+                            "host": "3.3.3.3",
                             "path": "blah",
                             "data": "check me",
-                            "port": "blah",
+                            "port": 123,
                             "uri": "http://blah.com",
                             "method": "blah",
                         }
@@ -1118,16 +1026,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "http://blah.com",
                         "request_headers": {},
                         "request_body": None,
@@ -1141,10 +1039,10 @@ class TestCapeResult:
                 ],
             ),
             (
-                {1: {"network_calls": [{"URLDownloadToFileW": {"url": "http://bad.evil"}}], "name": "blah"}},
+                {1: {"network_calls": [{"URLDownloadToFileW": {"url": "http://bad.evil.com"}}], "name": "blah"}},
                 {
                     "http": [
-                        {"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "http://bad.evil", "method": "blah"}
+                        {"host": "3.3.3.3", "path": "blah", "data": "check me", "port": 123, "uri": "http://bad.evil.com", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -1152,17 +1050,7 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": None, "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": None,
-                            "source_port": None,
-                            "destination_ip": None,
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
-                        "request_uri": "http://bad.evil",
+                        "request_uri": "http://bad.evil.com",
                         "request_headers": {},
                         "request_body": None,
                         "request_method": "blah",
@@ -1185,7 +1073,7 @@ class TestCapeResult:
                             "host": "nope.com",
                             "req": {"path": "/blahblah/network/blahblah"},
                             "resp": {"path": "blahblah/network/blahblah"},
-                            "dport": "blah",
+                            "dport": 123,
                             "uri": "/blah",
                             "protocol": "https",
                             "method": "blah",
@@ -1199,16 +1087,6 @@ class TestCapeResult:
                 },
                 [
                     {
-                        "connection_details": {
-                            "objectid": {"tag": "blah:blah", "treeid": None, "processtree": None, "time_observed": None},
-                            "process": None,
-                            "source_ip": "blah",
-                            "source_port": 123,
-                            "destination_ip": "blah",
-                            "destination_port": "blah",
-                            "transport_layer_protocol": "tcp",
-                            "direction": "outbound",
-                        },
                         "request_uri": "https://nope.com/blah",
                         "request_headers": {},
                         "request_body": None,
@@ -1223,11 +1101,10 @@ class TestCapeResult:
             ),
         ],
     )
-    def test_process_http_calls(process_map, http_level_flows, expected_req_table):
+    def test_process_http_calls(process_map, http_level_flows, expected_req_table, mocker):
         from cape.cape_result import _process_http_calls
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-
-        default_so = SandboxOntology()
+        default_so = OntologyResults(service_name="CAPE")
+        mocker.patch.object(default_so, "sandboxes", return_value="blah")
         safelist = {
             "regex": {
                 "network.dynamic.ip": ["(?:127\.|10\.|192\.168|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.).*"],
@@ -1241,9 +1118,6 @@ class TestCapeResult:
         actual_req_table = []
         for nh in default_so.get_network_http():
             nh_as_prim = nh.__dict__
-            nh_as_prim["connection_details"] = nh_as_prim["connection_details"].__dict__
-            nh_as_prim["connection_details"]["objectid"] = nh_as_prim["connection_details"]["objectid"].__dict__
-            nh_as_prim["connection_details"]["objectid"].pop("guid")
             actual_req_table.append(nh_as_prim)
         assert expected_req_table == actual_req_table
 
@@ -1300,10 +1174,9 @@ class TestCapeResult:
     @staticmethod
     def test_process_all_events():
         from cape.cape_result import process_all_events
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
 
-        default_so = SandboxOntology()
+        default_so = OntologyResults()
         al_result = ResultSection("blah")
         p = default_so.create_process(
             pid=1,
@@ -1311,23 +1184,24 @@ class TestCapeResult:
             guid="{12345678-1234-5678-1234-567812345679}",
             command_line="blah blah.com",
             image="blah",
-            start_time=2,
+            start_time="1970-01-01 00:00:01",
             pguid="{12345678-1234-5678-1234-567812345679}",
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
         )
         default_so.add_process(p)
         nc = default_so.create_network_connection(
-            time_observed=1,
             source_port=1,
             destination_ip="1.1.1.1",
             source_ip="2.2.2.2",
             destination_port=1,
-            transport_layer_protocol="blah",
+            transport_layer_protocol="udp",
             direction="outbound",
             process=p,
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE", time_observed="1970-01-01 00:00:02")
         )
 
         default_so.add_network_connection(nc)
-        dns = default_so.create_network_dns(domain="blah", resolved_ips=["1.1.1.1"], connection_details=nc)
+        dns = default_so.create_network_dns(domain="blah", resolved_ips=["1.1.1.1"], lookup_type="A")
         default_so.add_network_dns(dns)
 
         correct_result_section = ResultTableSection(title_text="Event Log")
@@ -1338,18 +1212,18 @@ class TestCapeResult:
         correct_result_section.add_row(
             TableRow(
                 **{
-                    "time_observed": "1970-01-01 00:00:01.000",
+                    "time_observed": "1970-01-01 00:00:01",
                     "process_name": "blah (1)",
-                    "details": {"protocol": "blah", "domain": "blah", "dest_ip": "1.1.1.1", "dest_port": 1},
+                    "details": {"command_line": "blah blah.com"},
                 }
             )
         )
         correct_result_section.add_row(
             TableRow(
                 **{
-                    "time_observed": "1970-01-01 00:00:02.000",
+                    "time_observed": "1970-01-01 00:00:02",
                     "process_name": "blah (1)",
-                    "details": {"command_line": "blah blah.com"},
+                    "details": {"protocol": "udp", "domain": "blah", "dest_ip": "1.1.1.1", "dest_port": 1},
                 }
             )
         )
@@ -1360,7 +1234,6 @@ class TestCapeResult:
         for item in table_data:
             correct_ioc_table.add_row(TableRow(**item))
         correct_result_section.add_subsection(correct_ioc_table)
-
         process_all_events(al_result, default_so)
         assert check_section_equality(al_result.subsections[0], correct_result_section)
 
@@ -1434,9 +1307,10 @@ class TestCapeResult:
             (
                 [
                     {
-                        "System": {"EventID": 2},
+                        "System": {"EventID": 1},
                         "EventData": {
                             "Data": [
+                                {"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
                                 {"@Name": "ProcessId", "#text": "1"},
                                 {"@Name": "ParentProcessId", "#text": "2"},
                                 {"@Name": "Image", "#text": "blah.exe"},
@@ -1447,16 +1321,18 @@ class TestCapeResult:
                     }
                 ],
                 {
-                    "start_time": float("-inf"),
-                    "end_time": float("inf"),
+                    "start_time": "1970-01-01 12:40:30",
+                    "end_time": "9999-12-31 23:59:59",
                     "objectid": {
                         "guid": "{12345678-1234-5678-1234-567812345679}",
                         "tag": "blah.exe",
                         "treeid": None,
-                        "time_observed": float("-inf"),
+                        "time_observed": "1970-01-01 12:40:30",
                         "processtree": None,
+                        "ontology_id": "process_4Kj6sgz5Y8rvIQnT9nPBS2",
+                        "service_name": "CAPE",
                     },
-                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "time_observed": None, "processtree": None},
+                    "pobjectid": None,
                     "pimage": None,
                     "pcommand_line": None,
                     "ppid": 2,
@@ -1471,9 +1347,10 @@ class TestCapeResult:
             (
                 [
                     {
-                        "System": {"EventID": 2},
+                        "System": {"EventID": 1},
                         "EventData": {
                             "Data": [
+                                {"@Name": "UtcTime", "#text": "1970-01-01 12:40:30.123"},
                                 {"@Name": "ProcessId", "#text": "1"},
                                 {"@Name": "ParentProcessId", "#text": "2"},
                                 {"@Name": "Image", "#text": "blah.exe"},
@@ -1485,22 +1362,18 @@ class TestCapeResult:
                     }
                 ],
                 {
-                    "start_time": float("-inf"),
-                    "end_time": float("inf"),
+                    "start_time": "1970-01-01 12:40:30",
+                    "end_time": "9999-12-31 23:59:59",
                     "objectid": {
                         "guid": "{12345678-1234-5678-1234-567812345679}",
                         "tag": "blah.exe",
                         "treeid": None,
-                        "time_observed": float("-inf"),
+                        "time_observed": "1970-01-01 12:40:30",
                         "processtree": None,
+                        "ontology_id": "process_4Kj6sgz5Y8rvIQnT9nPBS2",
+                        "service_name": "CAPE",
                     },
-                    "pobjectid": {
-                        "guid": "{12345678-1234-5678-1234-567812345678}",
-                        "tag": None,
-                        "treeid": None,
-                        "time_observed": None,
-                        "processtree": None,
-                    },
+                    "pobjectid": None,
                     "pimage": None,
                     "pcommand_line": None,
                     "ppid": 2,
@@ -1527,16 +1400,18 @@ class TestCapeResult:
                     }
                 ],
                 {
-                    "start_time": 45630.123,
-                    "end_time": float("inf"),
+                    "start_time": "1970-01-01 12:40:30",
+                    "end_time": "9999-12-31 23:59:59",
                     "objectid": {
                         "guid": "{12345678-1234-5678-1234-567812345678}",
                         "tag": "blah",
                         "treeid": None,
                         "processtree": None,
-                        "time_observed": 45630.123,
+                        "time_observed": "1970-01-01 12:40:30",
+                        "ontology_id": "process_5FPZdIxfHmzxsWKUlsSNGl",
+                        "service_name": "CAPE",
                     },
-                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                    "pobjectid": None,
                     "pimage": None,
                     "pcommand_line": None,
                     "ppid": None,
@@ -1574,16 +1449,18 @@ class TestCapeResult:
                     },
                 ],
                 {
-                    "start_time": 45630.123,
-                    "end_time": 45631.123,
+                    "start_time": "1970-01-01 12:40:30",
+                    "end_time": "1970-01-01 12:40:31",
                     "objectid": {
                         "guid": "{12345678-1234-5678-1234-567812345678}",
                         "tag": "blah",
                         "treeid": None,
                         "processtree": None,
-                        "time_observed": 45630.123,
+                        "time_observed": "1970-01-01 12:40:30",
+                        "ontology_id": "process_5FPZdIxfHmzxsWKUlsSNGl",
+                        "service_name": "CAPE",
                     },
-                    "pobjectid": {"guid": None, "tag": None, "treeid": None, "processtree": None, "time_observed": None},
+                    "pobjectid": None,
                     "pimage": None,
                     "pcommand_line": None,
                     "ppid": None,
@@ -1597,22 +1474,17 @@ class TestCapeResult:
             ),
         ],
     )
-    def test_convert_sysmon_processes(sysmon, expected_process):
+    def test_convert_sysmon_processes(sysmon, expected_process, mocker):
         from cape.cape_result import convert_sysmon_processes
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from uuid import UUID
 
-        so = SandboxOntology()
+        so = OntologyResults(service_name="CAPE")
+        mocker.patch.object(so, "sandboxes", return_value="blah")
         safelist = {}
         convert_sysmon_processes(sysmon, safelist, so)
         if expected_process:
             proc_as_prims = so.processes[0].as_primitives()
-            if expected_process["pobjectid"]["guid"]:
-                assert proc_as_prims == expected_process
-            else:
-                assert str(UUID(proc_as_prims["pobjectid"].pop("guid")))
-                proc_as_prims["pobjectid"]["guid"] = None
-                assert proc_as_prims == expected_process
+            _ = proc_as_prims["objectid"].pop("session")
+            assert proc_as_prims == expected_process
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1672,7 +1544,7 @@ class TestCapeResult:
                             "pid": 123,
                             "sport": 123,
                             "src": "10.10.10.10",
-                            "time": 1627054921.001,
+                            "time": "2021-07-23 15:42:01",
                         }
                     ]
                 },
@@ -1707,7 +1579,7 @@ class TestCapeResult:
                             "pid": 123,
                             "sport": 123,
                             "src": "10.10.10.10",
-                            "time": 1627054921.001,
+                            "time": "2021-07-23 15:42:01",
                         }
                     ]
                 },
@@ -1737,7 +1609,7 @@ class TestCapeResult:
                             "image": "blah.exe",
                             "pid": 123,
                             "request": "blah.com",
-                            "time": 1627054921.001,
+                            "time": "2021-07-23 15:42:01",
                             "type": "A",
                         }
                     ]
@@ -1786,7 +1658,7 @@ class TestCapeResult:
                             "image": "blah.exe",
                             "pid": 123,
                             "request": "blah.com",
-                            "time": 1627054921.001,
+                            "time": "2021-07-23 15:42:01",
                             "type": "A",
                         }
                     ]
@@ -1947,7 +1819,7 @@ class TestCapeResult:
                             {
                                 "category": "network",
                                 "api": "connect",
-                                "arguments": [{"name": "ip_address", "value": "blah"}, {"name": "port", "value": "blah"}],
+                                "arguments": [{"name": "ip_address", "value": "blah"}, {"name": "port", "value": 123}],
                             }
                         ],
                         "process_id": 1,
@@ -1956,7 +1828,7 @@ class TestCapeResult:
                 {
                     1: {
                         "name": "blah.exe",
-                        "network_calls": [{"connect": {"ip_address": "blah", "port": "blah"}}],
+                        "network_calls": [{"connect": {"ip_address": "blah", "port": 123}}],
                         "decrypted_buffers": [],
                     }
                 },
@@ -1974,7 +1846,7 @@ class TestCapeResult:
                                     {"name": "service", "value": "blah"},
                                     {"name": "password", "value": "blah"},
                                     {"name": "hostname", "value": "blah"},
-                                    {"name": "port", "value": "blah"},
+                                    {"name": "port", "value": 123},
                                 ],
                             }
                         ],
@@ -1991,7 +1863,7 @@ class TestCapeResult:
                                     "service": "blah",
                                     "password": "blah",
                                     "hostname": "blah",
-                                    "port": "blah",
+                                    "port": 123,
                                 }
                             }
                         ],
@@ -2012,7 +1884,7 @@ class TestCapeResult:
                                     {"name": "service", "value": "blah"},
                                     {"name": "password", "value": "blah"},
                                     {"name": "hostname", "value": "blah"},
-                                    {"name": "port", "value": "blah"},
+                                    {"name": "port", "value": 123},
                                 ],
                             }
                         ],
@@ -2029,7 +1901,7 @@ class TestCapeResult:
                                     "service": "blah",
                                     "password": "blah",
                                     "hostname": "blah",
-                                    "port": "blah",
+                                    "port": 123,
                                 }
                             }
                         ],
@@ -2137,9 +2009,6 @@ class TestCapeResult:
         from cape.cape_result import get_process_map
 
         safelist = {"regex": {"dynamic.process.file_name": [r"C:\\Windows\\System32\\lsass\.exe"]}}
-        print("")
-        print(get_process_map(processes, safelist))
-        print(correct_process_map)
         assert get_process_map(processes, safelist) == correct_process_map
 
     @staticmethod
@@ -2158,15 +2027,19 @@ class TestCapeResult:
 
     @staticmethod
     def test_update_process_map():
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from cape.cape_result import _update_process_map
 
         process_map = {}
         _update_process_map(process_map, [])
         assert process_map == {}
 
-        default_so = SandboxOntology()
-        p = default_so.create_process(pid=1, image="blah")
+        default_so = OntologyResults()
+        p = default_so.create_process(
+            start_time="1970-01-01 00:00:02",
+            pid=1,
+            image="blah",
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        )
 
         _update_process_map(process_map, [p])
         assert process_map == {1: {"name": "blah", "network_calls": [], "decrypted_buffers": []}}
@@ -2209,7 +2082,7 @@ class TestCapeResult:
         from assemblyline_v4_service.common.result import ResultSection
         from cape.cape_result import _tag_mark_values
         actual_res_sec = ResultSection("blah")
-        _tag_mark_values(actual_res_sec, key, value)
+        _tag_mark_values(actual_res_sec, key, value, [], {})
         assert actual_res_sec.tags == expected_tags
 
     @staticmethod
