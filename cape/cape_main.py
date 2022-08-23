@@ -234,8 +234,11 @@ class CAPE(ServiceBase):
     # noinspection PyTypeChecker
     def execute(self, request: ServiceRequest) -> None:
         if not len(self.hosts):
-            raise CapeHostsUnavailable(
-                "All hosts are unavailable at the moment, as determined by a previous execution.")
+            # If all hosts were removed from a previous execution, reset hosts
+            for host in self.config["remote_host_details"]["hosts"]:
+                host["auth_header"] = {'Authorization': f"{self.config.get('token_key', DEFAULT_TOKEN_KEY)} {host['token']}"}
+                del host["token"]
+            self.hosts = self.config["remote_host_details"]["hosts"]
 
         self.request = request
         self.session = requests.Session()
@@ -500,7 +503,6 @@ class CAPE(ServiceBase):
                 "This is usually due to an issue on CAPE's machinery end."
                 " Contact the CAPE administrator for details.")
             parent_section.add_subsection(task_timeout_sec)
-            cape_task.id = None
             raise AnalysisTimeoutExceeded()
         elif status == TASK_MISSING:
             err_msg = f"Task {cape_task.id} went missing while waiting for CAPE to analyze file."
