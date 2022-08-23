@@ -218,8 +218,7 @@ class CAPE(ServiceBase):
         token_key = self.config.get("token_key", DEFAULT_TOKEN_KEY)
         for host in self.config["remote_host_details"]["hosts"]:
             host["auth_header"] = {'Authorization': f"{token_key} {host['token']}"}
-            del host["token"]
-        self.hosts = self.config["remote_host_details"]["hosts"]
+        self.hosts = self.config["remote_host_details"]["hosts"][:]
         self.connection_timeout_in_seconds = self.config.get(
             "connection_timeout_in_seconds", DEFAULT_CONNECTION_TIMEOUT)
         self.timeout = self.config.get("rest_timeout_in_seconds", DEFAULT_REST_TIMEOUT)
@@ -235,10 +234,7 @@ class CAPE(ServiceBase):
     def execute(self, request: ServiceRequest) -> None:
         if not len(self.hosts):
             # If all hosts were removed from a previous execution, reset hosts
-            for host in self.config["remote_host_details"]["hosts"]:
-                host["auth_header"] = {'Authorization': f"{self.config.get('token_key', DEFAULT_TOKEN_KEY)} {host['token']}"}
-                del host["token"]
-            self.hosts = self.config["remote_host_details"]["hosts"]
+            self.hosts = self.config["remote_host_details"]["hosts"][:]
 
         self.request = request
         self.session = requests.Session()
