@@ -528,7 +528,7 @@ class TestCapeMain:
 
         cape_class_instance.config["remote_host_details"]["hosts"] = [{"token": "blah"}]
         cape_class_instance.execute(service_request)
-        assert cape_class_instance.hosts == [{"auth_header": {"Authorization": "Token blah"}}]
+        assert cape_class_instance.hosts == [{"token": "blah"}]
 
         cape_class_instance.hosts = [{"ip": "1.1.1.1"}]
         cape_class_instance.execute(service_request)
