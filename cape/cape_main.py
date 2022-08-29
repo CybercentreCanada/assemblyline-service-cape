@@ -1716,6 +1716,7 @@ class CAPE(ServiceBase):
                 machine_exists = True
                 kwargs["machine"] = specific_machine
             else:
+                self.log.error(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec = ResultTextSection('Requested Machine Does Not Exist')
                 no_machine_sec.add_line(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec.add_line("General Information:")
@@ -1751,6 +1752,7 @@ class CAPE(ServiceBase):
         kwargs["platform"] = specific_platform
 
         if platform_requested and not hosts_with_platform[specific_platform]:
+            self.log.error(f"The requested platform '{specific_platform}' is currently unavailable.")
             no_platform_sec = ResultSection(title_text='Requested Platform Does Not Exist')
             no_platform_sec.add_line(f"The requested platform '{specific_platform}' is currently unavailable.")
             no_platform_sec.add_line("General Information:")
@@ -1788,6 +1790,7 @@ class CAPE(ServiceBase):
             else:
                 self._set_hosts_that_contain_image(specific_image, relevant_images)
             if not relevant_images:
+                self.log.error(f"The requested image '{specific_image}' is currently unavailable.")
                 all_machines = [machine for host in self.hosts for machine in host["machines"]]
                 available_images = self._get_available_images(all_machines, self.allowed_images)
                 no_image_sec = ResultSection('Requested Image Does Not Exist')
