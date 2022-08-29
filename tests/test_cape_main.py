@@ -1,8 +1,25 @@
 import os
 import json
+import re
+
+from multiprocessing import Process
 import pytest
 import shutil
+from requests import Session, exceptions, ConnectionError
 import requests_mock
+from retrying import RetryError
+from sys import getrecursionlimit
+from assemblyline_v4_service.common.task import Task
+from assemblyline.odm.messages.task import Task as ServiceTask
+from assemblyline.common.exceptions import RecoverableError
+from assemblyline.common.identify_defaults import type_to_extension
+from assemblyline.common.str_utils import safe_str
+
+from assemblyline_v4_service.common.request import ServiceRequest
+from assemblyline_v4_service.common.result import ResultSection, ResultImageSection, BODY_FORMAT
+from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+
+from cape.cape_main import *
 
 # Getting absolute paths, names and regexes
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -57,7 +74,6 @@ def remove_tmp_manifest():
 def cape_task_class():
     create_tmp_manifest()
     try:
-        from cape.cape_main import CapeTask
         yield CapeTask
     finally:
         remove_tmp_manifest()
@@ -67,7 +83,6 @@ def cape_task_class():
 def cape_class_instance():
     create_tmp_manifest()
     try:
-        from cape.cape_main import CAPE
         yield CAPE()
     finally:
         remove_tmp_manifest()
@@ -199,8 +214,6 @@ def dummy_json_doc_class_instance():
 @pytest.fixture
 def dummy_result_class_instance():
     class DummyResult:
-        from assemblyline_v4_service.common.result import ResultSection
-
         def __init__(self):
             self.sections = []
 
@@ -339,14 +352,11 @@ def check_section_equality(this, that) -> bool:
 class TestModule:
     @staticmethod
     def test_hollowshunter_constants():
-        from cape.cape_main import HOLLOWSHUNTER_REPORT_REGEX, HOLLOWSHUNTER_DUMP_REGEX
         assert HOLLOWSHUNTER_REPORT_REGEX == "hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
         assert HOLLOWSHUNTER_DUMP_REGEX == "hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 
     @staticmethod
     def test_cape_api_constants():
-        from cape.cape_main import CAPE_API_SUBMIT, CAPE_API_QUERY_TASK, CAPE_API_DELETE_TASK, \
-            CAPE_API_QUERY_REPORT, CAPE_API_QUERY_MACHINES
         assert CAPE_API_SUBMIT == "tasks/create/file/"
         assert CAPE_API_QUERY_TASK == "tasks/view/%s/"
         assert CAPE_API_DELETE_TASK == "tasks/delete/%s/"
@@ -355,20 +365,16 @@ class TestModule:
 
     @staticmethod
     def test_retry_constants():
-        from cape.cape_main import CAPE_POLL_DELAY, GUEST_VM_START_TIMEOUT, REPORT_GENERATION_TIMEOUT
         assert CAPE_POLL_DELAY == 5
         assert GUEST_VM_START_TIMEOUT == 360
         assert REPORT_GENERATION_TIMEOUT == 420
 
     @staticmethod
     def test_analysis_constants():
-        from cape.cape_main import ANALYSIS_TIMEOUT
         assert ANALYSIS_TIMEOUT == 150
 
     @staticmethod
     def test_image_tag_constants():
-        from cape.cape_main import LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX, x86_IMAGE_SUFFIX, x64_IMAGE_SUFFIX, \
-            RELEVANT_IMAGE_TAG, ALL_IMAGES_TAG, MACHINE_NAME_REGEX
         assert LINUX_IMAGE_PREFIX == "ub"
         assert WINDOWS_IMAGE_PREFIX == "win"
         assert x86_IMAGE_SUFFIX == "x86"
@@ -379,14 +385,12 @@ class TestModule:
 
     @staticmethod
     def test_file_constants():
-        from cape.cape_main import LINUX_x86_FILES, LINUX_x64_FILES, WINDOWS_x86_FILES
         assert set(LINUX_x86_FILES) == {"executable/linux/elf32", "executable/linux/so32", "executable/linux/coff32"}
         assert set(LINUX_x64_FILES) == {"executable/linux/elf64", "executable/linux/so64", "executable/linux/ia/coff64", "executable/linux/coff64"}
         assert set(WINDOWS_x86_FILES) == {'executable/windows/pe32', 'executable/windows/dll32'}
 
     @staticmethod
     def test_supported_extensions_constant():
-        from cape.cape_main import SUPPORTED_EXTENSIONS
         assert SUPPORTED_EXTENSIONS == ['bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe',
                                         'hta', 'htm', 'html', 'hwp', 'iso', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
                                         'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt', 'pptm', 'pptx', 'ps1', 'pub',
@@ -394,14 +398,10 @@ class TestModule:
 
     @staticmethod
     def test_illegal_filename_chars_constant():
-        from cape.cape_main import ILLEGAL_FILENAME_CHARS
         assert ILLEGAL_FILENAME_CHARS == set('<>:"/\|?*')
 
     @staticmethod
     def test_status_enumeration_constants():
-        from cape.cape_main import TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG, \
-            SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, TASK_STARTED, TASK_STARTING, TASK_COMPLETED, TASK_REPORTED, \
-            ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT
         assert TASK_MISSING == "missing"
         assert TASK_STOPPED == "stopped"
         assert INVALID_JSON == "invalid_json_report"
@@ -416,13 +416,6 @@ class TestModule:
         assert ANALYSIS_EXCEEDED_TIMEOUT == "analysis_exceeded_timeout"
 
     @staticmethod
-    def test_exclude_chain_ex():
-        from cape.cape_main import _exclude_chain_ex
-        from assemblyline.common.exceptions import ChainException
-        assert _exclude_chain_ex(ChainException("blah")) is False
-        assert _exclude_chain_ex(Exception("blah")) is True
-
-    @staticmethod
     def test_retry_on_none():
         from cape.cape_main import _retry_on_none
         assert _retry_on_none(None) is True
@@ -430,8 +423,6 @@ class TestModule:
 
     @staticmethod
     def test_generate_random_words():
-        from cape.cape_main import generate_random_words
-        import re
         pattern = r"[a-zA-Z0-9]+"
         for num_words in [1, 2, 3]:
             test_result = generate_random_words(num_words)
@@ -441,8 +432,6 @@ class TestModule:
 
     @staticmethod
     def test_tasks_are_similar():
-        from cape.cape_main import CapeTask, tasks_are_similar, ANALYSIS_FAILED
-
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
 
         item_to_find_1 = CapeTask("blahblah", host_to_use, timeout=123, custom="", package="blah", route="blah", options="blah", memory="blah", enforce_timeout="blah", tags="blah", clock="blah")
@@ -503,11 +492,6 @@ class TestCapeMain:
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
     def test_execute(sample, cape_class_instance, mocker):
-        from assemblyline_v4_service.common.task import Task
-        from assemblyline.odm.messages.task import Task as ServiceTask
-        from assemblyline_v4_service.common.request import ServiceRequest
-        from cape.cape_main import CAPE
-
         mocker.patch('cape.cape_main.generate_random_words', return_value="blah")
         mocker.patch.object(CAPE, "_decode_mime_encoded_file_name", return_value=None)
         mocker.patch.object(CAPE, "_remove_illegal_characters_from_file_name", return_value=None)
@@ -525,10 +509,6 @@ class TestCapeMain:
 
         # Coverage test
         mocker.patch.object(CAPE, "_assign_file_extension", return_value=None)
-
-        cape_class_instance.config["remote_host_details"]["hosts"] = [{"token": "blah"}]
-        cape_class_instance.execute(service_request)
-        assert cape_class_instance.hosts == [{"token": "blah"}]
 
         cape_class_instance.hosts = [{"ip": "1.1.1.1"}]
         cape_class_instance.execute(service_request)
@@ -573,11 +553,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
-        from assemblyline_v4_service.common.result import ResultSection
-        from assemblyline.common.exceptions import RecoverableError
-        from cape.cape_main import CAPE, AnalysisTimeoutExceeded
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-
         so = SandboxOntology()
         hosts = []
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -610,9 +585,6 @@ class TestCapeMain:
             with pytest.raises(Exception):
                 cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
 
-        with mocker.patch.object(CAPE, "submit", side_effect=AnalysisTimeoutExceeded("blah")):
-            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
-
         with mocker.patch.object(CAPE, "submit", side_effect=RecoverableError("blah")):
             with pytest.raises(RecoverableError):
                 cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
@@ -625,7 +597,6 @@ class TestCapeMain:
         "task_id, poll_started_status, poll_report_status",
         [
             (None, None, None),
-            (1, None, None),
             (1, "blah", None),
             (1, "missing", None),
             (1, "analysis_failed", None),
@@ -643,12 +614,6 @@ class TestCapeMain:
         ]
     )
     def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, dummy_request_class, mocker):
-        from cape.cape_main import TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG, \
-            SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, PROCESSING_FAILED, CapeTask, \
-            AnalysisTimeoutExceeded, AnalysisFailed
-        from retrying import RetryError
-        from assemblyline.common.exceptions import RecoverableError
-        from assemblyline_v4_service.common.result import ResultSection
         all_statuses = [TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG,
                         SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, PROCESSING_FAILED]
         file_content = b"blah"
@@ -663,8 +628,6 @@ class TestCapeMain:
         mocker.patch.object(cape_class_instance, "delete_task", return_value=True)
         if poll_started_status:
             mocker.patch.object(cape_class_instance, "poll_started", return_value=poll_started_status)
-        else:
-            mocker.patch.object(cape_class_instance, "poll_started", side_effect=RetryError("blah"))
         if poll_report_status:
             mocker.patch.object(cape_class_instance, "poll_report", return_value=poll_report_status)
         else:
@@ -677,25 +640,10 @@ class TestCapeMain:
             cape_task.id = 1
             with pytest.raises(Exception):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
-        elif poll_started_status is None or (poll_started_status == TASK_STARTED and poll_report_status is None):
-            with pytest.raises(AnalysisTimeoutExceeded):
-                cape_class_instance.submit(file_content, cape_task, parent_section)
-            correct_sec = ResultSection("Assemblyline task timeout exceeded.",
-                                        body=f"The CAPE task {cape_task.id} took longer than the "
-                                        f"Assemblyline's task timeout would allow.\nThis is usually due to "
-                                        f"an issue on CAPE's machinery end. Contact the CAPE "
-                                        f"administrator for details.")
-            check_section_equality(parent_section.subsections[0], correct_sec)
-            assert cape_task.id == 1
-        elif (poll_started_status == TASK_MISSING and poll_report_status is None) or (poll_started_status == TASK_STARTED and poll_report_status == TASK_MISSING):
-            with pytest.raises(RecoverableError):
-                cape_class_instance.submit(file_content, cape_task, parent_section)
-            assert cape_task.id is None
         elif (poll_started_status == ANALYSIS_FAILED and poll_report_status is None) or (poll_report_status in [ANALYSIS_FAILED, PROCESSING_FAILED] and poll_started_status == TASK_STARTED):
             with pytest.raises(AnalysisFailed):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
         elif poll_report_status == "reboot":
-            from requests import Session
             cape_class_instance.session = Session()
             with requests_mock.Mocker() as m:
                 m.get(cape_task.reboot_task_url % task_id, status_code=404)
@@ -720,19 +668,13 @@ class TestCapeMain:
     @pytest.mark.parametrize(
         "return_value",
         [
-            None,
             {"id": 2},
             {"id": 1, "guest": {"status": "starting"}},
             {"id": 1, "task": {"status": "missing"}},
-            {"id": 1, "errors": ["error"]},
-            {"id": 1}
+            {"id": 1, "guest": {"status": "blah"}},
         ]
     )
     def test_poll_started(return_value, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, CapeTask
-        from retrying import RetryError
-        from cape.cape_main import TASK_MISSING, TASK_STARTED, TASK_STARTING
-
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         cape_task.id = 1
@@ -741,23 +683,12 @@ class TestCapeMain:
         with mocker.patch("time.sleep", side_effect=lambda _: None):
             # Mocking the CAPE.query_task method results since we only care about the output
             with mocker.patch.object(CAPE, 'query_task', return_value=return_value):
-                if return_value is None:
-                    test_result = cape_class_instance.poll_started(cape_task)
-                    assert TASK_MISSING == test_result
-                # If None is returned, _retry_on_none will cause retry to try again up until we hit the limit and
-                # then a RetryError is raised
-                elif return_value["id"] != cape_task.id:
-                    with pytest.raises(RetryError):
-                        cape_class_instance.poll_started(cape_task)
-                elif return_value.get("guest", {}).get("status") == TASK_STARTING:
-                    with pytest.raises(RetryError):
-                        cape_class_instance.poll_started(cape_task)
-                elif return_value.get("task", {}).get("status") == TASK_MISSING:
-                    with pytest.raises(RetryError):
-                        cape_class_instance.poll_started(cape_task)
-                elif len(return_value.get("errors", [])) > 0:
-                    with pytest.raises(RetryError):
-                        cape_class_instance.poll_started(cape_task)
+                if return_value.get("guest", {}).get("status") == TASK_STARTING or return_value.get("task", {}).get("status") == TASK_MISSING:
+                    p1 = Process(target=cape_class_instance.poll_started, args=(cape_task), name="poll_started with task status")
+                    p1.start()
+                    p1.join(timeout=2)
+                    p1.terminate()
+                    assert p1.exitcode is None
                 else:
                     test_result = cape_class_instance.poll_started(cape_task)
                     assert TASK_STARTED == test_result
@@ -766,9 +697,6 @@ class TestCapeMain:
     @pytest.mark.parametrize(
         "return_value",
         [
-            None,
-            {},
-            {"id": 2},
             {"id": 1, "status": "fail", "errors": []},
             {"id": 1, "status": "completed"},
             {"id": 1, "status": "reported"},
@@ -778,11 +706,6 @@ class TestCapeMain:
         ]
     )
     def test_poll_report(return_value, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, TASK_MISSING, ANALYSIS_FAILED, TASK_COMPLETED, TASK_REPORTED, \
-            CapeTask, ANALYSIS_ERRORS, PROCESSING_FAILED
-        from retrying import RetryError
-        from assemblyline_v4_service.common.result import ResultSection
-
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         cape_task.id = 1
@@ -822,51 +745,67 @@ class TestCapeMain:
 
     @staticmethod
     def test_sha256_check(cape_class_instance, mocker):
-        from requests import Session, exceptions, ConnectionError
-        from cape.cape_main import CapeTimeoutException, CAPE, CapeTask
-
         sha256 = "blah"
         cape_class_instance.session = Session()
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
         correct_rest_response = {"data": [{"id": 1}]}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        weird_rest_response = {}
 
         with requests_mock.Mocker() as m:
+            # Case 1: We get a timeout
             m.get(cape_task.sha256_search_url % sha256, exc=exceptions.Timeout)
-            with pytest.raises(CapeTimeoutException):
-                cape_class_instance.sha256_check(sha256, cape_task)
-            m.get(cape_task.sha256_search_url % sha256, exc=ConnectionError)
-            with pytest.raises(Exception):
+            p1 = Process(target=cape_class_instance.sha256_check, args=(sha256, cape_task), name="sha256_check with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 2: We get a ConnectionError
+            m.get(cape_task.sha256_search_url % sha256, exc=ConnectionError("blah"))
+            p1 = Process(target=cape_class_instance.sha256_check, args=(sha256, cape_task), name="sha256_check with ConnectionError")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 3: We get a non-200 status code
+            m.get(cape_task.sha256_search_url % sha256, status_code=500)
+            p1 = Process(target=cape_class_instance.sha256_check, args=(sha256, cape_task), name="sha256_check with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We get a 200 status code with an error message
+            m.get(cape_task.sha256_search_url % sha256, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
                 cape_class_instance.sha256_check(sha256, cape_task)
 
+            # Case 5: We get a 200 status code with a weird message
+            m.get(cape_task.sha256_search_url % sha256, json=weird_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance.sha256_check, args=(sha256, cape_task), name="sha256_check with weird message")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: We get a 200 status code with data and there is a similar task
             with mocker.patch('cape.cape_main.tasks_are_similar', return_value=True):
                 m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is True
                 assert cape_task.id == 1
 
-                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=500)
+            # Case 7: We get a 200 status code with data and there is not a similar task
+            with mocker.patch('cape.cape_main.tasks_are_similar', return_value=False):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is False
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "status_code, task_ids",
-        [
-            (200, None),
-            (200, [1]),
-            (404, [1]),
-            (500, [1]),
-            (None, None)
-        ]
-    )
-    def test_submit_file(status_code, task_ids, cape_class_instance, mocker):
-        mocker.patch('cape.cape_main.generate_random_words', return_value="blah")
-
-        from requests import Session, exceptions, ConnectionError
-        from cape.cape_main import CapeTimeoutException, CAPE, CapeTask
-        from assemblyline.common.exceptions import RecoverableError
-
+    def test_submit_file(cape_class_instance):
         # Prerequisites before we can mock query_machines response
         cape_class_instance.session = Session()
 
@@ -874,148 +813,196 @@ class TestCapeMain:
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
 
-        correct_rest_response = {"data": {"task_ids": task_ids}}
-        with requests_mock.Mocker() as m:
-            if status_code is None and task_ids is None:
-                with mocker.patch.object(CAPE, 'delete_task', return_value=True):
-                    m.post(cape_task.submit_url, exc=exceptions.Timeout)
-                    with pytest.raises(CapeTimeoutException):
-                        cape_class_instance.submit_file(file_content, cape_task)
-                    m.post(cape_task.submit_url, exc=ConnectionError)
-                    with pytest.raises(Exception):
-                        cape_class_instance.submit_file(file_content, cape_task)
-            else:
-                m.post(cape_task.submit_url, json=correct_rest_response, status_code=status_code)
-                # IF the status code is 200, then we expect a dictionary
-                if status_code == 200:
-                    test_result = cape_class_instance.submit_file(file_content, cape_task)
-                    if task_ids:
-                        assert test_result == task_ids[0]
-                    else:
-                        assert test_result == 0
+        correct_rest_response = {"data": {"task_ids": [1,2]}}
+        correct_with_only_data_rest_response = {"data": {}}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
+        weird_rest_response = {}
 
-                # If the status code is not 200, then we expect an error or None
-                elif status_code != 200:
-                    if status_code == 500:
-                        with pytest.raises(RecoverableError):
-                            cape_class_instance.submit_file(file_content, cape_task)
-                    else:
-                        assert cape_class_instance.submit_file(file_content, cape_task) == 0
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.post(cape_task.submit_url, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance.submit_file(file_content, cape_task)
+            assert test_result == 1
+
+            # Case 2: Successful call, status code 200, error response
+            m.post(cape_task.submit_url, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.submit_file(file_content, cape_task)
+
+            # Case 3: Successful call, status code 200, error with details response
+            m.post(cape_task.submit_url, json=error_with_details_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.submit_file(file_content, cape_task)
+
+            # Case 4: Timeout
+            m.post(cape_task.submit_url, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            m.post(cape_task.submit_url, exc=ConnectionError)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with ConnectionError")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            m.post(cape_task.submit_url, status_code=500)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: 200 status code, bad response data, Example 1
+            m.post(cape_task.submit_url, json=correct_with_only_data_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with 200 status code and bad response")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: 200 status code, bad response data, Example 2
+            m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with 200 status code and bad response")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "task_id,fmt,status_code,headers,report_data",
-        [
-            (1, "json", 200, {"Content-Length": "0"}, {"a": "b"}),
-            (1, "json", 200, {"Content-Length": "999999999999"}, {"a": "b"}),
-            (1, "json", 404, {"Content-Length": "0"}, {"a": "b"}),
-            (1, "json", 500, {"Content-Length": "0"}, {"a": "b"}),
-            (1, "anything", 200, {"Content-Length": "0"}, {"a": "b"}),
-            (1, "anything", 200, {"Content-Length": "0"}, None),
-        ]
-    )
-    def test_query_report(task_id, fmt, status_code, headers, report_data, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, MissingCapeReportException, \
-            CapeTimeoutException, CapeTask
-        from requests import Session, exceptions, ConnectionError
-        from json import dumps
-
+    def test_query_report(cape_class_instance):
         # Prerequisites before we can mock query_report response
         cape_class_instance.session = Session()
+        cape_class_instance.timeout = 30
 
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
-        cape_task.id = task_id
+        cape_task.id = 1
+        correct_rest_response = {"a": "b"}
 
         with requests_mock.Mocker() as m:
-            with mocker.patch.object(CAPE, 'delete_task', return_value=True):
-                if task_id is None and fmt is None and status_code is None and headers is None and report_data is None:
-                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', exc=exceptions.Timeout)
-                    with pytest.raises(CapeTimeoutException):
-                        cape_class_instance.query_report(cape_task, "json")
-                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', exc=ConnectionError)
-                    with pytest.raises(Exception):
-                        cape_class_instance.query_report(cape_task, "json")
-                else:
-                    m.get(cape_task.query_report_url % task_id + fmt + '/zip/', headers=headers,
-                          json=report_data, status_code=status_code)
-                    if status_code == 404:
-                        with pytest.raises(MissingCapeReportException):
-                            cape_class_instance.query_report(cape_task, fmt)
-                    elif status_code != 200:
-                        with pytest.raises(Exception):
-                            cape_class_instance.query_report(cape_task, fmt)
-                    else:
-                        if report_data is None:
-                            with pytest.raises(Exception):
-                                cape_class_instance.query_report(cape_task, fmt)
-                        else:
-                            test_result = cape_class_instance.query_report(cape_task, fmt)
-                            if status_code == 200:
-                                correct_result = dumps(report_data).encode()
-                                assert correct_result == test_result
+            # Case 1: Successful call, status code 200, valid response
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + '/zip/', json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance.query_report(cape_task)
+            correct_result = json.dumps(correct_rest_response).encode()
+            assert correct_result == test_result
+
+            # Case 2: Successful call, status code 200, invalid response
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + '/zip/', json=None, status_code=200)
+            p1 = Process(target=cape_class_instance.query_report, args=(cape_task,), name="query_report with empty report data")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 3: Timeout
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + '/zip/', exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_report, args=(cape_task,), name="query_report with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: ConnectionError
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + '/zip/', exc=ConnectionError)
+            p1 = Process(target=cape_class_instance.query_report, args=(cape_task,), name="query_report with ConnectionError")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: Non-200 status code
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + '/zip/', status_code=500)
+            p1 = Process(target=cape_class_instance.query_report, args=(cape_task,), name="query_report with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "status_code,task_dict",
-        [
-            (200, None),
-            (200, 1),
-            (404, None),
-            (500, None),
-            (None, None)
-        ]
-    )
-    def test_query_task(status_code, task_dict, cape_class_instance, mocker):
-        from requests import Session, exceptions, ConnectionError
-        from cape.cape_main import CapeTimeoutException, CAPE, TASK_MISSING, CapeTask
-
+    def test_query_task(cape_class_instance):
         # Prerequisites before we can mock query_machines response
         task_id = 1
         cape_class_instance.session = Session()
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
         cape_task.id = task_id
-        correct_rest_response = {"data": {"task": task_dict}}
+
+        correct_rest_response = {"data": {"task": "blah"}}
+        correct_with_only_data_rest_response = {"data": {}}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
+        weird_rest_response = {}
 
         with requests_mock.Mocker() as m:
-            if status_code is None and task_dict is None:
-                m.get(cape_task.query_task_url % task_id, exc=exceptions.Timeout)
-                with pytest.raises(CapeTimeoutException):
-                    with mocker.patch.object(CAPE, 'delete_task', return_value=True):
-                        cape_class_instance.query_task(cape_task)
-                m.get(cape_task.query_task_url % task_id, exc=ConnectionError)
-                with pytest.raises(Exception):
-                    cape_class_instance.query_task(cape_task)
-            else:
-                m.get(cape_task.query_task_url % task_id, json=correct_rest_response,
-                      status_code=status_code)
-                test_result = cape_class_instance.query_task(cape_task)
-                if status_code == 200:
-                    if task_dict is None:
-                        assert test_result == {"task": None}
-                    elif task_dict:
-                        assert test_result == {"task": 1}
-                elif status_code == 404:
-                    assert {"task": {"status": TASK_MISSING}, "id": task_id} == test_result
-                elif status_code == 500:
-                    assert test_result is None
+            # Case 1: Successful call, status code 200, valid response
+            m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance.query_task(cape_task)
+            assert test_result == {"task": "blah"}
+
+            # Case 2: Successful call, status code 200, error response
+            m.get(cape_task.query_task_url % task_id, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_task(cape_task)
+
+            # Case 3: Successful call, status code 200, error with details response
+            m.get(cape_task.query_task_url % task_id, json=error_with_details_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_task(cape_task)
+
+            # Case 4: Timeout
+            m.get(cape_task.query_task_url % task_id, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            m.get(cape_task.query_task_url % task_id, exc=ConnectionError)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with ConnectionError")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            m.get(cape_task.query_task_url % task_id, status_code=500)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: Successful call, status code 404
+            m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=404)
+            test_result = cape_class_instance.query_task(cape_task)
+            assert test_result == {"task": {"status": TASK_MISSING}, "id": task_id}
+
+            # Case 8: 200 status code, bad response data, Example 1
+            m.get(cape_task.query_task_url % task_id, json=correct_with_only_data_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with 200 status code and bad response")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 9: 200 status code, bad response data, Example 2
+            m.get(cape_task.query_task_url % task_id, json=weird_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with 200 status code and bad response")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "status_code,text",
-        [
-            (200, ""),
-            (500, "{}"),
-            (500, "{\"message\":\"The task is currently being processed, cannot delete\"}"),
-            (404, ""),
-            (None, None)
-        ]
-    )
-    def test_delete_task(status_code, text, cape_class_instance, mocker):
-        from cape.cape_main import CapeTimeoutException, CapeTask
-        from requests import Session, exceptions, ConnectionError
-
+    def test_delete_task(cape_class_instance, mocker):
         # Prerequisites before we can mock query_report response
         cape_class_instance.session = Session()
 
@@ -1024,78 +1011,175 @@ class TestCapeMain:
         cape_task = CapeTask("blah", host_to_use, blah="blah")
         cape_task.id = task_id
 
-        # Mocking the time.sleep method that Retry uses, since decorators are loaded and immutable following module import
-        with mocker.patch("time.sleep", side_effect=lambda _: None):
-            with requests_mock.Mocker() as m:
-                if status_code is None and text is None:
-                    # Confirm that the exceptions are raised and handled correctly
-                    m.get(cape_task.delete_task_url % task_id, exc=exceptions.Timeout)
-                    with pytest.raises(CapeTimeoutException):
-                        cape_class_instance.delete_task(cape_task)
-                    # Confirm that the exceptions are raised and handled correctly
-                    m.get(cape_task.delete_task_url % task_id, exc=ConnectionError)
-                    with pytest.raises(Exception):
-                        cape_class_instance.delete_task(cape_task)
-                else:
-                    m.get(cape_task.delete_task_url % task_id, text=text, status_code=status_code)
-                    if status_code == 500 and json.loads(text).get(
-                            "message") == "The task is currently being processed, cannot delete":
-                        with pytest.raises(Exception):
-                            cape_class_instance.delete_task(cape_task)
-                    elif status_code == 500:
-                        cape_class_instance.delete_task(cape_task)
-                        assert cape_task.id is not None
-                    elif status_code != 200:
-                        cape_class_instance.delete_task(cape_task)
-                        assert cape_task.id is not None
-                    else:
-                        cape_class_instance.delete_task(cape_task)
-                        assert cape_task.id is None
+
+        correct_rest_response = {"data": {"task": "blah"}}
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.get(cape_task.delete_task_url % task_id, json=correct_rest_response, status_code=200)
+            cape_class_instance.delete_task(cape_task)
+            assert cape_task.id is None
+
+            # Case 4: Timeout
+            m.get(cape_task.delete_task_url % task_id, exc=exceptions.Timeout)
+            cape_task.id = task_id
+            p1 = Process(target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            m.get(cape_task.delete_task_url % task_id, exc=ConnectionError)
+            cape_task.id = task_id
+            p1 = Process(target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with ConnectionError")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            m.get(cape_task.delete_task_url % task_id, status_code=500, text="{\"message\": \"The task is currently being processed, cannot delete\"}")
+            cape_task.id = task_id
+            p1 = Process(target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: Successful call, status code 404
+            m.get(cape_task.delete_task_url % task_id, json=correct_rest_response, status_code=404)
+            cape_task.id = task_id
+            p1 = Process(target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
 
     @staticmethod
-    @pytest.mark.parametrize("status_code", [200, 500, None])
-    def test_query_machines(status_code, cape_class_instance):
-        from requests import Session, exceptions, ConnectionError
-        from cape.cape_main import CapeHostsUnavailable, CAPE_API_QUERY_MACHINES
-
+    def test_query_machines(cape_class_instance):
         # Prerequisites before we can mock query_machines response
-        query_machines_url = f"http://1.1.1.1:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_1 = f"http://1.1.1.1:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_2 = f"http://2.2.2.2:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_3 = f"http://3.3.3.3:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_4 = f"http://4.4.4.4:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_5 = f"http://5.5.5.5:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_6 = f"http://6.6.6.6:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
         cape_class_instance.session = Session()
         cape_class_instance.connection_timeout_in_seconds = 30
         cape_class_instance.connection_attempts = 3
+        cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
 
-        correct_rest_response = {"data": [{"blah": "blahblah"}]}
         with requests_mock.Mocker() as m:
-            if status_code is None:
-                cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
-                m.get(query_machines_url, exc=exceptions.Timeout)
-                with pytest.raises(CapeHostsUnavailable):
-                    cape_class_instance.query_machines()
-                cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
-                m.get(query_machines_url, exc=ConnectionError)
-                with pytest.raises(CapeHostsUnavailable):
-                    cape_class_instance.query_machines()
-            else:
-                cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
-                m.get(query_machines_url, json=correct_rest_response, status_code=status_code)
-                # IF the status code is 200, then we expect a dictionary
-                if status_code == 200:
-                    cape_class_instance.query_machines()
-                    assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            # Case 1: We have one host, and we are able to connect to it
+            # with a successful response
+            correct_rest_response = {"data": [{"blah": "blahblah"}]}
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
 
-                # If the status code is not 200, then we expect an error
-                elif status_code != 200:
-                    with pytest.raises(CapeHostsUnavailable):
-                        cape_class_instance.query_machines()
+            # Case 2: We have one host, and we are able to connect to it
+            # with errors
+            errors_rest_response = {"error": True, "error_value": "blah"}
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_machines()
+
+            # Case 3: We have one host, and we are able to connect to it
+            # with a bad status code
+            m.get(query_machines_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We have more than one host, and we are able to connect to all with a successful response
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 5: We have more than one host, and we are able to connect to all with errors
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_machines()
+
+            # Case 6: We have more than one host, and we are able to connect to all with a bad status code
+            m.get(query_machines_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: We have more than one host, and we are able to connect to one with a successful response, and another with errors
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=errors_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == []
+
+            # Case 8: We have more than one host, and we are able to connect to one with a successful response, and another with errors, but flipped
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[0]["machines"] == []
+
+            # Case 9: We have one host, and we get a Timeout
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 10: We have one host, and we get a ConnectionError
+            m.get(query_machines_url_1, exc=ConnectionError("blah"))
+            p2 = Process(target=cape_class_instance.query_machines, name="query_machines with connectionerror")
+            p2.start()
+            p2.join(timeout=2)
+            p2.terminate()
+            assert p2.exitcode is None
+
+            # Case 11: We have more than one host, and we get a Timeout for one and a successful response for another
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, exc=exceptions.Timeout)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 12: We have more than one host, and we get a ConnectionError for one and a successful response for another
+            m.get(query_machines_url_1, exc=ConnectionError("blah"))
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 13: We have more than one host, and we are able to connect to two with a successful response, another with errors, another with a non-200 status code, another with Timeout, another with ConnectionError
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, status_code=500)
+            m.get(query_machines_url_2, json=errors_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, exc=exceptions.Timeout)
+            m.get(query_machines_url_5, exc=ConnectionError("blah"))
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == []
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == []
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == [{"blah": "blahblah"}]
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
     def test_check_powershell(sample, cape_class_instance):
-        from assemblyline_v4_service.common.result import ResultSection
-        from assemblyline_v4_service.common.task import Task
-        from assemblyline.odm.messages.task import Task as ServiceTask
-        from assemblyline_v4_service.common.request import ServiceRequest
-
         task_id = 1
         parent_section = ResultSection("blah")
         correct_subsection = ResultSection("PowerShell Activity")
@@ -1124,11 +1208,6 @@ class TestCapeMain:
         ]
     )
     def test_report_machine_info(machines, cape_class_instance, mocker):
-        from cape.cape_main import CapeTask
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
-        from assemblyline.common.str_utils import safe_str
-
         so = SandboxOntology()
         default_mm = so.analysis_metadata.machine_metadata.as_primitives()
         machine_name = "blah"
@@ -1193,9 +1272,6 @@ class TestCapeMain:
                                {"platform": "Linux", "architecture": "x64", "version": "1804"}), ])
     def test_add_operating_system_tags(
             machine_name, platform, expected_tags, expected_machine_metadata, cape_class_instance):
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from assemblyline_v4_service.common.result import ResultSection
-
         so = SandboxOntology()
         default_mm = so.analysis_metadata.machine_metadata.as_primitives()
         for key, value in expected_machine_metadata.items():
@@ -1226,7 +1302,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_remove_illegal_characters_from_file_name(cape_class_instance):
-        from cape.cape_main import ILLEGAL_FILENAME_CHARS
         test_file_name = ''.join(ch for ch in ILLEGAL_FILENAME_CHARS) + "blah"
         correct_file_name = "blah"
 
@@ -1249,8 +1324,6 @@ class TestCapeMain:
     def test_assign_file_extension(
             file_type, test_file_name, correct_file_extension, correct_file_name, cape_class_instance,
             dummy_request_class):
-        from assemblyline.common.identify_defaults import type_to_extension
-        from cape.cape_main import SUPPORTED_EXTENSIONS
         kwargs = dict()
         is_bin = False
 
@@ -1344,8 +1417,6 @@ class TestCapeMain:
         ]
     )
     def test_set_task_parameters(params, cape_class_instance, dummy_request_class, mocker):
-        from cape.cape_main import CAPE, ANALYSIS_TIMEOUT
-        from assemblyline_v4_service.common.result import ResultSection
         mocker.patch.object(CAPE, '_prepare_dll_submission', return_value=None)
         kwargs = dict()
         correct_task_options = []
@@ -1428,9 +1499,6 @@ class TestCapeMain:
     @staticmethod
     @pytest.mark.parametrize("zip_report", [None, "blah"])
     def test_generate_report(zip_report, cape_class_instance, mocker):
-        from cape.cape_main import CAPE, CapeTask
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from assemblyline_v4_service.common.result import ResultSection
         mocker.patch.object(CAPE, 'query_report', return_value=zip_report)
         mocker.patch.object(CAPE, '_extract_console_output', return_value=None)
         mocker.patch.object(CAPE, '_extract_injected_exes', return_value=None)
@@ -1449,10 +1517,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_unpack_zip(cape_class_instance, dummy_zip_class, mocker):
-        from cape.cape_main import CAPE, CapeTask, MissingCapeReportException
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from assemblyline_v4_service.common.result import ResultSection
-
         so = SandboxOntology()
         zip_report = b"blah"
         file_ext = "blah"
@@ -1482,7 +1546,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_add_zip_as_supplementary_file(cape_class_instance, dummy_request_class, mocker):
-        from cape.cape_main import CapeTask
         zip_file_name = "blah"
         zip_report_path = f"/tmp/{zip_file_name}"
         zip_report = b"blah"
@@ -1510,8 +1573,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_add_json_as_supplementary_file(cape_class_instance, dummy_request_class, dummy_zip_class, mocker):
-        from cape.cape_main import CapeTask, MissingCapeReportException
-
         json_file_name = "lite.json"
         json_report_path = f"{cape_class_instance.working_directory}/1/reports/{json_file_name}"
         zip_obj = dummy_zip_class()
@@ -1547,13 +1608,6 @@ class TestCapeMain:
         ]
     )
     def test_build_report(report_info, cape_class_instance, dummy_json_doc_class_instance, mocker):
-        from cape.cape_main import CAPE, CapeProcessingException, CapeTask
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from sys import getrecursionlimit
-        from json import JSONDecodeError
-        from assemblyline.common.exceptions import RecoverableError
-        from assemblyline_v4_service.common.result import ResultSection
-
         so = SandboxOntology()
         report_json_path = "blah"
         file_ext = "blah"
@@ -1592,8 +1646,8 @@ class TestCapeMain:
             _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         # Exception tests for json.loads
-        mocker.patch("cape.cape_main.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
-        with pytest.raises(JSONDecodeError):
+        mocker.patch("cape.cape_main.loads", side_effect=json.JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
+        with pytest.raises(json.JSONDecodeError):
             _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
 
         mocker.patch("cape.cape_main.loads", side_effect=Exception("blah"))
@@ -1627,8 +1681,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_extract_artifacts(cape_class_instance, dummy_request_class, dummy_zip_class, dummy_zip_member_class, mocker):
-        from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
-        from assemblyline_v4_service.common.result import ResultSection, ResultImageSection
         default_so = SandboxOntology()
 
         parent_section = ResultSection("blah")
@@ -1798,8 +1850,6 @@ class TestCapeMain:
     def test_handle_specific_machine(
             machine_requested, hosts, correct_result, correct_body, cape_class_instance, dummy_result_class_instance,
             mocker):
-        from cape.cape_main import CAPE
-        from assemblyline_v4_service.common.result import ResultSection
         mocker.patch.object(CAPE, "_safely_get_param", return_value=machine_requested)
         kwargs = dict()
         cape_class_instance.hosts = hosts
@@ -1829,8 +1879,6 @@ class TestCapeMain:
     def test_handle_specific_platform(
             platform_requested, expected_return, expected_result_section, cape_class_instance,
             dummy_result_class_instance, mocker):
-        from cape.cape_main import CAPE
-        from assemblyline_v4_service.common.result import ResultSection
         mocker.patch.object(CAPE, "_safely_get_param", return_value=platform_requested)
         kwargs = dict()
         cape_class_instance.hosts = [{"ip": "blah", "machines": [{"platform": "windows"}, {"platform": "linux"}]}]
@@ -1883,8 +1931,6 @@ class TestCapeMain:
     def test_handle_specific_image(
             image_requested, image_exists, relevant_images, allowed_images, correct_result, correct_body,
             cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
-        from cape.cape_main import CAPE
-        from assemblyline_v4_service.common.result import ResultSection
         mocker.patch.object(CAPE, "_safely_get_param", return_value=image_requested)
         mocker.patch.object(CAPE, "_does_image_exist", return_value=image_exists)
         mocker.patch.object(CAPE, "_determine_relevant_images", return_value=relevant_images)
@@ -1902,33 +1948,132 @@ class TestCapeMain:
 
     @staticmethod
     def test_determine_host_to_use(cape_class_instance):
-        from cape.cape_main import CAPE_API_QUERY_HOST, CapeVMBusyException
-        from requests import Session, exceptions, ConnectionError
         cape_class_instance.session = Session()
-        hosts = [
-            {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
-            {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
-            {"ip": "3.3.3.3", "port": 3333, "auth_header": {"blah": "blah"}}
-        ]
+
+        host_status_url_1 = f"http://1.1.1.1:1111/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_2 = f"http://2.2.2.2:2222/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_3 = f"http://3.3.3.3:3333/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_4 = f"http://4.4.4.4:4444/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_5 = f"http://5.5.5.5:5555/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_6 = f"http://6.6.6.6:6666/apiv2/{CAPE_API_QUERY_HOST}"
+
+        correct_rest_response = {"data": {"tasks": {"pending": 1}}}
+        errors_rest_response = {"error": True, "error_value": "blah"}
+        weird_rest_response = {}
         with requests_mock.Mocker() as m:
-            for host in hosts:
-                host_status_url = f"http://{host['ip']}:{host['port']}/apiv2/{CAPE_API_QUERY_HOST}"
-                m.get(host_status_url, json={"data": {"tasks": {"pending": 1}}})
+            # Case 1: We have one host, and we are able to connect to it
+            # with a successful response
+            hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            m.get(host_status_url_1, json=correct_rest_response)
+            test_result = cape_class_instance._determine_host_to_use(hosts)
+            assert hosts[0] == test_result
+
+            # Case 2: We have one host, and we are able to connect to it
+            # with errors
+            m.get(host_status_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts)
+
+            # Case 3: We have one host, and we are able to connect to it
+            # with a weird message
+            m.get(host_status_url_1, json=weird_rest_response, status_code=200)
+            p1 = Process(target=cape_class_instance._determine_host_to_use, args=(hosts,), name="_determine_host_to_use with 200 status code and weird message")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We have one host, and we are able to connect to it
+            # with a bad status code
+            m.get(host_status_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance._determine_host_to_use, args=(hosts,), name="_determine_host_to_use with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: We have more than one host, and we are able to connect to all with a successful response
+            hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}, {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
             test_result = cape_class_instance._determine_host_to_use(hosts)
             assert any(host == test_result for host in hosts)
-            for key, val in [("exc", exceptions.Timeout), ("exc", ConnectionError), ("status_code", 404)]:
-                for host in hosts:
-                    host_status_url = f"http://{host['ip']}:{host['port']}/apiv2/{CAPE_API_QUERY_HOST}"
-                    if key == "exc":
-                        m.get(host_status_url, exc=val)
-                    elif key == "status_code":
-                        m.get(host_status_url, status_code=404)
-                with pytest.raises(CapeVMBusyException):
-                    cape_class_instance._determine_host_to_use(hosts)
+
+            # Case 6: We have more than one host, and we are able to connect to all with errors
+            m.get(host_status_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts)
+
+            # Case 7: We have more than one host, and we are able to connect to all with a bad status code
+            m.get(host_status_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance._determine_host_to_use, args=(hosts,), name="_determine_host_to_use with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 8: We have more than one host, and we are able to connect to one with a successful response, and another with errors
+            hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},]
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
+            m.get(host_status_url_2, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts)
+
+            # Case 9: We have more than one host, and we are able to connect to one with a successful response, and another with errors, but flipped
+            m.get(host_status_url_2, json=errors_rest_response, status_code=200)
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts)
+
+            # Case 10: We have one host, and we get a Timeout
+            cape_class_instance.hosts = hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            m.get(host_status_url_1, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance._determine_host_to_use, args=(hosts,), name="_determine_host_to_use with timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 11: We have one host, and we get a ConnectionError
+            m.get(host_status_url_1, exc=ConnectionError("blah"))
+            p2 = Process(target=cape_class_instance._determine_host_to_use, args=(hosts,), name="_determine_host_to_use with connectionerror")
+            p2.start()
+            p2.join(timeout=2)
+            p2.terminate()
+            assert p2.exitcode is None
+
+            # Case 12: We have more than one host, and we get a Timeout for one and a successful response for another
+            hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},]
+            m.get(host_status_url_1, exc=exceptions.Timeout)
+            m.get(host_status_url_2, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts)
+            assert hosts[1] == test_result
+
+            # Case 13: We have more than one host, and we get a ConnectionError for one and a successful response for another
+            m.get(host_status_url_1, exc=ConnectionError("blah"))
+            m.get(host_status_url_2, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts)
+            assert hosts[1] == test_result
+
+            # Case 14: We have more than one host, and we are able to connect to two with a successful response, another with a weird response, another with a non-200 status code, another with Timeout, another with ConnectionError
+            hosts = [
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
+                {"ip": "3.3.3.3", "port": 3333, "auth_header": {"blah": "blah"}},
+                {"ip": "4.4.4.4", "port": 4444, "auth_header": {"blah": "blah"}},
+                {"ip": "5.5.5.5", "port": 5555, "auth_header": {"blah": "blah"}},
+                {"ip": "6.6.6.6", "port": 6666, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(host_status_url_1, status_code=500)
+            m.get(host_status_url_2, json=weird_rest_response, status_code=200)
+            m.get(host_status_url_3, json=correct_rest_response, status_code=200)
+            m.get(host_status_url_4, exc=exceptions.Timeout)
+            m.get(host_status_url_5, exc=ConnectionError("blah"))
+            m.get(host_status_url_6, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts)
+            assert any(test_result == host for host in [hosts[2], hosts[5]])
 
     @staticmethod
     def test_is_invalid_analysis_timeout(cape_class_instance, dummy_request_class):
-        from assemblyline_v4_service.common.result import ResultSection
         cape_class_instance.request = dummy_request_class(analysis_timeout_in_seconds=150)
         parent_section = ResultSection("blah")
         assert cape_class_instance._is_invalid_analysis_timeout(parent_section) is False
@@ -1955,7 +2100,6 @@ class TestCapeMain:
         ]
     )
     def test_get_subsection_heuristic_map(title_heur_tuples, correct_section_heur_map, cape_class_instance):
-        from assemblyline_v4_service.common.result import ResultSection
         subsections = []
         for title, heur_id in title_heur_tuples:
             subsection = ResultSection(title)
@@ -1972,7 +2116,6 @@ class TestCapeMain:
 
     @staticmethod
     def test_determine_if_reboot_required(cape_class_instance, dummy_request_class):
-        from assemblyline_v4_service.common.result import ResultSection
         parent_section = ResultSection("blah")
         assert cape_class_instance._determine_if_reboot_required(parent_section) is False
 
