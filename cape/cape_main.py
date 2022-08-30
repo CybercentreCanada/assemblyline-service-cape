@@ -91,7 +91,6 @@ TASK_COMPLETED = "completed"
 TASK_REPORTED = "reported"
 ANALYSIS_FAILED = "failed_analysis"
 PROCESSING_FAILED = "failed_processing"
-ANALYSIS_EXCEEDED_TIMEOUT = "analysis_exceeded_timeout"
 
 MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
 
@@ -466,7 +465,7 @@ class CAPE(ServiceBase):
             status = self.poll_report(cape_task, parent_section)
         except RetryError:
             self.log.error(f"The cape-processor.service is most likely down on {cape_task.base_url}. Indicator: 'Max retries exceeded for report status.'")
-            status = ANALYSIS_EXCEEDED_TIMEOUT
+            status = PROCESSING_FAILED
 
         if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
             # Add a subsection detailing what's happening and then moving on

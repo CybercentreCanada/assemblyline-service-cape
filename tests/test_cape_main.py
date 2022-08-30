@@ -413,7 +413,6 @@ class TestModule:
         assert TASK_COMPLETED == "completed"
         assert TASK_REPORTED == "reported"
         assert ANALYSIS_FAILED == "failed_analysis"
-        assert ANALYSIS_EXCEEDED_TIMEOUT == "analysis_exceeded_timeout"
 
     @staticmethod
     def test_retry_on_none():
@@ -597,9 +596,7 @@ class TestCapeMain:
         "task_id, poll_started_status, poll_report_status",
         [
             (None, None, None),
-            (1, "blah", None),
             (1, "missing", None),
-            (1, "analysis_failed", None),
             (1, "started", None),
             (1, "started", "blah"),
             (1, "started", "missing"),
@@ -615,7 +612,7 @@ class TestCapeMain:
     )
     def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, dummy_request_class, mocker):
         all_statuses = [TASK_STARTED, TASK_MISSING, TASK_STOPPED, INVALID_JSON, REPORT_TOO_BIG,
-                        SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, ANALYSIS_EXCEEDED_TIMEOUT, PROCESSING_FAILED]
+                        SERVICE_CONTAINER_DISCONNECTED, MISSING_REPORT, ANALYSIS_FAILED, PROCESSING_FAILED]
         file_content = b"blah"
         host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
         cape_task = CapeTask("blah", host_to_use, blah="blah")
