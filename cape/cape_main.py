@@ -8,7 +8,7 @@ import requests
 from retrying import retry, RetryError
 from zipfile import ZipFile
 from tempfile import SpooledTemporaryFile
-from time import time
+from time import time, sleep
 from threading import Thread
 from typing import Optional, Dict, List, Any, Set, Tuple
 
@@ -120,25 +120,14 @@ class CapeVMBusyException(Exception):
     pass
 
 
-class CapeHostsUnavailable(Exception):
-    """Exception class for when the service cannot reach the hosts"""
-    pass
-
-
-class AnalysisTimeoutExceeded(Exception):
-    """Exception class for when CAPE is not able to complete analysis before the service times out"""
+class InvalidCapeRequest(Exception):
+    """Exception class for when every CAPE host's REST API returns a 200 status code with errors"""
     pass
 
 
 class AnalysisFailed(Exception):
     """Exception class for when CAPE is not able to analyze the task"""
     pass
-
-
-def _exclude_chain_ex(ex) -> bool:
-    """Use this with some of the @retry decorators to only retry if the exception
-    ISN'T a RecoverableException or NonRecoverableException"""
-    return not isinstance(ex, ChainException)
 
 
 def _retry_on_none(result) -> bool:
@@ -232,10 +221,6 @@ class CAPE(ServiceBase):
 
     # noinspection PyTypeChecker
     def execute(self, request: ServiceRequest) -> None:
-        if not len(self.hosts):
-            # If all hosts were removed from a previous execution, reset hosts
-            self.hosts = self.config["remote_host_details"]["hosts"][:]
-
         self.request = request
         self.session = requests.Session()
         self.artifact_list = []
@@ -405,8 +390,6 @@ class CAPE(ServiceBase):
             else:
                 raise Exception(f"Task ID is None. File failed to be submitted to the CAPE nest at "
                                 f"{host_to_use['ip']}.")
-        except AnalysisTimeoutExceeded:
-            so.update_analysis_metadata(start_time=start_time, end_time=time())
         except AnalysisFailed:
             so.update_analysis_metadata(start_time=start_time, end_time=time())
         except Exception as e:
@@ -477,35 +460,15 @@ class CAPE(ServiceBase):
 
         self.log.debug(f"Submission succeeded. File: {cape_task.file} -- Task {cape_task.id}")
 
+        self.poll_started(cape_task)
+
         try:
-            status: Optional[str] = self.poll_started(cape_task)
+            status = self.poll_report(cape_task, parent_section)
         except RetryError:
-            self.log.error(f"VM startup timed out or {cape_task.id} was never added to the CAPE DB.")
+            self.log.error(f"The cape-processor.service is most likely down on {cape_task.base_url}. Indicator: 'Max retries exceeded for report status.'")
             status = ANALYSIS_EXCEEDED_TIMEOUT
 
-        if status == TASK_STARTED:
-            try:
-                status = self.poll_report(cape_task, parent_section)
-            except RetryError:
-                self.log.error("Max retries exceeded for report status.")
-                status = ANALYSIS_EXCEEDED_TIMEOUT
-
-        if status == ANALYSIS_EXCEEDED_TIMEOUT:
-            # Add a subsection detailing what's happening and then moving on
-            task_timeout_sec = ResultTextSection("Assemblyline Task Timeout Exceeded.")
-            task_timeout_sec.add_line(
-                f"The CAPE task {cape_task.id} took longer than the Assemblyline's task timeout would allow.")
-            task_timeout_sec.add_line(
-                "This is usually due to an issue on CAPE's machinery end."
-                " Contact the CAPE administrator for details.")
-            parent_section.add_subsection(task_timeout_sec)
-            raise AnalysisTimeoutExceeded()
-        elif status == TASK_MISSING:
-            err_msg = f"Task {cape_task.id} went missing while waiting for CAPE to analyze file."
-            cape_task.id = None
-            self.log.error(err_msg)
-            raise RecoverableError(err_msg)
-        elif status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
+        if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
             # Add a subsection detailing what's happening and then moving on
             analysis_failed_sec = ResultTextSection("CAPE Analysis/Processing Failed.")
             analysis_failed_sec.add_line(
@@ -518,7 +481,6 @@ class CAPE(ServiceBase):
         self.log.debug("CAPE service stopped...")
 
     @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
-           stop_max_attempt_number=(GUEST_VM_START_TIMEOUT/CAPE_POLL_DELAY),
            retry_on_result=_retry_on_none)
     def poll_started(self, cape_task: CapeTask) -> Optional[str]:
         """
@@ -527,14 +489,6 @@ class CAPE(ServiceBase):
         :return: A string representing the status
         """
         task_info = self.query_task(cape_task)
-        if task_info is None:
-            # The API didn't return a task..
-            return TASK_MISSING
-
-        # Detect if mismatch
-        if task_info["id"] != cape_task.id:
-            self.log.warning(f"CAPE returned mismatched task info for task {cape_task.id}. Trying again..")
-            return None
 
         if task_info.get("guest", {}).get("status") == TASK_STARTING:
             return None
@@ -542,22 +496,11 @@ class CAPE(ServiceBase):
         if task_info.get("task", {}).get("status") == TASK_MISSING:
             return None
 
-        errors = task_info.get("errors", [])
-        if len(errors) > 0:
-            for error in errors:
-                self.log.error(error)
-            return None
-
         return TASK_STARTED
 
-    # TODO: stop_max_attempt_number definitely should be used, otherwise a container could run until it
-    #  hits the preempt limit
-    # TODO: Its value should be x such that x / CAPE_POLL_DELAY = 5(?) minutes or 300 seconds
-    # TODO: do we need retry_on_exception?
     @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
            stop_max_attempt_number=((GUEST_VM_START_TIMEOUT + REPORT_GENERATION_TIMEOUT)/CAPE_POLL_DELAY),
-           retry_on_result=_retry_on_none,
-           retry_on_exception=_exclude_chain_ex)
+           retry_on_result=_retry_on_none)
     def poll_report(self, cape_task: CapeTask, parent_section: ResultSection) -> Optional[str]:
         """
         This method polls the CAPE server for the status of the task, doing so until a report has been generated
@@ -566,14 +509,6 @@ class CAPE(ServiceBase):
         :return: A string representing the status
         """
         task_info = self.query_task(cape_task)
-        if task_info is None or task_info == {}:
-            # The API didn't return a task..
-            return TASK_MISSING
-
-        # Detect if mismatch
-        if task_info["id"] != cape_task.id:
-            self.log.warning(f"CAPE returned mismatched task info for task {cape_task.id}. Trying again..")
-            return None
 
         # Check for errors first to avoid parsing exceptions
         status = task_info["status"]
@@ -603,7 +538,7 @@ class CAPE(ServiceBase):
         """
         This method was inspired by/grabbed from https://github.com/NVISOsecurity/assemblyline-service-cape/blob/main/cape.py#L21:L37
         Check in CAPE if an analysis already exists for the corresponding sha256
-            - If an analysis already exist, we set the ID of the analysis and return true
+            - If an analysis already exists, we set the ID of the analysis and return true
             - If not, we just return false
 
         NOTE: This method is used on a per-host basis, and will only return True if the most of the submision
@@ -612,25 +547,59 @@ class CAPE(ServiceBase):
         :return: A boolean indicating that the task ID was set
         """
         self.log.debug(f"Searching for the file's SHA256 at {cape_task.sha256_search_url % sha256}")
-        try:
-            resp = self.session.get(cape_task.sha256_search_url % sha256, headers=cape_task.auth_header, timeout=self.timeout)
-        except requests.exceptions.Timeout:
-            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                       f"trying to search for {sha256}")
-        except requests.ConnectionError:
-            raise Exception(f"Unable to reach the CAPE nest while trying to search for {sha256}")
+        # We will try to connect with the REST API... NO MATTER WHAT
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            sha256_url = cape_task.sha256_search_url % sha256
+            try:
+                resp = self.session.get(sha256_url, headers=cape_task.auth_header, timeout=self.timeout)
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{sha256_url} timed out after {self.timeout}s "
+                    "trying to search a SHA256.'"
+                )
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{sha256_url} failed to search for the SHA256 {sha256} due to {e}.'"
+                )
+                sleep(5)
+                continue
 
-        if resp.status_code != 200:
-            self.log.error(f"Failed to search for {sha256}. Status code: {resp.status_code}")
-        else:
-            resp_dict = resp.json()
-            if resp_dict["data"]:
-                if tasks_are_similar(cape_task, resp_dict["data"]):
-                    cape_task.id = resp_dict["data"][0]["id"]
-                    self.log.debug(f"Cache hit for {sha256} with ID {cape_task.id}. No need to submit.")
-                    return True
-
-        return False
+            if resp.status_code != 200:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
+                    f"trying to search for {sha256}.'"
+                )
+                sleep(5)
+                continue
+            else:
+                resp_json = resp.json()
+                if "error" in resp_json and resp_json['error']:
+                    self.log.error(
+                        f"Failed to search for SHA256 with {sha256_url} due "
+                        f"to '{resp_json['error_value']}'."
+                    )
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                elif "data" in resp_json and resp_json["data"]:
+                    if tasks_are_similar(cape_task, resp_json["data"]):
+                        cape_task.id = resp_json["data"][0]["id"]
+                        self.log.debug(f"Cache hit for {sha256} with ID {cape_task.id}. No need to submit.")
+                        return True
+                    else:
+                        return False
+                else:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
+                        f"trying to search for {sha256}. Data returned was: {resp_json}'.'"
+                    )
+                    sleep(5)
+                    continue
 
     def submit_file(self, file_content: bytes, cape_task: CapeTask) -> int:
         """
@@ -641,153 +610,259 @@ class CAPE(ServiceBase):
         """
         self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
         files = {"file": (cape_task.file, file_content)}
-        try:
-            cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
-            resp = self.session.post(cape_task.submit_url, files=files, data=cape_task_data,
-                                     headers=cape_task.auth_header, timeout=self.timeout)
-        except requests.exceptions.Timeout:
-            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                       f"trying to submit a file {cape_task.file}")
-        except requests.ConnectionError:
-            raise Exception(f"Unable to reach the CAPE nest while trying to submit a file {cape_task.file}")
-        if resp.status_code != 200:
-            self.log.error(f"Failed to submit file {cape_task.file}. Status code: {resp.status_code}")
-
-            if resp.status_code == 500:
-                new_filename = generate_random_words(1)
-                file_ext = cape_task.file.rsplit(".", 1)[-1]
-                cape_task.file = new_filename + "." + file_ext
-                self.log.error(f"Got 500 error from CAPE API. This is often caused by non-ascii filenames. "
-                               f"Renaming file to {cape_task.file} and retrying")
-                # Raise an exception to force a retry
-                raise RecoverableError("Retrying after 500 error")
-            return 0
-        else:
-            resp_dict = resp.json()
-            if "error" in resp_dict and resp_dict['error']:
-                self.log.error(f"Failed to submit the file due to '{resp_dict['error_value']}'.")
-                if "errors" in resp_dict and resp_dict["errors"]:
-                    try:
-                        for error in resp_dict["errors"]:
-                            for error_dict in error.values():
-                                for k, v in error_dict.items():
-                                    if k == "error":
-                                        self.log.error(f'Further details about the error are: {v}')
-                    except Exception:
-                        pass
-                return 0
-            task_ids = resp_dict["data"].get("task_ids", [])
-            if isinstance(task_ids, list) and len(task_ids) > 0:
-                task_id = task_ids[0]
+        # We will try to connect with the REST API... NO MATTER WHAT
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            try:
+                cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
+                resp = self.session.post(
+                    cape_task.submit_url,
+                    files=files,
+                    data=cape_task_data,
+                    headers=cape_task.auth_header,
+                    timeout=self.timeout
+                )
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{cape_task.submit_url} timed out after {self.timeout}s "
+                    f"trying to submit a file {cape_task.file}.'"
+                )
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                )
+                sleep(5)
+                continue
+            if resp.status_code != 200:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                    f"trying to submit a file {cape_task.file}.'"
+                )
+                sleep(5)
+                continue
             else:
-                return 0
-            return task_id
+                resp_json = resp.json()
+                if "error" in resp_json and resp_json['error']:
+                    self.log.error(f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'.")
+                    if "errors" in resp_json and resp_json["errors"]:
+                        try:
+                            for error in resp_json["errors"]:
+                                for error_dict in error.values():
+                                    for k, v in error_dict.items():
+                                        if k == "error":
+                                            self.log.error(f'Further details about the error are: {v}')
+                        except Exception:
+                            pass
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                elif "data" in resp_json and resp_json["data"]:
+                    task_ids = resp_json["data"].get("task_ids", [])
+                    if isinstance(task_ids, list) and len(task_ids) > 0:
+                        return task_ids[0]
+                    else:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                            f"trying to submit a file {cape_task.file}. Data returned was: {resp_json['data']}'."
+                        )
+                        sleep(5)
+                        continue
+                else:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                        f"trying to submit a file {cape_task.file}. Data returned was: {resp_json}'."
+                    )
+                    sleep(5)
+                    continue
 
-    def query_report(self, cape_task: CapeTask, fmt: str) -> Any:
+    def query_report(self, cape_task: CapeTask) -> Any:
         """
         This method retrieves the report from the CAPE server
         :param cape_task: The CapeTask class instance, which contains details about the specific task
-        :param fmt: The report format to retrieve from the CAPE server
         :return: Depending on what is requested, will return a string representing that a JSON report has been
         generated or the bytes of a tarball
         """
-        self.log.debug(f"Querying report for task {cape_task.id} - format: {fmt}")
-        try:
-            # There are edge cases that require us to stream the report to disk
-            temp_report = SpooledTemporaryFile()
-            with self.session.get(cape_task.query_report_url % cape_task.id + fmt + '/zip/',
-                                  headers=cape_task.auth_header, timeout=self.timeout, stream=True) as resp:
-                if resp.status_code == 200:
-                    for chunk in resp.iter_content(chunk_size=8192):
-                        temp_report.write(chunk)
-        except requests.exceptions.Timeout:
-            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                       f"trying to query the report for task {cape_task.id}")
-        except requests.ConnectionError:
-            raise Exception(f"Unable to reach the CAPE nest while trying to query the report for "
-                            f"task {cape_task.id}")
-        if resp.status_code != 200:
-            if resp.status_code == 404:
-                self.log.error(f"Task or report not found for task {cape_task.id}.")
-                # most common cause of getting to here seems to be odd/non-ascii filenames, where the CAPE agent
-                # inside the VM dies
-                raise MissingCapeReportException("Task or report not found")
-            else:
-                msg = f"Failed to query report (type={fmt}). Status code: {resp.status_code}. There is a " \
-                      f"strong chance that this is due to the large size of file attempted to retrieve via API request."
-                self.log.error(msg)
-                raise Exception(msg)
+        self.log.debug(f"Querying report for task {cape_task.id} - format: 'lite'")
+        # We will try to connect with the REST API... NO MATTER WHAT
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            report_url = cape_task.query_report_url % cape_task.id + "lite" + '/zip/'
+            try:
+                # There are edge cases that require us to stream the report to disk
+                temp_report = SpooledTemporaryFile()
+                with self.session.get(report_url,
+                                    headers=cape_task.auth_header, timeout=self.timeout, stream=True) as resp:
+                    if resp.status_code == 200:
+                        for chunk in resp.iter_content(chunk_size=8192):
+                            temp_report.write(chunk)
+                    else:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{report_url} failed with status code {resp.status_code} "
+                            f"trying to get the report for task {cape_task.id}.'"
+                        )
+                        sleep(5)
+                        continue
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{report_url} timed out after {self.timeout}s "
+                    f"trying to get the report for task {cape_task.id}.'"
+                )
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{report_url} failed to get the report for task {cape_task.id} due to {e}.'"
+                )
+                sleep(5)
+                continue
 
-        try:
-            # Setting the pointer in the temp file
-            temp_report.seek(0)
-            # Reading as bytes
-            report_data = temp_report.read()
-        finally:
-            # Removing the temp file
-            temp_report.close()
+            try:
+                # Setting the pointer in the temp file
+                temp_report.seek(0)
+                # Reading as bytes
+                report_data = temp_report.read()
+            finally:
+                # Removing the temp file
+                temp_report.close()
 
-        if report_data in [None, "", b"", b'{}', b'""']:
-            raise Exception(f"Empty '{fmt}' report data for task {cape_task.id}")
+            if report_data in [None, "", b"", b'{}', b'""']:
+                self.log.error(
+                    "The cape-processor.service is most likely down. "
+                    f"Indicator: 'Empty 'lite' report data for task {cape_task.id} from {report_url}.'"
+                )
+                sleep(5)
+                continue
 
-        return report_data
+            return report_data
 
-    # TODO: Validate that task_id is not None
     def query_task(self, cape_task: CapeTask) -> Dict[str, Any]:
         """
         This method queries the task on the CAPE server
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: a dictionary containing details about the task, such as its status
         """
-        try:
-            resp = self.session.get(cape_task.query_task_url % cape_task.id, headers=cape_task.auth_header,
-                                    timeout=self.timeout)
-        except requests.exceptions.Timeout:
-            raise CapeTimeoutException(f"({cape_task.base_url}) timed out after {self.timeout}s while "
-                                       f"trying to query the task {cape_task.id}")
-        except requests.ConnectionError:
-            raise Exception(f"Unable to reach the CAPE nest while trying to query the task {cape_task.id}")
-        task_dict: Optional[Dict[str, Any]] = None
-        if resp.status_code != 200:
-            if resp.status_code == 404:
-                # Just because the query returns 404 doesn't mean the task doesn't exist, it just hasn't been
-                # added to the DB yet
-                self.log.warning(f"Task not found for task {cape_task.id}")
-                task_dict = {"task": {"status": TASK_MISSING}, "id": cape_task.id}
-            else:
-                self.log.error(f"Failed to query task {cape_task.id}. Status code: {resp.status_code}")
-        else:
-            resp_dict = resp.json()
-            task_dict = resp_dict["data"]
-            if not task_dict:
-                self.log.error('Failed to query task. Returned task dictionary is None or empty')
-        return task_dict
+        # We will try to connect with the REST API... NO MATTER WHAT
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            task_url = cape_task.query_task_url % cape_task.id
+            try:
+                resp = self.session.get(
+                    task_url,
+                    headers=cape_task.auth_header,
+                    timeout=self.timeout
+                )
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{task_url} timed out after {self.timeout}s "
+                    f"trying to query the task {cape_task.id}.'"
+                )
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{task_url} failed to query the task {cape_task.id} due to {e}.'"
+                )
+                sleep(5)
+                continue
 
-    # TODO: cape_task.id should be set to None each time, no?
-    @retry(wait_fixed=CAPE_POLL_DELAY * 1000, stop_max_attempt_number=2)
+            if resp.status_code != 200:
+                if resp.status_code == 404:
+                    # Just because the query returns 404 doesn't mean the task doesn't exist, it just hasn't been
+                    # added to the DB yet
+                    self.log.warning(f"Task not found for task {cape_task.id}")
+                    return {"task": {"status": TASK_MISSING}, "id": cape_task.id}
+                else:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{task_url} failed with status code {resp.status_code} "
+                        f"trying to query the task {cape_task.id}.'"
+                    )
+                    sleep(5)
+                    continue
+            else:
+                resp_json = resp.json()
+                if "error" in resp_json and resp_json['error']:
+                    self.log.error(
+                        f"Failed to query the task {cape_task.id} with {task_url} due "
+                        f"to '{resp_json['error_value']}'."
+                    )
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                elif "data" in resp_json and resp_json["data"]:
+                    return resp_json["data"]
+                else:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{task_url} failed with status code {resp.status_code} "
+                        f"trying to query the task {cape_task.id}. Data returned was: {resp_json}'"
+                    )
+                    sleep(5)
+                    continue
+
     def delete_task(self, cape_task: CapeTask) -> None:
         """
         This method tries to delete the task from the CAPE server
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
-        try:
-            resp = self.session.get(cape_task.delete_task_url % cape_task.id, headers=cape_task.auth_header,
-                                    timeout=self.timeout)
-        except requests.exceptions.Timeout:
-            raise CapeTimeoutException(f"CAPE ({cape_task.base_url}) timed out after {self.timeout}s while "
-                                       f"trying to delete task {cape_task.id}")
-        except requests.ConnectionError:
-            raise Exception(f"Unable to reach the CAPE nest while trying to delete task {cape_task.id}")
-        if resp.status_code == 500 and \
-                loads(resp.text).get("message") == "The task is currently being processed, cannot delete":
-            raise Exception(f"The task {cape_task.id} is currently being processed, cannot delete")
-        elif resp.status_code != 200:
-            self.log.error(f"Failed to delete task {cape_task.id}. Status code: {resp.status_code}")
-        else:
-            self.log.debug(f"Deleted task {cape_task.id}.")
-            if cape_task:
+        # We will try to connect with the REST API... NO MATTER WHAT
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            delete_url = cape_task.delete_task_url % cape_task.id
+            try:
+                resp = self.session.get(
+                    delete_url,
+                    headers=cape_task.auth_header,
+                    timeout=self.timeout
+                )
+            except requests.exceptions.Timeout:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{delete_url} timed out after {self.timeout}s "
+                    f"trying to delete task {cape_task.id}'."
+                )
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{delete_url} failed to delete task {cape_task.id} due to {e}'."
+                )
+                sleep(5)
+                continue
+            if resp.status_code != 200:
+                if resp.status_code == 500:
+                    try:
+                        message = loads(resp.text).get("message")
+                    except Exception:
+                        if resp.text:
+                            self.log.error(f"Failed to delete task {cape_task.id} due to {resp.text}.")
+                        message = None
+
+                    if message == "The task is currently being processed, cannot delete":
+                        self.log.error(
+                            f"The task {cape_task.id} is currently being processed, cannot delete."
+                        )
+                else:
+                    self.log.error(
+                    "The cape-web.service is most likely down. "
+                    f"Indicator: '{delete_url} failed with status code {resp.status_code} trying to delete task {cape_task.id}'."
+                )
+                sleep(5)
+                continue
+            else:
+                self.log.debug(f"Deleted task {cape_task.id}.")
                 cape_task.id = None
+                break
 
     def query_machines(self) -> None:
         """
@@ -795,54 +870,67 @@ class CAPE(ServiceBase):
         This is the initial request to each CAPE host.
         :return: None
         """
-        number_of_unavailable_hosts = 0
-        number_of_hosts = len(self.hosts)
-        hosts_copy = self.hosts[:]
+        # We will get a connection with a host REST API.. NO MATTER WHAT (or we need to fail fast or it was a success)
+        fail_fast_count = 0
+        success = False
+        while not success and fail_fast_count != len(self.hosts):
+            # Cycle through each host
+            for host in self.hosts:
+                # Try a host up until the number of connection attempts
+                # For timeouts and connection errors, we will try for all eternity. If there is an error response with a 200 status code from the REST API, then we will fail fast because this is most likely a configuration problem with the
+                # CAPE service
+                host["machines"]: List[Dict[str, Any]] = []
 
-        for host in hosts_copy:
-            for attempt in range(self.connection_attempts):
-                query_machines_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_MACHINES}"
-                try:
-                    resp = self.session.get(
-                        query_machines_url, headers=host["auth_header"],
-                        timeout=self.connection_timeout_in_seconds)
-                except requests.exceptions.Timeout:
-                    self.log.error(
-                        f"{query_machines_url} timed out after {self.connection_timeout_in_seconds}s"
-                        " while trying to query machines")
-                    if attempt == self.connection_attempts - 1:
-                        number_of_unavailable_hosts += 1
-                        self.hosts.remove(host)
-                    continue
-                except requests.ConnectionError as e:
-                    if attempt == self.connection_attempts - 1:
-                        number_of_unavailable_hosts += 1
-                        self.hosts.remove(host)
+                for _ in range(self.connection_attempts):
+                    query_machines_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_MACHINES}"
+                    try:
+                        resp = self.session.get(
+                            query_machines_url, headers=host["auth_header"],
+                            timeout=self.connection_timeout_in_seconds)
+                    except requests.exceptions.Timeout:
                         self.log.error(
-                            f"Unable to reach the CAPE nest ({host['ip']}) while trying to query due to {e}. "
-                            f"Be sure to checkout the README and ensure that you have a CAPE nest setup outside "
-                            f"of Assemblyline first before running the service.")
-                    continue
-                if resp.status_code != 200:
-                    self.log.error(f"Failed to query machines for {host['ip']}:{host['port']}. "
-                                   f"Status code: {resp.status_code}")
-                    number_of_unavailable_hosts += 1
-                    self.hosts.remove(host)
-                    break
-                else:
-                    resp_json = resp.json()
-                    if "error" in resp_json and resp_json['error']:
-                        self.log.error(f"Failed to query machines for {host['ip']}:{host['port']} due "
-                                       f"to '{resp_json['error_value']}'.")
-                        number_of_unavailable_hosts += 1
-                        self.hosts.remove(host)
-                        break
-                    host["machines"] = resp_json["data"]
-                    break
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{query_machines_url} timed out after {self.connection_timeout_in_seconds}s "
+                            "trying to query machines.'"
+                        )
+                        if len(self.hosts) == 1:
+                            sleep(self.connection_timeout_in_seconds)
+                        continue
+                    except requests.ConnectionError as e:
+                        self.log.error(
+                            f"Unable to reach {query_machines_url} due to '{e}'. "
+                            "Follow the README and ensure that you have a CAPE nest setup outside of Assemblyline "
+                            "before running the service.")
+                        if len(self.hosts) == 1:
+                            sleep(self.connection_timeout_in_seconds)
+                        continue
 
-        if number_of_unavailable_hosts == number_of_hosts:
-            raise CapeHostsUnavailable(f"Failed to reach any of the hosts "
-                                       f"at {[host['ip'] + ':' + str(host['port']) for host in hosts_copy]}")
+                    if resp.status_code != 200:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{query_machines_url} failed with status code {resp.status_code} "
+                            "trying to query machines.'"
+                        )
+                        if len(self.hosts) == 1:
+                            sleep(self.connection_timeout_in_seconds)
+                        continue
+                    else:
+                        resp_json = resp.json()
+
+                        if "error" in resp_json and resp_json['error']:
+                            self.log.error(
+                                f"Failed to query machines for {query_machines_url} due "
+                                f"to '{resp_json['error_value']}'."
+                            )
+                            fail_fast_count += 1
+                            break
+
+                        host["machines"] = resp_json["data"]
+                        success = True
+                        break
+
+        if fail_fast_count == len(self.hosts):
+            raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
 
     def check_powershell(self, task_id: int, parent_section: ResultSection) -> None:
         """
@@ -1165,7 +1253,7 @@ class CAPE(ServiceBase):
         self.log.debug(f"Generating CAPE report .zip for {cape_task.id}.")
 
         # Submit CAPE analysis report archive as a supplementary file
-        zip_report = self.query_report(cape_task, fmt='lite')
+        zip_report = self.query_report(cape_task)
         if zip_report is not None:
             self._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
 
@@ -1628,6 +1716,7 @@ class CAPE(ServiceBase):
                 machine_exists = True
                 kwargs["machine"] = specific_machine
             else:
+                self.log.error(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec = ResultTextSection('Requested Machine Does Not Exist')
                 no_machine_sec.add_line(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec.add_line("General Information:")
@@ -1663,6 +1752,7 @@ class CAPE(ServiceBase):
         kwargs["platform"] = specific_platform
 
         if platform_requested and not hosts_with_platform[specific_platform]:
+            self.log.error(f"The requested platform '{specific_platform}' is currently unavailable.")
             no_platform_sec = ResultSection(title_text='Requested Platform Does Not Exist')
             no_platform_sec.add_line(f"The requested platform '{specific_platform}' is currently unavailable.")
             no_platform_sec.add_line("General Information:")
@@ -1700,6 +1790,7 @@ class CAPE(ServiceBase):
             else:
                 self._set_hosts_that_contain_image(specific_image, relevant_images)
             if not relevant_images:
+                self.log.error(f"The requested image '{specific_image}' is currently unavailable.")
                 all_machines = [machine for host in self.hosts for machine in host["machines"]]
                 available_images = self._get_available_images(all_machines, self.allowed_images)
                 no_image_sec = ResultSection('Requested Image Does Not Exist')
@@ -1721,28 +1812,63 @@ class CAPE(ServiceBase):
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
         min_queue_size = maxsize
-        for host in hosts:
-            host_status_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_HOST}"
-            try:
-                resp = self.session.get(host_status_url, headers=host["auth_header"], timeout=self.timeout)
-            except requests.exceptions.Timeout:
-                self.log.warning(f"{host_status_url} timed out after {self.timeout}s")
-                continue
-            except requests.ConnectionError:
-                self.log.warning(f"Unable to reach the CAPE nest while trying to GET {host_status_url}")
-                continue
-            if resp.status_code != 200:
-                self.log.error(f"Failed to GET {host_status_url}. Status code: {resp.status_code}")
-            else:
-                resp_dict = resp.json()
-                if "error" in resp_dict and resp_dict['error']:
-                    self.log.error(f"Failed to get the status of {host['ip']}:{host['port']} due to "
-                                   f"'{resp_dict['error_value']}'.")
+
+        success = False
+        while not success:
+            # Cycle through each host
+            for host in hosts:
+                host_status_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_HOST}"
+                try:
+                    resp = self.session.get(host_status_url, headers=host["auth_header"], timeout=self.timeout)
+                except requests.exceptions.Timeout:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{host_status_url} timed out after {self.timeout}s "
+                        "trying to query the host.'"
+                    )
+                    if len(hosts) == 1:
+                        sleep(5)
+                    continue
+                except requests.ConnectionError as e:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{host_status_url} failed to query the host due to {e}.'"
+                    )
+                    if len(hosts) == 1:
+                        sleep(5)
+                    continue
+                if resp.status_code != 200:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{host_status_url} failed with status code {resp.status_code} "
+                        "trying to query the host.'"
+                    )
+                    if len(hosts) == 1:
+                        sleep(5)
+                    continue
                 else:
-                    queue_size = resp_dict["data"]["tasks"]["pending"]
-                    host_details.append({"host": host, "queue_size": queue_size})
-                    if queue_size < min_queue_size:
-                        min_queue_size = queue_size
+                    resp_json = resp.json()
+                    if "error" in resp_json and resp_json['error']:
+                        self.log.error(
+                            f"Failed to query the host for {host_status_url} due "
+                            f"to '{resp_json['error_value']}'."
+                        )
+                        raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                    elif "data" in resp_json and resp_json["data"]:
+                        queue_size = resp_json["data"]["tasks"]["pending"]
+                        host_details.append({"host": host, "queue_size": queue_size})
+                        if queue_size < min_queue_size:
+                            min_queue_size = queue_size
+                        success = True
+                    else:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{host_status_url} failed with status code {resp.status_code} "
+                            f"trying to query the host. Data returned was: {resp_json}'"
+                        )
+                        if len(hosts) == 1:
+                            sleep(5)
+                        continue
 
         # If the minimum queue size is shared by multiple hosts, choose a random one.
         min_queue_hosts = [host_detail["host"] for host_detail in host_details
