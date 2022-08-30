@@ -585,7 +585,7 @@ class CAPE(ServiceBase):
                         f"to '{resp_json['error_value']}'."
                     )
                     raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
-                elif "data" in resp_json and resp_json["data"]:
+                elif "data" in resp_json:
                     if tasks_are_similar(cape_task, resp_json["data"]):
                         cape_task.id = resp_json["data"][0]["id"]
                         self.log.debug(f"Cache hit for {sha256} with ID {cape_task.id}. No need to submit.")
