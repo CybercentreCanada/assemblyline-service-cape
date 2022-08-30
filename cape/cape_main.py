@@ -465,6 +465,8 @@ class CAPE(ServiceBase):
             status = self.poll_report(cape_task, parent_section)
         except RetryError:
             self.log.error(f"Unable to get report via {cape_task.base_url}. Indicator: 'Max retries exceeded for report status.' Try submission again!")
+            if cape_task and cape_task.id is not None:
+                self.delete_task(cape_task)
             raise RecoverableError(f"Unable to complete analysis and processing in time. Try again.")
 
         if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
