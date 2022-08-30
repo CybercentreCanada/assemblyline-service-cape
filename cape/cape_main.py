@@ -584,8 +584,8 @@ class CAPE(ServiceBase):
                         f"Failed to search for SHA256 with {sha256_url} due "
                         f"to '{resp_json['error_value']}'."
                     )
-                    raise InvalidCapeRequest("There is most like an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
-                elif "data" in resp_json and resp_json["data"]:
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                elif "data" in resp_json:
                     if tasks_are_similar(cape_task, resp_json["data"]):
                         cape_task.id = resp_json["data"][0]["id"]
                         self.log.debug(f"Cache hit for {sha256} with ID {cape_task.id}. No need to submit.")
@@ -658,7 +658,7 @@ class CAPE(ServiceBase):
                                             self.log.error(f'Further details about the error are: {v}')
                         except Exception:
                             pass
-                    raise InvalidCapeRequest("There is most like an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
                 elif "data" in resp_json and resp_json["data"]:
                     task_ids = resp_json["data"].get("task_ids", [])
                     if isinstance(task_ids, list) and len(task_ids) > 0:
@@ -796,7 +796,7 @@ class CAPE(ServiceBase):
                         f"Failed to query the task {cape_task.id} with {task_url} due "
                         f"to '{resp_json['error_value']}'."
                     )
-                    raise InvalidCapeRequest("There is most like an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
                 elif "data" in resp_json and resp_json["data"]:
                     return resp_json["data"]
                 else:
@@ -930,7 +930,7 @@ class CAPE(ServiceBase):
                         break
 
         if fail_fast_count == len(self.hosts):
-            raise InvalidCapeRequest("There is most like an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+            raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
 
     def check_powershell(self, task_id: int, parent_section: ResultSection) -> None:
         """
@@ -1853,7 +1853,7 @@ class CAPE(ServiceBase):
                             f"Failed to query the host for {host_status_url} due "
                             f"to '{resp_json['error_value']}'."
                         )
-                        raise InvalidCapeRequest("There is most like an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+                        raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
                     elif "data" in resp_json and resp_json["data"]:
                         queue_size = resp_json["data"]["tasks"]["pending"]
                         host_details.append({"host": host, "queue_size": queue_size})

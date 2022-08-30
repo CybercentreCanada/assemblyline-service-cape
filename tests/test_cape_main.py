@@ -752,6 +752,7 @@ class TestCapeMain:
         correct_rest_response = {"data": [{"id": 1}]}
         error_rest_response = {"error": True, "error_value": "blah"}
         weird_rest_response = {}
+        correct_no_match_rest_response = {"error": False, "data": []}
 
         with requests_mock.Mocker() as m:
             # Case 1: We get a timeout
@@ -801,6 +802,12 @@ class TestCapeMain:
             # Case 7: We get a 200 status code with data and there is not a similar task
             with mocker.patch('cape.cape_main.tasks_are_similar', return_value=False):
                 m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is False
+
+            # Case 8: We get a 200 status code with no data and there is not a similar task
+            with mocker.patch('cape.cape_main.tasks_are_similar', return_value=False):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_no_match_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is False
 
