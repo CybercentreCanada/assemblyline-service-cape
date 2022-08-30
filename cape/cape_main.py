@@ -23,7 +23,7 @@ from assemblyline_v4_service.common.tag_helper import add_tag
 from assemblyline.common.str_utils import safe_str
 from assemblyline.common.forge import get_identify
 from assemblyline.common.identify_defaults import type_to_extension, trusted_mimes, magic_patterns
-from assemblyline.common.exceptions import RecoverableError, ChainException
+from assemblyline.common.exceptions import RecoverableError
 # from assemblyline.odm.models.ontology.types.sandbox import Sandbox
 
 from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
@@ -464,8 +464,8 @@ class CAPE(ServiceBase):
         try:
             status = self.poll_report(cape_task, parent_section)
         except RetryError:
-            self.log.error(f"The cape-processor.service is most likely down on {cape_task.base_url}. Indicator: 'Max retries exceeded for report status.'")
-            status = PROCESSING_FAILED
+            self.log.error(f"Unable to get report via {cape_task.base_url}. Indicator: 'Max retries exceeded for report status.' Try submission again!")
+            raise RecoverableError(f"Unable to complete analysis and processing in time. Try again.")
 
         if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
             # Add a subsection detailing what's happening and then moving on
