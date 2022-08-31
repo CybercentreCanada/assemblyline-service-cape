@@ -1380,7 +1380,7 @@ def _create_signature_result_section(
                         v = truncate(v, 512)
                     mark_body.set_item(k, v)
 
-                if not isinstance(v, str) and isinstance(v, list):
+                if isinstance(v, list):
                     v = ','.join(v)
                 elif not isinstance(v, str):
                     v = str(v)
