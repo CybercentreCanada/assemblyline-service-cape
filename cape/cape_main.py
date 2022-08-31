@@ -1789,11 +1789,12 @@ class CAPE(ServiceBase):
             else:
                 self._set_hosts_that_contain_image(specific_image, relevant_images)
             if not relevant_images:
-                self.log.error(f"The requested image '{specific_image}' is currently unavailable.")
+                msg = specific_image if specific_image not in [RELEVANT_IMAGE_TAG, ALL_RELEVANT_IMAGES_TAG] else f"{specific_image} ({relevant_images_list})"
+                self.log.error(f"The requested image '{msg}' is currently unavailable.")
                 all_machines = [machine for host in self.hosts for machine in host["machines"]]
                 available_images = self._get_available_images(all_machines, self.allowed_images)
                 no_image_sec = ResultSection('Requested Image Does Not Exist')
-                no_image_sec.add_line(f"The requested image '{specific_image}' is currently unavailable.")
+                no_image_sec.add_line(f"The requested image '{msg}' is currently unavailable.")
                 no_image_sec.add_line("General Information:")
                 no_image_sec.add_line(
                     f"At the moment, the current image options for this CAPE deployment include {available_images}.")

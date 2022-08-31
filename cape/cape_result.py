@@ -1379,6 +1379,11 @@ def _create_signature_result_section(
                     if (isinstance(v, str) or isinstance(v, bytes)) and len(v) > 512:
                         v = truncate(v, 512)
                     mark_body.set_item(k, v)
+
+                if not isinstance(v, str) and isinstance(v, list):
+                    v = ','.join(v)
+                elif not isinstance(v, str):
+                    v = str(v)
                 _tag_mark_values(sig_res, k, v)
         if mark_body.body:
             sig_res.add_section_part(mark_body)
@@ -1398,8 +1403,6 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
     """
     delimiters = [":", "->", ",", " ", "("]
     if key.lower() in ["cookie", "process", "binary", "data", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
-        if not isinstance(value, str) and isinstance(value, list):
-            value = ','.join(value)
         if "process: " in value.lower():
             value = value.lower().replace("process: ", "")
         if any(delimiter in value for delimiter in delimiters):
