@@ -39,6 +39,9 @@ default_subscription_ratelimit = 99999999999999/s
 token_auth_enabled = yes
 ```
 
+### Recommendations for Monitoring
+The CAPE service will submit a file and wait for the file to complete analysis and post-analysis processing, up until the service timeout of 800 seconds. At this point, the service will retry (2 more times) to get a result. In most cases, the only reason that the service will retry is if there is an issue with the CAPE nest. The CAPE service outputs useful error logs that you can set up Kibana alerting on for these cases when the CAPE REST API or Processor services are down or erroring. This is the recommended approach to monitor your CAPE nest.
+
 ### Service Options
 #### Host Configurations
 * **remote_host_details**: A list of JSON objects, where each JSON object represents a CAPE Host. Details regarding the CAPE API can be found [here](https://capev2.readthedocs.io/en/latest/usage/api.html). Each JSON object must have the following keys and values:
