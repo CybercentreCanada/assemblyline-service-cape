@@ -129,6 +129,12 @@ class AnalysisFailed(Exception):
     pass
 
 
+def _exclude_invalid_req_ex(ex) -> bool:
+    """Use this with some of the @retry decorators to only retry if the exception
+    ISN'T a InvalidCapeRequest"""
+    return not isinstance(ex, InvalidCapeRequest)
+
+
 def _retry_on_none(result) -> bool:
     return result is None
 
@@ -482,7 +488,8 @@ class CAPE(ServiceBase):
         self.log.debug("CAPE service stopped...")
 
     @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
-           retry_on_result=_retry_on_none)
+           retry_on_result=_retry_on_none,
+           retry_on_exception=_exclude_invalid_req_ex)
     def poll_started(self, cape_task: CapeTask) -> Optional[str]:
         """
         This method queries the task on the CAPE server, and determines if the task has started
@@ -501,7 +508,8 @@ class CAPE(ServiceBase):
 
     @retry(wait_fixed=CAPE_POLL_DELAY * 1000,
            stop_max_attempt_number=((GUEST_VM_START_TIMEOUT + REPORT_GENERATION_TIMEOUT)/CAPE_POLL_DELAY),
-           retry_on_result=_retry_on_none)
+           retry_on_result=_retry_on_none,
+           retry_on_exception=_exclude_invalid_req_ex)
     def poll_report(self, cape_task: CapeTask, parent_section: ResultSection) -> Optional[str]:
         """
         This method polls the CAPE server for the status of the task, doing so until a report has been generated
@@ -1161,6 +1169,11 @@ class CAPE(ServiceBase):
         # If deep_scan, then get 100 HH files of all types
         if self.request.deep_scan:
             task_options.append("hollowshunter=all")
+
+        # This is a CAPE workaround because otherwise CAPE will extract an archive
+        # into extracted files and submit each as a separate task
+        if self.request.file_type in ["archive/iso", "archive/vhd"]:
+            task_options.append("file=")
 
         if route:
             kwargs["route"] = route.lower()

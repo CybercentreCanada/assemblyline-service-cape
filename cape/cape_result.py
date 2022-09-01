@@ -95,6 +95,7 @@ SUPPORTED_EXTENSIONS = [
     "sh",
     "swf",
     "vbs",
+    "vhd",
     "wsf",
     "xls",
     "xlsm",
