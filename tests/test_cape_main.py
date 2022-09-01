@@ -394,7 +394,7 @@ class TestModule:
         assert SUPPORTED_EXTENSIONS == ['bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe',
                                         'hta', 'htm', 'html', 'hwp', 'iso', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
                                         'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt', 'pptm', 'pptx', 'ps1', 'pub',
-                                        'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'vbs', 'wsf', 'xls', 'xlsm', 'xlsx']
+                                        'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'vbs', 'vhd', 'wsf', 'xls', 'xlsm', 'xlsx']
 
     @staticmethod
     def test_illegal_filename_chars_constant():
@@ -1456,7 +1456,8 @@ class TestCapeMain:
             correct_task_options.append("hollowshunter=all")
         if route:
             correct_kwargs["route"] = route
-
+        # Note because of the file type of the request, set below
+        correct_task_options.append("file=")
         correct_kwargs['options'] = ','.join(correct_task_options)
         if custom_options is not None:
             correct_kwargs['options'] += f",{custom_options}"
@@ -1467,7 +1468,8 @@ class TestCapeMain:
 
         cape_class_instance.request = dummy_request_class(**params)
         cape_class_instance.request.deep_scan = deep_scan
-        cape_class_instance.request.file_type = "blah"
+        cape_class_instance.request.file_type = "archive/iso"
+
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
         if dump_memory:
             correct_kwargs["memory"] = True
