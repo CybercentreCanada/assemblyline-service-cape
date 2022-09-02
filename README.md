@@ -24,13 +24,21 @@ and a summarized version of the report is displayed to the user through the Asse
 Files that are unpacked and saved to disk are fed back into Assemblyline.
 
 ## Things to note
+### Reporting
+It should be noted that this service grabs the `lite` format of the report bundle. So be sure you have `litereport` enabled in your `reporting.conf` file on your CAPE instance like so:
+```
+[litereport]
+enabled = yes
+keys_to_copy = info debug signatures network curtain sysmon target
+behavior_keys_to_copy = processtree processes summary
+```
+
+### REST API
 There are API features that this service uses that are disabled on the public CAPE instance, therefore this service will only work with a private deployment of CAPE.
 
 Since the REST APIv2 is the only API version that is [supported](https://capev2.readthedocs.io/en/latest/usage/api.html), we will also only be supporting this version.
 
-It should be noted that this service grabs the `lite` format of the report bundle. So be sure you have `litereport` enabled in your `reporting.conf` file on your CAPE instance.
-
-The following `api.conf` configuration is required for the REST API on the CAPE host:
+Since the CAPE service will be making more than 5 requests a minute, the following `api.conf` configuration is required for the REST API on the CAPE host:
 ```
 [api]
 ratelimit = no
@@ -38,6 +46,19 @@ default_user_ratelimit = 99999999999999/s
 default_subscription_ratelimit = 99999999999999/s
 token_auth_enabled = yes
 ```
+
+The REST API calls that are made by the CAPE service are as follows:
+
+    1. Get the status of CAPE via GET /apiv2/cuckoo/status/
+    2. Search for the SHA256 of a sample via GET /apiv2/tasks/search/sha256/<sha256>/
+    3. Submit a sample for file analysis via POST /apiv2/tasks/create/file/
+    4. Poll the task by task ID until it is completed via GET /apiv2/tasks/view/<task-id>/
+    5. Get the lite JSON report and ZIP generated via GET /apiv2/tasks/get/report/<task-id>/lite/zip/
+    6. Delete the task via GET /apiv2/tasks/delete/<task-id>/
+
+By default in the `api.conf`, `[machinelist]`, `[cuckoostatus]`, and `[taskdelete]` are all disabled. You need to enable them.
+
+In `api.conf`, it is recommended to set `token_auth_enabled = yes` and `auth_only = yes` for all REST API services.
 
 ### Recommendations for Monitoring
 The CAPE service will submit a file and wait for the file to complete analysis and post-analysis processing, up until the service timeout of 800 seconds. At this point, the service will retry (2 more times) to get a result. In most cases, the only reason that the service will retry is if there is an issue with the CAPE nest. The CAPE service outputs useful error logs that you can set up Kibana alerting on for these cases when the CAPE REST API or Processor services are down or erroring. This is the recommended approach to monitor your CAPE nest.
