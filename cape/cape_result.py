@@ -94,6 +94,7 @@ SUPPORTED_EXTENSIONS = [
     "rtf",
     "sh",
     "swf",
+    "udf",
     "vbs",
     "vhd",
     "wsf",
