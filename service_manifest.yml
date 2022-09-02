@@ -144,6 +144,12 @@ submission_params:
     type: bool
     value: false
 
+  # This is a dev feature to support passing arguments to a HollowsHunter auxiliary module
+  - default: ""
+    name: hh_args
+    type: str
+    value: ""
+
 heuristics:
   - heur_id: 1
     name: Account
