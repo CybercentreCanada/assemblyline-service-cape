@@ -1382,7 +1382,7 @@ def _create_signature_result_section(
                     mark_body.set_item(k, v)
 
                 if isinstance(v, list):
-                    v = ','.join(v)
+                    v = ','.join([item if isinstance(item, str) else str(item) for item in v])
                 elif not isinstance(v, str):
                     v = str(v)
                 _tag_mark_values(sig_res, k, v)
