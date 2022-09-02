@@ -49,12 +49,12 @@ token_auth_enabled = yes
 
 The REST API calls that are made by the CAPE service are as follows:
 
-    1. Get the status of CAPE via GET /apiv2/cuckoo/status/
-    2. Search for the SHA256 of a sample via GET /apiv2/tasks/search/sha256/<sha256>/
-    3. Submit a sample for file analysis via POST /apiv2/tasks/create/file/
-    4. Poll the task by task ID until it is completed via GET /apiv2/tasks/view/<task-id>/
-    5. Get the lite JSON report and ZIP generated via GET /apiv2/tasks/get/report/<task-id>/lite/zip/
-    6. Delete the task via GET /apiv2/tasks/delete/<task-id>/
+1. Get the status of CAPE via GET /apiv2/cuckoo/status/
+2. Search for the SHA256 of a sample via GET /apiv2/tasks/search/sha256/<sha256>/
+3. Submit a sample for file analysis via POST /apiv2/tasks/create/file/
+4. Poll the task by task ID until it is completed via GET /apiv2/tasks/view/<task-id>/
+5. Get the lite JSON report and ZIP generated via GET /apiv2/tasks/get/report/<task-id>/lite/zip/
+6. Delete the task via GET /apiv2/tasks/delete/<task-id>/
 
 By default in the `api.conf`, `[machinelist]`, `[cuckoostatus]`, and `[taskdelete]` are all disabled. You need to enable them.
 
