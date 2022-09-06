@@ -1149,6 +1149,14 @@ class CAPE(ServiceBase):
         if "dll" in self.request.file_type:
             self._prepare_dll_submission(task_options)
 
+        # This is a CAPE workaround because otherwise CAPE will extract an archive
+        # into extracted files and submit each as a separate task
+        elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf"]:
+            task_options.append("file=")
+
+        if package:
+            kwargs["package"] = package
+
         if arguments:
             task_options.append(f"arguments={arguments}")
 
@@ -1174,11 +1182,6 @@ class CAPE(ServiceBase):
         if hollowshunter_args:
             task_options.append(f"hh_args={hollowshunter_args}")
 
-        # This is a CAPE workaround because otherwise CAPE will extract an archive
-        # into extracted files and submit each as a separate task
-        if self.request.file_type in ["archive/iso", "archive/vhd"]:
-            task_options.append("file=")
-
         if route:
             kwargs["route"] = route.lower()
             self.routing = route
@@ -1188,9 +1191,6 @@ class CAPE(ServiceBase):
         kwargs['options'] = ','.join(task_options)
         if custom_options is not None:
             kwargs['options'] += f",{custom_options}"
-
-        if package:
-            kwargs["package"] = package
 
     def _set_hosts_that_contain_image(self, specific_image: str, relevant_images: Dict[str, List[str]]) -> None:
         """
