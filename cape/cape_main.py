@@ -1833,7 +1833,7 @@ class CAPE(ServiceBase):
                 if self.retry_on_no_machine:
                     self.log.warning(f"The requested image '{msg}' is currently unavailable. Sleep and retry!")
                     sleep(self.timeout)
-                    raise RecoverableError("Retrying since the specific machine was missing...")
+                    raise RecoverableError("Retrying since the specific image was missing...")
                 else:
                     self.log.error(f"The requested image '{msg}' is currently unavailable.")
                     all_machines = [machine for host in self.hosts for machine in host["machines"]]
