@@ -1154,10 +1154,7 @@ class CAPE(ServiceBase):
         elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf"]:
             task_options.append("file=")
 
-        if self.request.file_type in ["archive/udf"] and not package:
-            # This won't be required once https://github.com/doomedraven/sflock/issues/25 is resolved
-            kwargs["package"] = "archive"
-        elif package:
+        if package:
             kwargs["package"] = package
 
         if arguments:
