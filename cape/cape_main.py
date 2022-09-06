@@ -98,6 +98,8 @@ PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 DEFAULT_TOKEN_KEY = "Token"
 
+CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
+
 
 class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
@@ -205,6 +207,8 @@ class CAPE(ServiceBase):
         self.routing = ""
         self.safelist: Dict[str, Dict[str, List[str]]] = {}
         self.identify = get_identify(use_cache=os.environ.get('PRIVILEGED', 'false').lower() == 'true')
+        self.retry_on_no_machine = False
+        self.uwsgi_with_recycle = False
         # self.sandbox_ontologies: List[SandboxOntology] = None
 
     def start(self) -> None:
@@ -218,6 +222,8 @@ class CAPE(ServiceBase):
         self.timeout = self.config.get("rest_timeout_in_seconds", DEFAULT_REST_TIMEOUT)
         self.connection_attempts = self.config.get("connection_attempts", DEFAULT_CONNECTION_ATTEMPTS)
         self.allowed_images = self.config.get("allowed_images", [])
+        self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
+        self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
 
         try:
             self.safelist = self.get_api_interface().get_safelist()
@@ -571,10 +577,11 @@ class CAPE(ServiceBase):
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{sha256_url} failed to search for the SHA256 {sha256} due to {e}.'"
-                )
+                if self.is_connection_error_worth_logging(repr(e)):
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{sha256_url} failed to search for the SHA256 {sha256} due to {e}.'"
+                    )
                 sleep(5)
                 continue
 
@@ -640,10 +647,11 @@ class CAPE(ServiceBase):
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
-                )
+                if self.is_connection_error_worth_logging(repr(e)):
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
                 sleep(5)
                 continue
             if resp.status_code != 200:
@@ -726,10 +734,11 @@ class CAPE(ServiceBase):
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{report_url} failed to get the report for task {cape_task.id} due to {e}.'"
-                )
+                if self.is_connection_error_worth_logging(repr(e)):
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{report_url} failed to get the report for task {cape_task.id} due to {e}.'"
+                    )
                 sleep(5)
                 continue
 
@@ -777,10 +786,11 @@ class CAPE(ServiceBase):
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{task_url} failed to query the task {cape_task.id} due to {e}.'"
-                )
+                if self.is_connection_error_worth_logging(repr(e)):
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{task_url} failed to query the task {cape_task.id} due to {e}.'"
+                    )
                 sleep(5)
                 continue
 
@@ -842,10 +852,11 @@ class CAPE(ServiceBase):
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{delete_url} failed to delete task {cape_task.id} due to {e}'."
-                )
+                if self.is_connection_error_worth_logging(repr(e)):
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{delete_url} failed to delete task {cape_task.id} due to {e}'."
+                    )
                 sleep(5)
                 continue
             if resp.status_code != 200:
@@ -906,10 +917,11 @@ class CAPE(ServiceBase):
                             sleep(self.connection_timeout_in_seconds)
                         continue
                     except requests.ConnectionError as e:
-                        self.log.error(
-                            f"Unable to reach {query_machines_url} due to '{e}'. "
-                            "Follow the README and ensure that you have a CAPE nest setup outside of Assemblyline "
-                            "before running the service.")
+                        if self.is_connection_error_worth_logging(repr(e)):
+                            self.log.error(
+                                f"Unable to reach {query_machines_url} due to '{e}'. "
+                                "Follow the README and ensure that you have a CAPE nest setup outside of Assemblyline "
+                                "before running the service.")
                         if len(self.hosts) == 1:
                             sleep(self.connection_timeout_in_seconds)
                         continue
@@ -1736,6 +1748,10 @@ class CAPE(ServiceBase):
             if any(specific_machine == machine_name for machine_name in machine_names):
                 machine_exists = True
                 kwargs["machine"] = specific_machine
+            elif self.retry_on_no_machine:
+                self.log.warning(f"The requested machine '{specific_machine}' is currently unavailable. Sleep and retry!")
+                sleep(self.timeout)
+                raise RecoverableError("Retrying since the specific machine was missing...")
             else:
                 self.log.error(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec = ResultTextSection('Requested Machine Does Not Exist')
@@ -1773,14 +1789,19 @@ class CAPE(ServiceBase):
         kwargs["platform"] = specific_platform
 
         if platform_requested and not hosts_with_platform[specific_platform]:
-            self.log.error(f"The requested platform '{specific_platform}' is currently unavailable.")
-            no_platform_sec = ResultSection(title_text='Requested Platform Does Not Exist')
-            no_platform_sec.add_line(f"The requested platform '{specific_platform}' is currently unavailable.")
-            no_platform_sec.add_line("General Information:")
-            no_platform_sec.add_line(
-                "At the moment, the current platform options for "
-                f"this CAPE deployment include {sorted(machine_platform_set)}.")
-            self.file_res.add_section(no_platform_sec)
+            if self.retry_on_no_machine:
+                self.log.warning(f"The requested platform '{specific_platform}' is currently unavailable. Sleep and retry!")
+                sleep(self.timeout)
+                raise RecoverableError("Retrying since the specific platform was missing...")
+            else:
+                self.log.error(f"The requested platform '{specific_platform}' is currently unavailable.")
+                no_platform_sec = ResultSection(title_text='Requested Platform Does Not Exist')
+                no_platform_sec.add_line(f"The requested platform '{specific_platform}' is currently unavailable.")
+                no_platform_sec.add_line("General Information:")
+                no_platform_sec.add_line(
+                    "At the moment, the current platform options for "
+                    f"this CAPE deployment include {sorted(machine_platform_set)}.")
+                self.file_res.add_section(no_platform_sec)
         else:
             kwargs["platform"] = specific_platform
         return platform_requested, hosts_with_platform
@@ -1812,15 +1833,20 @@ class CAPE(ServiceBase):
                 self._set_hosts_that_contain_image(specific_image, relevant_images)
             if not relevant_images:
                 msg = specific_image if specific_image not in [RELEVANT_IMAGE_TAG, ALL_RELEVANT_IMAGES_TAG] else f"{specific_image} ({relevant_images_list})"
-                self.log.error(f"The requested image '{msg}' is currently unavailable.")
-                all_machines = [machine for host in self.hosts for machine in host["machines"]]
-                available_images = self._get_available_images(all_machines, self.allowed_images)
-                no_image_sec = ResultSection('Requested Image Does Not Exist')
-                no_image_sec.add_line(f"The requested image '{msg}' is currently unavailable.")
-                no_image_sec.add_line("General Information:")
-                no_image_sec.add_line(
-                    f"At the moment, the current image options for this CAPE deployment include {available_images}.")
-                self.file_res.add_section(no_image_sec)
+                if self.retry_on_no_machine:
+                    self.log.warning(f"The requested image '{msg}' is currently unavailable. Sleep and retry!")
+                    sleep(self.timeout)
+                    raise RecoverableError("Retrying since the specific image was missing...")
+                else:
+                    self.log.error(f"The requested image '{msg}' is currently unavailable.")
+                    all_machines = [machine for host in self.hosts for machine in host["machines"]]
+                    available_images = self._get_available_images(all_machines, self.allowed_images)
+                    no_image_sec = ResultSection('Requested Image Does Not Exist')
+                    no_image_sec.add_line(f"The requested image '{msg}' is currently unavailable.")
+                    no_image_sec.add_line("General Information:")
+                    no_image_sec.add_line(
+                        f"At the moment, the current image options for this CAPE deployment include {available_images}.")
+                    self.file_res.add_section(no_image_sec)
         return image_requested, relevant_images
 
     def _determine_host_to_use(self, hosts: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1852,10 +1878,11 @@ class CAPE(ServiceBase):
                         sleep(5)
                     continue
                 except requests.ConnectionError as e:
-                    self.log.error(
-                        "The cape-web.service is most likely down. "
-                        f"Indicator: '{host_status_url} failed to query the host due to {e}.'"
-                    )
+                    if self.is_connection_error_worth_logging(repr(e)):
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{host_status_url} failed to query the host due to {e}.'"
+                        )
                     if len(hosts) == 1:
                         sleep(5)
                     continue
@@ -1992,6 +2019,16 @@ class CAPE(ServiceBase):
             self.log.info(f"Machine {machine_name} does not exist in {machines}.")
             return None
 
+    def is_connection_error_worth_logging(self, error: str) -> bool:
+        """
+        This method checks if an error is worth logging
+        :param error: The string representation of the error
+        :return: The boolean flag indicating that the error is worth logging
+        """
+        if self.uwsgi_with_recycle:
+            return not any(e in error for e in CONNECTION_ERRORS)
+        else:
+            return True
 
 def generate_random_words(num_words: int) -> str:
     """
