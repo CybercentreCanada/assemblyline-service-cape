@@ -26,9 +26,13 @@ config:
         port: 8000
         token: "sample_token"
 
+  # REST API Timeouts and Attempts
   connection_timeout_in_seconds: 30
   rest_timeout_in_seconds: 120
   connection_attempts: 3
+
+  # Are you using UWSGI with recycling workers?
+  uwsgi_with_recycle: false
 
   # CAPE victim configurations
   allowed_images: []
@@ -56,6 +60,11 @@ config:
 
   # This is the value of the token key to be used in authorization for API requests
   token_key: Token
+
+  # If your machinery deletes machines, (AWS/Azure), there is a chance that a certain machine may not be present
+  # for a period of time. This configuration will raise a RecoverableError in that situation, after a certain
+  # time period.
+  retry_on_no_machine: false
 
 submission_params:
   - default: 0

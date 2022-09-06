@@ -69,9 +69,17 @@ The CAPE service will submit a file and wait for the file to complete analysis a
     * **ip** - [default: 127.0.0.1] The IP address of the machine where the CAPE API is being served
     * **port** - [default: 8000] The port where the CAPE API is being served
     * **api_key** - [default: sample_api_token] The authentication token to be passed with each API call
+
+#### REST API Timeouts and Attempts
 * **connection_timeout_in_seconds** - [default: 30] The timeout used to make the initial query to a host. (GET /machines/list)
 * **rest_timeout_in_seconds** - [default: 120] The timeout used to make subsequent queries to a host. (GET /cuckoo/status/, POST /tasks/create/file/, GET /tasks/view/123/, GET /tasks/report/123/, DELETE /tasks/delete/123/, etc.)
 * **connection_attempts** - [default: 3] The number of attempts to connect (perform a GET /machines/list/) to a host.
+
+#### Are you using UWSGI with recycling workers?
+* **uwsgi_with_recycle** * - [default: False] This configuration is to indicate if the CAPE nest's REST API that we will be interacting with is hosted by UWSGI AND UWSGI has a configuration enabled that will recycle it's workers. This is the recommended setup since using CAPE with the default cape-web.service (as of Sept 6 2022) will expose a
+memory leak (https://github.com/kevoreilly/CAPEv2/issues/1112).  If you do have UWSGI enabled with recycling workers, we will see "RemoteDisconnected" and "ConnectionResetError" errors frequently, so we will silence the errors associated with them.
+
+To install UWSGI: https://capev2.readthedocs.io/en/latest/usage/web.html?#best-practices-for-production
 
 #### Victim configurations
 * **allowed_images**: A list of strings representing the images that can be selected for detonation.
@@ -107,6 +115,11 @@ The method for interpretting this structure is that files are divided between Li
 #### API Token Configurations
 * **token_key** - [default: Token] This the default keyword for the Django Rest Framework.
 If you change it on the CAPE REST API, change this value to reflect that new value.
+
+####
+* **retry_on_no_machine** - [default: False] If your CAPE machinery deletes machines, (AWS/Azure), there is a chance that a certain machine may not be present
+for a period of time. This configuration will raise a RecoverableError in that situation, after sleeping for a certain
+time period.
 
 ### CAPE Submission Options
 
