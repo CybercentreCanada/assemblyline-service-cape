@@ -413,6 +413,14 @@ class TestModule:
         assert TASK_COMPLETED == "completed"
         assert TASK_REPORTED == "reported"
         assert ANALYSIS_FAILED == "failed_analysis"
+        assert PROCESSING_FAILED == "failed_processing"
+
+    @staticmethod
+    def test_misc_constants():
+        MACHINE_INFORMATION_SECTION_TITLE == 'Machine Information'
+        PE_INDICATORS == [b"MZ", b"This program cannot be run in DOS mode"]
+        DEFAULT_TOKEN_KEY == "Token"
+        CONNECTION_ERRORS == ["RemoteDisconnected", "ConnectionResetError"]
 
     @staticmethod
     def test_retry_on_none():
@@ -471,22 +479,31 @@ class TestCapeMain:
         assert cape_class_instance.file_res is None
         assert cape_class_instance.request is None
         assert cape_class_instance.session is None
+        assert cape_class_instance.connection_timeout_in_seconds is None
         assert cape_class_instance.timeout is None
+        assert cape_class_instance.connection_attempts is None
         assert cape_class_instance.allowed_images == []
         assert cape_class_instance.artifact_list is None
         assert cape_class_instance.hosts == []
         assert cape_class_instance.routing == ""
+        assert cape_class_instance.safelist == {}
+        # assert cape_class_instance.identify == ""
+        assert cape_class_instance.retry_on_no_machine is False
+        assert cape_class_instance.uwsgi_with_recycle is False
 
     @staticmethod
     def test_start(cape_class_instance, dummy_api_interface_class, mocker):
         mocker.patch.object(cape_class_instance, "get_api_interface", return_value=dummy_api_interface_class)
         cape_class_instance.start()
+        assert cape_class_instance.hosts == cape_class_instance.config["remote_host_details"]["hosts"]
         assert cape_class_instance.connection_timeout_in_seconds == cape_class_instance.config.get(
             'connection_timeout_in_seconds',
             30)
-        assert cape_class_instance.connection_attempts == cape_class_instance.config.get('connection_attempts', 3)
         assert cape_class_instance.timeout == cape_class_instance.config.get('rest_timeout_in_seconds', 150)
+        assert cape_class_instance.connection_attempts == cape_class_instance.config.get('connection_attempts', 3)
         assert cape_class_instance.allowed_images == cape_class_instance.config.get('allowed_images', [])
+        assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get('retry_on_no_machine', False)
+        assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get('uwsgi_with_recycle', False)
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
@@ -1860,6 +1877,7 @@ class TestCapeMain:
         kwargs = dict()
         cape_class_instance.hosts = hosts
         cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.timeout = 0
         if machine_requested == "flag":
             with pytest.raises(ValueError):
                 cape_class_instance._handle_specific_machine(kwargs)
@@ -1870,6 +1888,10 @@ class TestCapeMain:
             correct_result_section = ResultSection(title_text='Requested Machine Does Not Exist')
             correct_result_section.set_body(correct_body)
             assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_machine(kwargs)
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1889,11 +1911,16 @@ class TestCapeMain:
         kwargs = dict()
         cape_class_instance.hosts = [{"ip": "blah", "machines": [{"platform": "windows"}, {"platform": "linux"}]}]
         cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.timeout = 0
         assert cape_class_instance._handle_specific_platform(kwargs) == expected_return
         if expected_result_section:
             correct_result_section = ResultSection(title_text='Requested Platform Does Not Exist')
             correct_result_section.set_body(expected_result_section)
             assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_platform(kwargs)
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1946,11 +1973,16 @@ class TestCapeMain:
         cape_class_instance.file_res = dummy_result_class_instance
         cape_class_instance.hosts = [{"machines": [], "ip": "blah"}]
         cape_class_instance.allowed_images = allowed_images
+        cape_class_instance.timeout = 0
         assert cape_class_instance._handle_specific_image() == correct_result
         if correct_body:
             correct_result_section = ResultSection(title_text='Requested Image Does Not Exist')
             correct_result_section.set_body(correct_body)
             assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_image()
 
     @staticmethod
     def test_determine_host_to_use(cape_class_instance):
@@ -2164,3 +2196,18 @@ class TestCapeMain:
         cape_class_instance.hosts = hosts
         test_result = cape_class_instance._get_machine_by_name(name)
         assert test_result == expected_result
+
+    @staticmethod
+    def test_is_connection_error_worth_logging(cape_class_instance):
+        cape_class_instance.uwsgi_with_recycle = False
+        e = Exception("blahblah")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is True
+
+        cape_class_instance.uwsgi_with_recycle = True
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is True
+
+        e = Exception("'Connection aborted.', RemoteDisconnected('Remote end closed connection without response')")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is False
+
+        e = Exception("'Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is False
