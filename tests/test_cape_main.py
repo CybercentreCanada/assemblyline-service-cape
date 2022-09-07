@@ -394,7 +394,7 @@ class TestModule:
         assert SUPPORTED_EXTENSIONS == ['bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe',
                                         'hta', 'htm', 'html', 'hwp', 'iso', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
                                         'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt', 'pptm', 'pptx', 'ps1', 'pub',
-                                        'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'udf', 'vbs', 'vhd', 'wsf', 'xls', 'xlsm', 'xlsx']
+                                        'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'udf', 'vbs', 'vhd', 'wsf', 'xls', 'xlsm', 'xlsx', 'zip']
 
     @staticmethod
     def test_illegal_filename_chars_constant():

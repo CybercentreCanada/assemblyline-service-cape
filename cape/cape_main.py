@@ -1163,7 +1163,7 @@ class CAPE(ServiceBase):
 
         # This is a CAPE workaround because otherwise CAPE will extract an archive
         # into extracted files and submit each as a separate task
-        elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf"]:
+        elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf", "archive/zip"]:
             task_options.append("file=")
 
         if package:
