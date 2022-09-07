@@ -101,6 +101,7 @@ SUPPORTED_EXTENSIONS = [
     "xls",
     "xlsm",
     "xlsx",
+    "zip",
 ]
 ANALYSIS_ERRORS = "Analysis Errors"
 # Substring of Warning Message frm https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/guest.py#L561
