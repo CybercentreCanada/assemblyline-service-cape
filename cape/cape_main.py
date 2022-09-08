@@ -1201,6 +1201,7 @@ class CAPE(ServiceBase):
             self.routing = "None"
 
         if self.config.get("exclude_apis", False):
+            task_options.append("api-rate-cap=5000")
             task_options.append("exclude-apis=GetCursorPos:GetLastInputInfo:GetSystemTimeAsFileTime:LdrGetProcedureAddressForCaller:MsgWaitForMultipleObjectsEx:NtEnumerateKey:NtFreeVirtualMemory:NtOpenKeyEx:NtQueryInformationFile:NtQueryKey:NtQueryValueKey:NtSetTimer:NtSetTimerEx:NtWaitForSingleObject:NtYieldExecution:PostMessageW:RegOpenKeyExW:RegCloseKey:RtlSetCurrentTransaction:SystemParametersInfoA:SystemParametersInfoW")
 
         kwargs['options'] = ','.join(task_options)
