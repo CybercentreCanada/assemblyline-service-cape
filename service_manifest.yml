@@ -66,6 +66,9 @@ config:
   # time period.
   retry_on_no_machine: false
 
+  # Filter noisy API calls at the capemon-level that are not used for signatures (See README for specifics).
+  exclude_apis: false
+
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds
