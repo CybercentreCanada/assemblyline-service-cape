@@ -122,7 +122,7 @@ for a period of time. This configuration will raise a RecoverableError in that s
 time period.
 
 ####
-* **exclude_apis** - [default: False] Filter noisy API calls at the capemon-level (GetCursorPos, GetLastInputInfo, GetSystemTimeAsFileTime, LdrGetProcedureAddressForCaller, MsgWaitForMultipleObjectsEx, NtEnumerateKey, NtFreeVirtualMemory, NtOpenKeyEx, NtQueryInformationFile, NtQueryKey, NtQueryValueKey, NtSetTimer, NtSetTimerEx, NtWaitForSingleObject, NtYieldExecution, PostMessageW, RegOpenKeyExW, RegCloseKey, RtlSetCurrentTransaction, SystemParametersInfoA, SystemParametersInfoW) that are not used for signatures. Also apply a limit of 5000 (the default is 10000) for api calls.
+* **exclude_apis** - [default: False] Filter noisy API calls at the capemon-level that are not used for signatures. Also apply a limit of 5000 (the default is 10000) for api calls.
 
 ### CAPE Submission Options
 

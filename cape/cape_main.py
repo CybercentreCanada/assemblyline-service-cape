@@ -100,6 +100,40 @@ DEFAULT_TOKEN_KEY = "Token"
 
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
 
+SILENCED_APIS = [
+    "GetAdaptersAddresses",
+    "GetCursorPos",
+    "GetLastInputInfo",
+    "GetSystemTime",
+    "GetSystemTimeAsFileTime",
+    "LdrGetProcedureAddressForCaller",
+    "MsgWaitForMultipleObjectsEx",
+    "NtDeviceIoControlFile",
+    "NtEnumerateKey",
+    "NtFreeVirtualMemory",
+    "NtOpenKeyEx",
+    "NtQueryFullAttributesFile",
+    "NtQueryInformationFile",
+    "NtQueryKey",
+    "NtQueryValueKey",
+    "NtQueueApcThread",
+    "NtSetInformationFile",
+    "NtSetTimer",
+    "NtSetTimerEx",
+    "NtWaitForSingleObject",
+    "NtYieldExecution",
+    "PostMessageW",
+    "RegCloseKey",
+    "RegOpenKeyExW",
+    "RegQueryValueExA",
+    "RtlSetCurrentTransaction",
+    "ScriptIsComplex",
+    "SHGetKnownFolderPath",
+    "StrCmpNICW",
+    "SystemParametersInfoA",
+    "SystemParametersInfoW",
+]
+
 
 class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
@@ -1202,7 +1236,7 @@ class CAPE(ServiceBase):
 
         if self.config.get("exclude_apis", False):
             task_options.append("api-rate-cap=5000")
-            task_options.append("exclude-apis=GetCursorPos:GetLastInputInfo:GetSystemTimeAsFileTime:LdrGetProcedureAddressForCaller:MsgWaitForMultipleObjectsEx:NtEnumerateKey:NtFreeVirtualMemory:NtOpenKeyEx:NtQueryInformationFile:NtQueryKey:NtQueryValueKey:NtSetTimer:NtSetTimerEx:NtWaitForSingleObject:NtYieldExecution:PostMessageW:RegOpenKeyExW:RegCloseKey:RtlSetCurrentTransaction:SystemParametersInfoA:SystemParametersInfoW")
+            task_options.append(f"exclude-apis={':'.join(SILENCED_APIS)}")
 
         kwargs['options'] = ','.join(task_options)
         if custom_options is not None:
