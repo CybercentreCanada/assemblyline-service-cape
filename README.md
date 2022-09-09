@@ -121,6 +121,9 @@ If you change it on the CAPE REST API, change this value to reflect that new val
 for a period of time. This configuration will raise a RecoverableError in that situation, after sleeping for a certain
 time period.
 
+####
+* **exclude_apis** - [default: False] Filter noisy API calls at the capemon-level that are not used for signatures.
+
 ### CAPE Submission Options
 
 The options available for submissions to the CAPE service via REST API are not the clearest, but the [submission utility](https://capev2.readthedocs.io/en/latest/usage/submit.html#submission-utility) gives us a glimpse. These are the options you can select per analysis wittout having to go under the hood:
