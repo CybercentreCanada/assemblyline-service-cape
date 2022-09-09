@@ -48,7 +48,7 @@ class TestCapeResult:
         ],
     )
     def test_generate_al_result(api_report, mocker):
-        from cape.cape_result import generate_al_result
+        from cape.cape_result import generate_al_result, ANALYSIS_ERRORS
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
@@ -80,7 +80,7 @@ class TestCapeResult:
         elif api_report.get("behavior", {}).get("blah") == "blah":
             correct_result_section = ResultSection(
                 title_text="Sample Did Not Execute",
-                body=f"No program available to execute a file with the following extension: {file_ext}",
+                body=f"Either no program is available to execute a file with the extension: {file_ext} OR see the '{ANALYSIS_ERRORS}' section for details.",
             )
             assert check_section_equality(al_result.subsections[0], correct_result_section)
         else:
@@ -148,8 +148,9 @@ class TestCapeResult:
             ({"errors": ["BLAH"], "log": ""}, "BLAH"),
             ({"errors": ["BLAH", "BLAH"], "log": ""}, "BLAH\nBLAH"),
             ({"errors": [], "log": "blah"}, None),
-            ({"errors": [], "log": "ERROR: blah"}, "Blah"),
-            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "Blah"),
+            ({"errors": [], "log": "blahblahblahblahblah"}, None),
+            ({"errors": [], "log": "ERROR: blahblahblahblahblah"}, "Blahblahblahblahblah"),
+            ({"errors": [], "log": "ERROR: blahblahblahblahblah\nERROR: blahblahblahblahblah\n"}, "Blahblahblahblahblah"),
         ],
     )
     def test_process_debug(debug, correct_body):
@@ -1866,8 +1867,9 @@ class TestCapeResult:
         from cape.cape_result import process_buffers
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
 
+        safelist = {}
         parent_section = ResultSection("blah")
-        process_buffers(process_map, parent_section)
+        process_buffers(process_map, safelist, parent_section)
 
         if correct_buffer_body is None:
             assert parent_section.subsections == []
@@ -2220,6 +2222,7 @@ class TestCapeResult:
             ("\\x12blahblah", "blahblah"),
             ("\\x12\\x23\\x34\\x45\\x56blahblah\\x67\\x78", "blahblah"),
             ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78", "blahblah"),
+            ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78http/1.1", "blahblah"),
         ]
     )
     def test_remove_bytes_from_buffer(buffer, expected_output):
