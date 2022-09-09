@@ -1235,7 +1235,6 @@ class CAPE(ServiceBase):
             self.routing = "None"
 
         if self.config.get("exclude_apis", False):
-            task_options.append("api-rate-cap=5000")
             task_options.append(f"exclude-apis={':'.join(SILENCED_APIS)}")
 
         kwargs['options'] = ','.join(task_options)

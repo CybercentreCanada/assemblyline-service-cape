@@ -122,7 +122,7 @@ for a period of time. This configuration will raise a RecoverableError in that s
 time period.
 
 ####
-* **exclude_apis** - [default: False] Filter noisy API calls at the capemon-level that are not used for signatures. Also apply a limit of 5000 (the default is 10000) for api calls.
+* **exclude_apis** - [default: False] Filter noisy API calls at the capemon-level that are not used for signatures.
 
 ### CAPE Submission Options
 
