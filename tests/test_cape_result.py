@@ -48,7 +48,7 @@ class TestCapeResult:
         ],
     )
     def test_generate_al_result(api_report, mocker):
-        from cape.cape_result import generate_al_result
+        from cape.cape_result import generate_al_result, ANALYSIS_ERRORS
         from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
         from ipaddress import ip_network
         from assemblyline_v4_service.common.result import ResultSection
@@ -80,7 +80,7 @@ class TestCapeResult:
         elif api_report.get("behavior", {}).get("blah") == "blah":
             correct_result_section = ResultSection(
                 title_text="Sample Did Not Execute",
-                body=f"No program available to execute a file with the following extension: {file_ext}",
+                body=f"Either no program is available to execute a file with the extension: {file_ext} OR see the '{ANALYSIS_ERRORS}' section for details.",
             )
             assert check_section_equality(al_result.subsections[0], correct_result_section)
         else:
@@ -148,8 +148,9 @@ class TestCapeResult:
             ({"errors": ["BLAH"], "log": ""}, "BLAH"),
             ({"errors": ["BLAH", "BLAH"], "log": ""}, "BLAH\nBLAH"),
             ({"errors": [], "log": "blah"}, None),
-            ({"errors": [], "log": "ERROR: blah"}, "Blah"),
-            ({"errors": [], "log": "ERROR: blah\nERROR: blah\n"}, "Blah"),
+            ({"errors": [], "log": "blahblahblahblahblah"}, None),
+            ({"errors": [], "log": "ERROR: blahblahblahblahblah"}, "Blahblahblahblahblah"),
+            ({"errors": [], "log": "ERROR: blahblahblahblahblah\nERROR: blahblahblahblahblah\n"}, "Blahblahblahblahblah"),
         ],
     )
     def test_process_debug(debug, correct_body):

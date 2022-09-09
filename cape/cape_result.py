@@ -180,7 +180,7 @@ def generate_al_result(
         ]
         if not any(item > 0 for item in sample_executed):
             noexec_res = ResultTextSection("Sample Did Not Execute")
-            noexec_res.add_line(f"No program available to execute a file with the following extension: {safe_str(file_ext)}")
+            noexec_res.add_line(f"Either no program is available to execute a file with the extension: {safe_str(file_ext)} OR see the '{ANALYSIS_ERRORS}' section for details.")
             al_result.add_subsection(noexec_res)
         else:
             # Otherwise, moving on!
@@ -264,8 +264,10 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     unique_errors: set[str] = set()
     for analyzer_log in debug_log:
         if "error:" in analyzer_log.lower():  # Hoping that CAPE logs as ERROR
-            split_log = analyzer_log.lower().split("error:")[1].strip()
+            split_log = analyzer_log.lower().split("error:", 1)[1].strip()
             if split_log in unique_errors:
+                continue
+            elif len(split_log) < 15:
                 continue
             else:
                 unique_errors.add(split_log)
