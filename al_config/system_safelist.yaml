@@ -261,6 +261,9 @@ regex:
   - google\.com$
   # INetSim
   - (www\.)?inetsim\.org$
+  # Linux
+  - does-not-exist\.example\.com$
+  - .+\.agentsvc\.azure-automation\.net$
   network.dynamic.ip:
   # Public DNS
   - (^1\.1\.1\.1$)|(^8\.8\.8\.8$)
@@ -288,6 +291,8 @@ regex:
   # Microsoft
   - https?://schemas\.microsoft\.com(?:$|/.*)
   - https?://(www\.)?go\.microsoft\.com(?:$|/.*)
+  - https?://(www\.)?ieonline\.microsoft\.com(?:$|/.*)
+  - https?://(www\.)?iecvlist\.microsoft\.com(?:$|/.*)
   - https?://displaycatalog(\.md)?\.mp\.microsoft\.com(?:$|/.*)
   - https?://officeclient\.microsoft\.com(?:$|/.*)
   - https?://activation-v2\.sls\.microsoft\.com(?:$|/.*)
