@@ -100,6 +100,40 @@ DEFAULT_TOKEN_KEY = "Token"
 
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
 
+SILENCED_APIS = [
+    "GetAdaptersAddresses",
+    "GetCursorPos",
+    "GetLastInputInfo",
+    "GetSystemTime",
+    "GetSystemTimeAsFileTime",
+    "LdrGetProcedureAddressForCaller",
+    "MsgWaitForMultipleObjectsEx",
+    "NtDeviceIoControlFile",
+    "NtEnumerateKey",
+    "NtFreeVirtualMemory",
+    "NtOpenKeyEx",
+    "NtQueryFullAttributesFile",
+    "NtQueryInformationFile",
+    "NtQueryKey",
+    "NtQueryValueKey",
+    "NtQueueApcThread",
+    "NtSetInformationFile",
+    "NtSetTimer",
+    "NtSetTimerEx",
+    "NtWaitForSingleObject",
+    "NtYieldExecution",
+    "PostMessageW",
+    "RegCloseKey",
+    "RegOpenKeyExW",
+    "RegQueryValueExA",
+    "RtlSetCurrentTransaction",
+    "ScriptIsComplex",
+    "SHGetKnownFolderPath",
+    "StrCmpNICW",
+    "SystemParametersInfoA",
+    "SystemParametersInfoW",
+]
+
 
 class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
@@ -1199,6 +1233,9 @@ class CAPE(ServiceBase):
             self.routing = route
         else:
             self.routing = "None"
+
+        if self.config.get("exclude_apis", False):
+            task_options.append(f"exclude-apis={':'.join(SILENCED_APIS)}")
 
         kwargs['options'] = ','.join(task_options)
         if custom_options is not None:
