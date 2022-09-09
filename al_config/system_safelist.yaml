@@ -261,6 +261,9 @@ regex:
   - google\.com$
   # INetSim
   - (www\.)?inetsim\.org$
+  # Linux
+  - does-not-exist\.example\.com$
+  - .+\.agentsvc\.azure-automation\.net$
   network.dynamic.ip:
   # Public DNS
   - (^1\.1\.1\.1$)|(^8\.8\.8\.8$)
