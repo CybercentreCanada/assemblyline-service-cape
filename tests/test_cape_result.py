@@ -1866,8 +1866,9 @@ class TestCapeResult:
         from cape.cape_result import process_buffers
         from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
 
+        safelist = {}
         parent_section = ResultSection("blah")
-        process_buffers(process_map, parent_section)
+        process_buffers(process_map, safelist, parent_section)
 
         if correct_buffer_body is None:
             assert parent_section.subsections == []
@@ -2220,6 +2221,7 @@ class TestCapeResult:
             ("\\x12blahblah", "blahblah"),
             ("\\x12\\x23\\x34\\x45\\x56blahblah\\x67\\x78", "blahblah"),
             ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78", "blahblah"),
+            ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78http/1.1", "blahblah"),
         ]
     )
     def test_remove_bytes_from_buffer(buffer, expected_output):

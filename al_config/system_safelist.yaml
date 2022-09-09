@@ -288,6 +288,8 @@ regex:
   # Microsoft
   - https?://schemas\.microsoft\.com(?:$|/.*)
   - https?://(www\.)?go\.microsoft\.com(?:$|/.*)
+  - https?://(www\.)?ieonline\.microsoft\.com(?:$|/.*)
+  - https?://(www\.)?iecvlist\.microsoft\.com(?:$|/.*)
   - https?://displaycatalog(\.md)?\.mp\.microsoft\.com(?:$|/.*)
   - https?://officeclient\.microsoft\.com(?:$|/.*)
   - https?://activation-v2\.sls\.microsoft\.com(?:$|/.*)

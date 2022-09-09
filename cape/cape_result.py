@@ -210,7 +210,7 @@ def generate_al_result(
         process_hollowshunter(hollowshunter, al_result, process_map)
 
     if process_map:
-        process_buffers(process_map, al_result)
+        process_buffers(process_map, safelist, al_result)
 
     cape_artifact_pids: Dict[str, int] = {}
     if cape:
@@ -1184,12 +1184,13 @@ def process_hollowshunter(
         parent_result_section.add_subsection(hollowshunter_res)
 
 
-def process_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_section: ResultSection) -> None:
+def process_buffers(process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], parent_result_section: ResultSection) -> None:
     """
     This method checks for any buffers found in the process map, and adds them to the Assemblyline report
     :param process_map: A map of process IDs to process names, network calls, and buffers
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
-    :return:
+    :return: None
     """
     buffer_res = ResultTableSection("Buffers", auto_collapse=True)
     buffer_ioc_table = ResultTableSection("Buffer IOCs")
@@ -1218,6 +1219,8 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], parent_result_sectio
                 if api_call in network_call:
                     buffer = network_call[api_call]["buffer"]
                     buffer = _remove_bytes_from_buffer(buffer)
+                    if is_tag_safelisted(buffer, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+                        continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
                     # We only want to display network buffers if an IOC is found
@@ -1297,6 +1300,8 @@ def get_process_map(processes: List[Dict[str, Any]], safelist: Dict[str, Dict[st
                                 args_of_interest[arg] = kv["value"]
                                 break
                             elif category in ["network", "crypto"]:
+                                if is_tag_safelisted(kv["value"], ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+                                    continue
                                 args_of_interest[arg] = kv["value"]
                                 break
                 if args_of_interest:
@@ -1573,6 +1578,8 @@ def _remove_bytes_from_buffer(buffer: str) -> str:
             continue
         res = sub(BYTE_CHAR, "", item)
         if res and len(res) >= MIN_DOMAIN_CHARS:
+            if res in ["http/1.1"]:
+                continue
             non_byte_chars.append(res)
     return ','.join(non_byte_chars)
 
