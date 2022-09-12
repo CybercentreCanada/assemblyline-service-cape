@@ -700,6 +700,7 @@ class CAPE(ServiceBase):
                 resp_json = resp.json()
                 if "error" in resp_json and resp_json['error']:
                     self.log.error(f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'.")
+                    incorrect_tag = False
                     if "errors" in resp_json and resp_json["errors"]:
                         try:
                             for error in resp_json["errors"]:
@@ -707,9 +708,16 @@ class CAPE(ServiceBase):
                                     for k, v in error_dict.items():
                                         if k == "error":
                                             self.log.error(f'Further details about the error are: {v}')
+                                            incorrect_tag = "Check Tags help, you have introduced incorrect tag(s)." in v
                         except Exception:
                             pass
-                    raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
+
+                    if self.retry_on_no_machine and incorrect_tag:
+                        # No need to log here because the log.error above containing further details about the error has happened
+                        sleep(self.timeout)
+                        raise RecoverableError("Retrying since the specific image was missing...")
+                    else:
+                        raise InvalidCapeRequest("There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details.")
                 elif "data" in resp_json and resp_json["data"]:
                     task_ids = resp_json["data"].get("task_ids", [])
                     if isinstance(task_ids, list) and len(task_ids) > 0:
@@ -1626,7 +1634,10 @@ class CAPE(ServiceBase):
                     to_be_extracted = False
                     # AL generates thumbnails already
                     if "_small" not in f:
-                        image_section.add_image(destination_file_path, file_name, value)
+                        try:
+                            image_section.add_image(destination_file_path, file_name, value)
+                        except OSError as e:
+                            self.log.debug(f"Unable to add image due to {e}")
                     continue
                 else:
                     to_be_extracted = True
