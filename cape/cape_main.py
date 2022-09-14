@@ -101,6 +101,8 @@ DEFAULT_TOKEN_KEY = "Token"
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
 
 SILENCED_APIS = [
+    "CLSIDFromProgID",
+    "CoGetClassObject",
     "GetAdaptersAddresses",
     "GetCursorPos",
     "GetLastInputInfo",
