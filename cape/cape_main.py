@@ -107,6 +107,7 @@ SILENCED_APIS = [
     "GetCursorPos",
     "GetLastInputInfo",
     "GetSystemTime",
+    "GetSystemTimeAsFileTime",
     "LdrGetProcedureAddressForCaller",
     "MsgWaitForMultipleObjectsEx",
     "NtDeviceIoControlFile",
