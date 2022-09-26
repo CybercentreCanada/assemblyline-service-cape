@@ -66,8 +66,8 @@ config:
   # time period.
   retry_on_no_machine: false
 
-  # Filter noisy API calls at the capemon-level that are not used for signatures (See README for specifics).
-  exclude_apis: false
+  # Apply a limit of 1000 to APIs that the CAPE monitor logs (normally this value is 5000).
+  limit_monitor_apis: false
 
 submission_params:
   - default: 0
