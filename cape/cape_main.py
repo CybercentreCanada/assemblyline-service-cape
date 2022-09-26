@@ -100,41 +100,6 @@ DEFAULT_TOKEN_KEY = "Token"
 
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
 
-SILENCED_APIS = [
-    "CLSIDFromProgID",
-    "CoGetClassObject",
-    "GetAdaptersAddresses",
-    "GetCursorPos",
-    "GetLastInputInfo",
-    "GetSystemTime",
-    "LdrGetProcedureAddressForCaller",
-    "MsgWaitForMultipleObjectsEx",
-    "NtDeviceIoControlFile",
-    "NtEnumerateKey",
-    "NtFreeVirtualMemory",
-    "NtOpenKeyEx",
-    "NtQueryFullAttributesFile",
-    "NtQueryInformationFile",
-    "NtQueryKey",
-    "NtQueryValueKey",
-    "NtQueueApcThread",
-    "NtSetInformationFile",
-    "NtSetTimer",
-    "NtSetTimerEx",
-    "NtWaitForSingleObject",
-    "NtYieldExecution",
-    "PostMessageW",
-    "RegCloseKey",
-    "RegOpenKeyExW",
-    "RegQueryValueExA",
-    "RtlSetCurrentTransaction",
-    "ScriptIsComplex",
-    "SHGetKnownFolderPath",
-    "StrCmpNICW",
-    "SystemParametersInfoA",
-    "SystemParametersInfoW",
-]
-
 
 class CapeTimeoutException(Exception):
     """Exception class for timeouts"""
@@ -1243,8 +1208,8 @@ class CAPE(ServiceBase):
         else:
             self.routing = "None"
 
-        if self.config.get("exclude_apis", False):
-            task_options.append(f"exclude-apis={':'.join(SILENCED_APIS)}")
+        if self.config.get("limit_monitor_apis", False):
+            task_options.append("api-cap=1000")
 
         kwargs['options'] = ','.join(task_options)
         if custom_options is not None:
