@@ -1280,6 +1280,7 @@ def get_process_map(processes: List[Dict[str, Any]], safelist: Dict[str, Dict[st
         "URLDownloadToFileW": ["url"],
         "InternetCrackUrlW": ["url"],
         "InternetOpenUrlA": ["url"],
+        "WinHttpGetProxyForUrl": ["url"],
     }
     for process in processes:
         process_name = process["module_path"] if process.get("module_path") else process["process_name"]
@@ -1363,11 +1364,12 @@ def _create_signature_result_section(
 
     # Get the evidence that supports why the signature was raised
     mark_count = 0
+    call_count = 0
     message_added = False
     for mark in signature["data"]:
         if mark_count >= 10 and not message_added:
             sig_res.add_section_part(
-                TextSectionBody(body=f"There were {len(signature['data']) - mark_count} more marks that were not displayed.")
+                TextSectionBody(body=f"There were {len(signature['data']) - mark_count - call_count} more marks that were not displayed.")
             )
             message_added = True
         mark_body = KVSectionBody()
@@ -1376,6 +1378,7 @@ def _create_signature_result_section(
             pid = mark.get("pid")
             process_name = process_map.get(pid, {}).get("name")
             so_sig.update_process(pid=pid, image=process_name)
+            call_count += 1
             continue
         for k, v in mark.items():
             if not v:
@@ -1412,7 +1415,7 @@ def _tag_mark_values(sig_res: ResultSection, key: str, value: str) -> None:
     :return: None
     """
     delimiters = [":", "->", ",", " ", "("]
-    if key.lower() in ["cookie", "process", "binary", "data", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
+    if key.lower() in ["cookie", "process", "binary", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
         if "process: " in value.lower():
             value = value.lower().replace("process: ", "")
         if any(delimiter in value for delimiter in delimiters):
