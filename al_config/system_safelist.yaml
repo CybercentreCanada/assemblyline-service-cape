@@ -134,11 +134,12 @@ regex:
   - C:\\WINDOWS\\system32\\cmd\.exe /c "C:\\.*\\bin\\procmon\.exe /OpenLog C:\\.*\\bin\\procmon\.PML /LoadConfig C:\\.*\\bin\\procmon\.pmc /SaveAs C:\\.*\\bin\\procmon\.xml /SaveApplyFilter"
   network.dynamic.domain:
   # Adobe
-  - .*\.adobe\.com$
+  - .+\.adobe\.com$
+  - files\.acrobat\.com$
   # Google
   - play\.google\.com$
   # Android
-  - .*\.android\.pool\.ntp\.org$
+  - .+\.android\.pool\.ntp\.org$
   - android\.googlesource\.com$
   - schemas\.android\.com$
   # XML
@@ -156,54 +157,32 @@ regex:
   # WPAD
   - ^wpad\..*$
   # Microsoft
-  - schemas\.microsoft\.com$
-  - .*\.?teredo\.ipv6\.microsoft\.com$
-  - watson\.microsoft\.com$
   - dns\.msftncsi\.com$
   - www\.msftncsi\.com$
   - ipv6\.msftncsi\.com$
-  - crl\.microsoft\.com$
-  - (www|go)\.microsoft\.com$
-  - isatap\..*\.microsoft\.com$
-  - tile-service\.weather\.microsoft\.com$
-  - .*\.prod\.do\.dsp\.mp\.microsoft\.com$
-  - (login|g)\.live\.com$
-  - nexus\.officeapps\.live\.com$
-  - .*\.events\.data\.microsoft\.com$
-  - wdcp\.microsoft\.com$
-  - fe3(cr)?\.delivery\.mp\.microsoft\.com$
+  - .+\.microsoft\.com$
+  - .+\.live\.com$
   - client\.wns\.windows\.com$
-  - (www\.)?go\.microsoft\.com$
-  - js\.microsoft\.com$
-  - ajax\.microsoft\.com$
-  - ieonline\.microsoft\.com$
   - dns\.msftncsi\.com$
   - ocsp\.msocsp\.com$
-  - fs\.microsoft\.com$
   - www\.msftconnecttest\.com$
   - www\.msftncsi\.com$
-  - iecvlist\.microsoft\.com$
-  - r20swj13mr\.microsoft\.com$
   - (([a-z]-ring(-fallback)?)|(fp)|(segments-[a-z]))\.msedge\.net$
-  - displaycatalog(\.md)?\.mp\.microsoft\.com$
-  - officeclient\.microsoft\.com$
   - ow1\.res\.office365\.com$
   - fp-(as-nocache|vp)\.azureedge\.net$
-  - outlookmobile-office365-tas\.msedge\.net$
+  - (?:outlookmobile|client)-office365-tas\.msedge\.net$
   - config\.messenger\.msn\.com$
+  - aadcnd\.ms(?:ft)?auth\.net$
+  - login\.microsoftonline\.com$
+  - skydrivesync\.policies\.live\.net$
+  - api\.onedrive\.com$
   # Windows
-  - settings(-win)?\.data\.microsoft\.com$
-  - .*vortex-win\.data\.microsoft\.com$
-  - .*\.windowsupdate\.com$
+  - .+\.windowsupdate\.com$
   - time\.(microsoft|windows)\.com$
-  - .*\.windows\.com$
-  - .*\.update\.microsoft\.com$
-  - .*download\.microsoft\.com$
+  - .+\.windows\.com$
   - kms\.core\.windows\.net$
-  - .*windows\.microsoft\.com$
-  - win10\.ipv6\.microsoft\.com$
-  - activation-v2\.sls\.microsoft\.com$
-  - msedge\.api\.cdp\.microsoft\.com$
+  - i\.gyazo\.com$
+  - .+\.edgesuite\.net$
   # MSN
   - cdn\.content\.prod\.cms\.msn\.com$
   - ((www|arc)\.)?msn\.com$
@@ -212,33 +191,33 @@ regex:
   # Bing
   - ((api|www|platform)\.)?bing\.com$
   # Azure
-  - md-ssd-.*\.blob\.core\.windows\.net$
-  - .*\.table\.core\.windows\.net
-  - .*\.blob\.core\.windows\.net
-  - .*\.opinsights\.azure\.com
-  - .*reddog\.microsoft\.com$
+  - md-ssd-.+\.blob\.core\.windows\.net$
+  - .+\.table\.core\.windows\.net$
+  - .+\.blob\.core\.windows\.net$
+  - .+\.opinsights\.azure\.com$
   - agentserviceapi\.azure-automation\.net$
   - agentserviceapi\.guestconfiguration\.azure\.com$
-  - .*\.blob\.storage\.azure\.net$
+  - .+\.blob\.storage\.azure\.net$
   # Office
-  - config\.edge\.skype\.com
+  - config\.edge\.skype\.com$
   - cdn\.onenote\.net$
   # Verisign
   - (www\.)?verisign\.com$
-  - csc3-2010-crl\.verisign\.com$
+  - csc3-(2010|2004|2009-2)-crl\.verisign\.com$
   - csc3-2010-aia\.verisign\.com$
   - ocsp\.verisign\.com$
   - logo\.verisign\.com$
   - crl\.verisign\.com$
   # Ubuntu
-  - (changelogs|daisy|ntp|ddebs|security)\.ubuntu\.com$
+  - (changelogs|daisy|ntp|ddebs|security|motd)\.ubuntu\.com$
   - (azure|ca)\.archive\.ubuntu\.com$
   # Local
-  - .*\.local$
+  - .+\.local$
   - local$
   - localhost$
   # Comodo
-  - .*\.comodoca\.com$
+  - .+\.comodoca\.com$
+  - (?:crl|ocsp)\.sectigo\.com$
   # .arpa
   - ^[0-9a-f\.]+\.ip6\.arpa$
   - ^[0-9\.]+\.in-addr\.arpa$
@@ -246,6 +225,7 @@ regex:
   - (www\.)?java\.com$
   - sldc-esd\.oracle\.com$
   - javadl\.sun\.com$
+  - javadl-esd-secure\.oracle\.com$
   # Digicert
   - ocsp\.digicert\.com$
   - crl[0-9]\.digicert\.com$
@@ -257,13 +237,45 @@ regex:
   # GlobalSign
   - ocsp[0-9]?\.globalsign\.com$
   - crl\.globalsign\.(com|net)$
+  # Certum
+  - (?:crl|ocsp)\.certum\.pl$
+  # UserTrust
+  - ocsp\.usertrust\.com$
   # Google
   - google\.com$
+  - ajax\.googleapis\.com$
+  - fonts\.googleapis\.com$
+  - update\.googleapis\.com$
+  - lh3\.googleusercontent\.com$
+  - www\.google-analytics\.com$
   # INetSim
   - (www\.)?inetsim\.org$
   # Linux
   - does-not-exist\.example\.com$
   - .+\.agentsvc\.azure-automation\.net$
+  # jQuery
+  - code\.jquery\.com$
+  # Typekit
+  - use\.typekit\.net$
+  # CloudFlare
+  - cdnjs\.cloudflare\.com$
+  # SVG Share
+  - svgshare\.com$
+  # Bootstrap
+  - maxcdn\.boostrapcdn\.com$
+  - stackpath\.boostrapcdn\.com$
+  - man\.boostrapcdn\.com$
+  # FontAwesome
+  - use\.fontawesome\.com$
+  # JSDelivr
+  - cdn\.jsdelivr\.net$
+  # Snapcraft
+  - api\.snapcraft\.io$
+  # Wikimedia
+  - upload\.wikimedia\.org$
+  # Criteo
+  - ailab\.criteo\.com$
+
   network.dynamic.ip:
   # Public DNS
   - (^1\.1\.1\.1$)|(^8\.8\.8\.8$)
@@ -289,22 +301,15 @@ regex:
   - https?://xmlpull\.org/v1/doc/features\.html(?:$|.*)
   - https?://schemas\.openxmlformats\.org(?:$|/.*)
   # Microsoft
-  - https?://schemas\.microsoft\.com(?:$|/.*)
-  - https?://(www\.)?go\.microsoft\.com(?:$|/.*)
-  - https?://(www\.)?ieonline\.microsoft\.com(?:$|/.*)
-  - https?://(www\.)?iecvlist\.microsoft\.com(?:$|/.*)
-  - https?://displaycatalog(\.md)?\.mp\.microsoft\.com(?:$|/.*)
-  - https?://officeclient\.microsoft\.com(?:$|/.*)
-  - https?://activation-v2\.sls\.microsoft\.com(?:$|/.*)
-  - https?://fe3(cr)?\.delivery\.mp\.microsoft\.com(?:$|/.*)
+  - https?://.+\.microsoft\.com(?:$|/.*)
   - https?://config\.messenger\.msn\.com(?:$|/.*)
+  - https?://aadcdn\.ms(?:ft)?auth\.net(?:$|/.*)
   # Windows
   - https?://ctldl\.windowsupdate\.com(?:$|/.*)
   # Ubuntu
   - https?://ca\.archive\.ubuntu\.com(?:$|/.*)
   # Office
   - https?://config\.edge\.skype\.com(?:$|/.*)
-  - https?://schemas\.microsoft\.com(?:$|/.*)
   # Verisign
   - https?://(www|oscp|crl|logo|csc3-2010-(crl|aia))\.verisign\.com(?:$|/.*)
   # Azure
@@ -327,6 +332,13 @@ regex:
   - https?://www\.w3\.org/.*
   # Google
   - https?://www\.google\.com
+  # Adobe
+  - (?:https?://)?files\.acrobat\.com(?:(?::443)|(?:/.*))
+  - https?://acroipm2?\.adobe\.com/.*
+  # jQuery
+  - https?://code\.jquery\.com/.*
+  # CloudFlare
+  - https?://cdnjs\.cloudflare\.com/.*
   file.path:
   # Office
   - (?:[a-f0-9]{2}|\~\$)[a-f0-9]{62}\.(doc|xls|ppt)x?$
@@ -335,7 +347,7 @@ regex:
   - AppData\\Local\\Microsoft\\Windows\\Temporary Internet Files\\Content.Word\\~WRS
   - .*\\Temp\\~\$[a-z0-9]+\.doc
   - \\Microsoft\\Document Building Blocks\\[0-9]{4}\\
-  - AppData\\Roaming\\MicrosoftOffice\\.*\.acl$
+  - AppData\\Roaming\\MicrosoftOffice\\.+\.acl$
   - AppData\\Roaming\\Microsoft\\UProof\\CUSTOM.DIC$
   - .*AppData\\Roaming\\Microsoft\\Proof\\\~\$CUSTOM.DIC$
   - AppData\\Local\\Temp\\Word...\\MSForms.exd$'
