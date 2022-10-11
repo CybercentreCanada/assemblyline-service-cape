@@ -102,7 +102,7 @@ The method for interpretting this structure is that files are divided between Li
 * **default_analysis_timeout_in_seconds** - [default: 150] The maximum timeout for an analysis.
 * **max_dll_exports_exec** - [default: 5] Limiting the amount of DLLs executed that we report about.
 * **machinery_supports_memory_dumps** - [default: False] A boolean flag indicating if the CAPE machinery supports dumping memory.
-* **reboot_supported** - [default: False] A boolean flag indicating if the CAPE machinery supports reboot submissions.
+* **reboot_supported** - [default: False] A boolean flag indicating if the CAPE machinery supports reboot submissions. *NB*: Reboot support is not available out of the box for CAPE.
 * **extract_cape_dumps** - [default: False] CAPE extracts a lot of stuff. Some may say "TOO MUCH". Enable this setting if you want files that are uploaded to the `CAPE`, `procdump` and `macros` directories per analysis to be extracted by Assemblyline.
 
 #### Reporting Configurations
@@ -141,7 +141,7 @@ than this if the process being monitored exits. If the value is 0, then the anal
 * **force_sleepskip** - [default: true] Forces a sample that attempts to sleep to wake up and skip the attempted sleep.
 * **no_monitor** - [default: false] Run analysis without injecting the CAPE monitoring agent. Equivalent to passing `--options free=yes` (see [here](https://capev2.readthedocs.io/en/latest/usage/packages.html) for more information).
 * **simulate_user** - [default: true] Enables user simulation
-* **reboot** - [default: false] a boolean indicating if we want an analysis to be repeated but in a simulated "rebooted" environment. *NB*: This is a development option, as users can select it without understanding what it is for and then double processing time.
+* **reboot** - [default: false] a boolean indicating if we want an analysis to be repeated but in a simulated "rebooted" environment. *NB*: Reboot support is not available out of the box for CAPE. Also this is a development option, as users can select it without understanding what it is for and then double processing time.
 * **arguments** - [default: ""] command line arguments to pass to the sample being analyzed
 * **custom_options** - [default: ""] Custom options to pass to the CAPE submission.
 * **clock** - [default: ""] Set virtual machine clock (format %m-%d-%Y %H:%M:%S).
