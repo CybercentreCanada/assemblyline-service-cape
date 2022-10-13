@@ -490,11 +490,6 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
         "command_line": None,
         "children": []
     },
-    '3e3793b897525f211e7425c45df068b2594bb4ad8dcf731f5771fd30233d721b': {
-        "image": '?sys32\\rundll32.exe',
-        "command_line": None,
-        "children": []
-    },
     'a364a5fcf64b5d9e29ba27262a73ccfbb88725651716677862622411c7d3d2f3': {
         "image": '?sys32\\lsass.exe|?sys32\\services.exe',
         "command_line": None,
