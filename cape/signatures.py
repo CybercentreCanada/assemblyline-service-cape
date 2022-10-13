@@ -875,7 +875,13 @@ CAPE_SIGNATURE_CATEGORIES = {
     "Virus": {"id": 54, "description": "Malicious software program."},
 }
 
-CAPE_DROPPED_SIGNATURES = ["powershell_scriptblock_logging"]
+# These are too noisy to be considered useful.
+CAPE_DROPPED_SIGNATURES = [
+    "powershell_scriptblock_logging",
+    "antidebug_setunhandledexceptionfilter",
+    "dynamic_function_loading",
+    "stealth_timeout",
+]
 
 
 def get_category_id(sig: str) -> int:
