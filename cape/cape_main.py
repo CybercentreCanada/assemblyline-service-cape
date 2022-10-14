@@ -1585,13 +1585,11 @@ class CAPE(ServiceBase):
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
                 elif key in ["files/"]:
                     file_type_details = self.identify.fileinfo(destination_file_path)
-                    if file_type_details["type"] == "unknown" and \
-                        file_type_details["mime"] == "application/octet-stream" and \
-                            "SQLite Rollback Journal" in file_type_details["magic"]:
-                                self.log.debug(
-                                    f"We are not extracting {destination_file_path} for task {task_id} "
-                                    "because we suspect it is garbage.")
-                                continue
+                    if file_type_details["type"] == "unknown":
+                        self.log.debug(
+                            f"We are not extracting {destination_file_path} for task {task_id} "
+                            "because we suspect it is garbage.")
+                        continue
 
                 if not file_name:
                     file_name = f"{task_id}_{f}"
