@@ -252,6 +252,11 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     :return: None
     """
     error_res = ResultTextSection(ANALYSIS_ERRORS)
+    # Logs from the monitor that do not need to be logged at the AL service level
+    errors_to_ignore = [
+        'Failed to open terminate event for pid',
+        "Could not open file",
+    ]
     for error in debug["errors"]:
         err_str = str(error)
         # TODO: what is the point of lower-casing it?
@@ -265,6 +270,8 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     for analyzer_log in debug_log:
         if "error:" in analyzer_log.lower():  # Hoping that CAPE logs as ERROR
             split_log = analyzer_log.lower().split("error:", 1)[1].strip()
+            if any(item.lower() in split_log for item in errors_to_ignore):
+                continue
             if split_log in unique_errors:
                 continue
             elif len(split_log) < 15:
