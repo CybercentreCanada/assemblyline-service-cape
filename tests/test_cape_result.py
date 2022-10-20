@@ -1141,10 +1141,10 @@ class TestCapeResult:
                 ],
             ),
             (
-                {1: {"network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}], "name": "blah"}},
+                {1: {"network_calls": [{"URLDownloadToFileW": {"url": "http://bad.evil"}}], "name": "blah"}},
                 {
                     "http": [
-                        {"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "bad.evil", "method": "blah"}
+                        {"host": "blah", "path": "blah", "data": "check me", "port": "blah", "uri": "http://bad.evil", "method": "blah"}
                     ],
                     "https": [],
                     "http_ex": [],
@@ -1162,7 +1162,7 @@ class TestCapeResult:
                             "transport_layer_protocol": "tcp",
                             "direction": "outbound",
                         },
-                        "request_uri": "bad.evil",
+                        "request_uri": "http://bad.evil",
                         "request_headers": {},
                         "request_body": None,
                         "request_method": "blah",
@@ -1846,8 +1846,8 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
-                {"network.dynamic.ip": ["127.0.0.1"], "network.dynamic.uri": ["127.0.0.1:999"]},
-                [{"ioc_type": "ip", "ioc": "127.0.0.1"}, {"ioc_type": "uri", "ioc": "127.0.0.1:999"}],
+                {"network.dynamic.ip": ["127.0.0.1"]},
+                [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             (
                 {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah.com"}}]}, 2: {"name": "yaba.exe", "network_calls": [{"send": {"buffer": "blahblah.ca"}}]}},

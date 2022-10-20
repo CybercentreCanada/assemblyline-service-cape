@@ -621,6 +621,7 @@ CAPE_SIGNATURES = {
     "terminates_remote_process": "Persistence",
     "territorial_disputes_sigs": "Generic",
     "tinba_behavior": "Trojan",
+    "transacted_hollowing": "Injection",
     "trickbot_mutex": "Banker",
     "trickbot_task_delete": "Banker",
     "trochilusrat_apis": "Rat",
