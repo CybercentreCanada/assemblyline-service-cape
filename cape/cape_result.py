@@ -596,6 +596,9 @@ def process_network(
             )
             _ = add_tag(http_sec, "network.dynamic.uri", http_call.request_uri, safelist)
 
+            for _, value in http_call.request_headers.items():
+                extract_iocs_from_text_blob(value, http_sec)
+
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
                 split_path = http_call.request_uri.rsplit("/", 1)
