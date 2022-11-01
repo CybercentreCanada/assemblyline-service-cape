@@ -101,11 +101,6 @@ DEFAULT_TOKEN_KEY = "Token"
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
 
 
-class CapeTimeoutException(Exception):
-    """Exception class for timeouts"""
-    pass
-
-
 class MissingCapeReportException(Exception):
     """Exception class for missing reports"""
     pass
