@@ -992,15 +992,15 @@ def process_all_events(parent_result_section: ResultSection, so: SandboxOntology
                 )
             )
         elif isinstance(event, Process):
-            if event.start_time in [float("-inf"), float("inf")]:
+            if event.objectid.time_observed in [float("-inf"), float("inf")]:
                 continue
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
             extract_iocs_from_text_blob(event.command_line, event_ioc_table)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
-            if isinstance(event.start_time, float) or isinstance(event.start_time, int):
-                time_observed = datetime.fromtimestamp(event.start_time).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+            if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
+                time_observed = datetime.fromtimestamp(event.objectid.time_observed).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
             else:
-                time_observed = event.start_time
+                time_observed = event.objectid.time_observed
             events_section.add_row(
                 TableRow(
                     time_observed=time_observed,
