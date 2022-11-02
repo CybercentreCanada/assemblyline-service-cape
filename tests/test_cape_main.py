@@ -888,9 +888,17 @@ class TestCapeMain:
             p1.terminate()
             assert p1.exitcode is None
 
-            # Case 7: 200 status code, bad response data, Example 2
+            # Case 8: 200 status code, bad response data, Example 2
             m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
             p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with 200 status code and bad response")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 9: ChunkedEncodingError
+            m.post(cape_task.submit_url, exc=exceptions.ChunkedEncodingError)
+            p1 = Process(target=cape_class_instance.submit_file, args=(file_content, cape_task,), name="submit_file with ChunkedEncodingError")
             p1.start()
             p1.join(timeout=2)
             p1.terminate()
