@@ -558,34 +558,40 @@ class CAPE(ServiceBase):
         """
         self.log.debug(f"Searching for the file's SHA256 at {cape_task.sha256_search_url % sha256}")
         # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             sha256_url = cape_task.sha256_search_url % sha256
             try:
                 resp = self.session.get(sha256_url, headers=cape_task.auth_header, timeout=self.timeout)
             except requests.exceptions.Timeout:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{sha256_url} timed out after {self.timeout}s "
-                    "trying to search a SHA256.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{sha256_url} timed out after {self.timeout}s "
+                        "trying to search a SHA256.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                if self.is_connection_error_worth_logging(repr(e)):
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
                         f"Indicator: '{sha256_url} failed to search for the SHA256 {sha256} due to {e}.'"
                     )
+                    logged = True
                 sleep(5)
                 continue
 
             if resp.status_code != 200:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
-                    f"trying to search for {sha256}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
+                        f"trying to search for {sha256}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             else:
@@ -604,11 +610,13 @@ class CAPE(ServiceBase):
                     else:
                         return False
                 else:
-                    self.log.error(
-                        "The cape-web.service is most likely down. "
-                        f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
-                        f"trying to search for {sha256}. Data returned was: {resp_json}'.'"
-                    )
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{sha256_url} failed with status code {resp.status_code} "
+                            f"trying to search for {sha256}. Data returned was: {resp_json}'.'"
+                        )
+                        logged = True
                     sleep(5)
                     continue
 
@@ -622,6 +630,7 @@ class CAPE(ServiceBase):
         self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             try:
@@ -634,27 +643,41 @@ class CAPE(ServiceBase):
                     timeout=self.timeout
                 )
             except requests.exceptions.Timeout:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{cape_task.submit_url} timed out after {self.timeout}s "
-                    f"trying to submit a file {cape_task.file}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url} timed out after {self.timeout}s "
+                        f"trying to submit a file {cape_task.file}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                if self.is_connection_error_worth_logging(repr(e)):
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
                         f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
                     )
+                    logged = True
+                sleep(5)
+                continue
+            except requests.exceptions.ChunkedEncodingError as e:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             if resp.status_code != 200:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
-                    f"trying to submit a file {cape_task.file}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                        f"trying to submit a file {cape_task.file}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             else:
@@ -684,19 +707,23 @@ class CAPE(ServiceBase):
                     if isinstance(task_ids, list) and len(task_ids) > 0:
                         return task_ids[0]
                     else:
-                        self.log.error(
-                            "The cape-web.service is most likely down. "
-                            f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
-                            f"trying to submit a file {cape_task.file}. Data returned was: {resp_json['data']}'."
-                        )
+                        if not logged:
+                            self.log.error(
+                                "The cape-web.service is most likely down. "
+                                f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                                f"trying to submit a file {cape_task.file}. Data returned was: {resp_json['data']}'."
+                            )
+                            logged = True
                         sleep(5)
                         continue
                 else:
-                    self.log.error(
-                        "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
-                        f"trying to submit a file {cape_task.file}. Data returned was: {resp_json}'."
-                    )
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                            f"trying to submit a file {cape_task.file}. Data returned was: {resp_json}'."
+                        )
+                        logged = True
                     sleep(5)
                     continue
 
@@ -709,6 +736,7 @@ class CAPE(ServiceBase):
         """
         self.log.debug(f"Querying report for task {cape_task.id} - format: 'lite'")
         # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             report_url = cape_task.query_report_url % cape_task.id + "lite" + '/zip/'
@@ -721,27 +749,32 @@ class CAPE(ServiceBase):
                         for chunk in resp.iter_content(chunk_size=8192):
                             temp_report.write(chunk)
                     else:
-                        self.log.error(
-                            "The cape-web.service is most likely down. "
-                            f"Indicator: '{report_url} failed with status code {resp.status_code} "
-                            f"trying to get the report for task {cape_task.id}.'"
-                        )
+                        if not logged:
+                            self.log.error(
+                                "The cape-web.service is most likely down. "
+                                f"Indicator: '{report_url} failed with status code {resp.status_code} "
+                                f"trying to get the report for task {cape_task.id}.'"
+                            )
+                            logged = True
                         sleep(5)
                         continue
             except requests.exceptions.Timeout:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{report_url} timed out after {self.timeout}s "
-                    f"trying to get the report for task {cape_task.id}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{report_url} timed out after {self.timeout}s "
+                        f"trying to get the report for task {cape_task.id}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                if self.is_connection_error_worth_logging(repr(e)):
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
                         f"Indicator: '{report_url} failed to get the report for task {cape_task.id} due to {e}.'"
                     )
+                    logged = True
                 sleep(5)
                 continue
 
@@ -755,10 +788,12 @@ class CAPE(ServiceBase):
                 temp_report.close()
 
             if report_data in [None, "", b"", b'{}', b'""']:
-                self.log.error(
-                    "The cape-processor.service is most likely down. "
-                    f"Indicator: 'Empty 'lite' report data for task {cape_task.id} from {report_url}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-processor.service is most likely down. "
+                        f"Indicator: 'Empty 'lite' report data for task {cape_task.id} from {report_url}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
 
@@ -771,6 +806,7 @@ class CAPE(ServiceBase):
         :return: a dictionary containing details about the task, such as its status
         """
         # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             task_url = cape_task.query_task_url % cape_task.id
@@ -781,19 +817,22 @@ class CAPE(ServiceBase):
                     timeout=self.timeout
                 )
             except requests.exceptions.Timeout:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{task_url} timed out after {self.timeout}s "
-                    f"trying to query the task {cape_task.id}.'"
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{task_url} timed out after {self.timeout}s "
+                        f"trying to query the task {cape_task.id}.'"
+                    )
+                    logged = True
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                if self.is_connection_error_worth_logging(repr(e)):
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
                         f"Indicator: '{task_url} failed to query the task {cape_task.id} due to {e}.'"
                     )
+                    logged = True
                 sleep(5)
                 continue
 
@@ -804,11 +843,13 @@ class CAPE(ServiceBase):
                     self.log.warning(f"Task not found for task {cape_task.id}")
                     return {"task": {"status": TASK_MISSING}, "id": cape_task.id}
                 else:
-                    self.log.error(
-                        "The cape-web.service is most likely down. "
-                        f"Indicator: '{task_url} failed with status code {resp.status_code} "
-                        f"trying to query the task {cape_task.id}.'"
-                    )
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{task_url} failed with status code {resp.status_code} "
+                            f"trying to query the task {cape_task.id}.'"
+                        )
+                        logged = True
                     sleep(5)
                     continue
             else:
@@ -822,11 +863,13 @@ class CAPE(ServiceBase):
                 elif "data" in resp_json and resp_json["data"]:
                     return resp_json["data"]
                 else:
-                    self.log.error(
-                        "The cape-web.service is most likely down. "
-                        f"Indicator: '{task_url} failed with status code {resp.status_code} "
-                        f"trying to query the task {cape_task.id}. Data returned was: {resp_json}'"
-                    )
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{task_url} failed with status code {resp.status_code} "
+                            f"trying to query the task {cape_task.id}. Data returned was: {resp_json}'"
+                        )
+                        logged = True
                     sleep(5)
                     continue
 
@@ -837,6 +880,7 @@ class CAPE(ServiceBase):
         :return: None
         """
         # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             delete_url = cape_task.delete_task_url % cape_task.id
@@ -847,19 +891,22 @@ class CAPE(ServiceBase):
                     timeout=self.timeout
                 )
             except requests.exceptions.Timeout:
-                self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{delete_url} timed out after {self.timeout}s "
-                    f"trying to delete task {cape_task.id}'."
-                )
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{delete_url} timed out after {self.timeout}s "
+                        f"trying to delete task {cape_task.id}'."
+                    )
+                    logged = True
                 sleep(5)
                 continue
             except requests.ConnectionError as e:
-                if self.is_connection_error_worth_logging(repr(e)):
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
                         f"Indicator: '{delete_url} failed to delete task {cape_task.id} due to {e}'."
                     )
+                    logged = True
                 sleep(5)
                 continue
             if resp.status_code != 200:
@@ -876,10 +923,12 @@ class CAPE(ServiceBase):
                             f"The task {cape_task.id} is currently being processed, cannot delete."
                         )
                 else:
-                    self.log.error(
-                    "The cape-web.service is most likely down. "
-                    f"Indicator: '{delete_url} failed with status code {resp.status_code} trying to delete task {cape_task.id}'."
-                )
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{delete_url} failed with status code {resp.status_code} trying to delete task {cape_task.id}'."
+                        )
+                        logged = True
                 sleep(5)
                 continue
             else:
