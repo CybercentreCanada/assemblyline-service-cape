@@ -621,7 +621,7 @@ def process_signatures(
             score=translated_score,
         )
         sig_res = _create_signature_result_section(
-            sig_name, sig, translated_score, ontres_sig, process_map
+            sig_name, sig, translated_score, ontres_sig, ontres, process_map
         )
 
         sigs_res.add_subsection(sig_res)
@@ -1836,6 +1836,7 @@ def _create_signature_result_section(
     signature: Dict[str, Any],
     translated_score: int,
     ontres_sig: Signature,
+    ontres: OntologyResults,
     process_map: Dict[int, Dict[str, Any]],
 ) -> ResultMultiSection:
     """
@@ -1844,6 +1845,7 @@ def _create_signature_result_section(
     :param signature: The details of the signature
     :param translated_score: The Assemblyline-adapted score of the signature
     :param ontres_sig: The signature for the Ontology Results
+    :param ontres: The Ontology Results class object
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :return: A ResultMultiSection containing details about the signature
     """
