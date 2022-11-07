@@ -757,7 +757,7 @@ def process_network(
                     "connection_type": None,  # TODO: HTTP or DNS
                 }
             )
-            objectid=ontres.create_objectid(
+            objectid = ontres.create_objectid(
                 tag=NetworkConnectionModel.get_tag(
                     {
                         "destination_ip": network_flow["dest_ip"],
@@ -817,17 +817,19 @@ def process_network(
                 "connection_type": NetworkConnection.DNS,
             }
         )
-        nc = ontres.create_network_connection(
-            objectid=ontres.create_objectid(
-                tag=NetworkConnectionModel.get_tag(
-                    {
-                        "destination_ip": destination_ip,
-                        "destination_port": destination_port,
-                    }
-                ),
-                ontology_id=nc_oid,
-                session=session,
+        objectid = ontres.create_objectid(
+            tag=NetworkConnectionModel.get_tag(
+                {
+                    "destination_ip": destination_ip,
+                    "destination_port": destination_port,
+                }
             ),
+            ontology_id=nc_oid,
+            session=session,
+        )
+        objectid.assign_guid()
+        nc = ontres.create_network_connection(
+            objectid=objectid,
             destination_ip=destination_ip,
             destination_port=destination_port,
             transport_layer_protocol=transport_layer_protocol,
@@ -881,28 +883,6 @@ def process_network(
         _ = add_tag(http_sec, "network.protocol", "http")
 
         for http_call in http_calls:
-            # if not add_tag(
-            #     http_sec,
-            #     "network.dynamic.ip",
-            #     http_call.connection_details.destination_ip,
-            #     safelist,
-            # ) and not ontres.get_domain_by_destination_ip(
-            #     http_call.connection_details.destination_ip
-            # ):
-            #     continue
-            # elif http_call.connection_details.destination_ip in dns_servers:
-            #     continue
-            # _ = add_tag(
-            #     http_sec, "network.port", http_call.connection_details.destination_port
-            # )
-            # _ = add_tag(
-            #     http_sec,
-            #     "network.dynamic.domain",
-            #     ontres.get_domain_by_destination_ip(
-            #         http_call.connection_details.destination_ip
-            #     ),
-            #     safelist,
-            # )
             _ = add_tag(
                 http_sec, "network.dynamic.uri", http_call.request_uri, safelist
             )
@@ -1291,17 +1271,18 @@ def _process_http_calls(
                             "connection_type": NetworkConnection.HTTP,
                         }
                     )
-                    nc = ontres.create_network_connection(
-                        objectid=ontres.create_objectid(
-                            tag=NetworkConnectionModel.get_tag(
-                                {
-                                    "destination_ip": destination_ip,
-                                    "destination_port": destination_port,
-                                }
-                            ),
-                            ontology_id=nc_oid,
-                            session=session,
+                    objectid = ontres.create_objectid(
+                        tag=NetworkConnectionModel.get_tag(
+                            {
+                                "destination_ip": destination_ip,
+                                "destination_port": destination_port,
+                            }
                         ),
+                        ontology_id=nc_oid,
+                        session=session,
+                    )
+                    nc = ontres.create_network_connection(
+                        objectid=objectid,
                         destination_ip=destination_ip,
                         destination_port=destination_port,
                         transport_layer_protocol=NetworkConnection.TCP,
