@@ -17,9 +17,11 @@ from assemblyline.common.str_utils import safe_str
 
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import ResultSection, ResultImageSection, BODY_FORMAT
-from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
 
 from cape.cape_main import *
+
+from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
 
 # Getting absolute paths, names and regexes
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -569,7 +571,16 @@ class TestCapeMain:
 
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
-        so = SandboxOntology()
+        from assemblyline.common.exceptions import RecoverableError
+        from cape.cape_main import CAPE, AnalysisTimeoutExceeded
+
+        ontres = OntologyResults(service_name="blah")
+        ontres.add_sandbox(
+            ontres.create_sandbox(
+                objectid=ontres.create_objectid(tag="blah", ontology_id="blah"),
+                sandbox_name="blah",
+            ),
+        )
         hosts = []
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         mocker.patch.object(CAPE, "submit")
@@ -590,23 +601,23 @@ class TestCapeMain:
         parent_section = ResultSection("blah")
         # Purely for code coverage
         with pytest.raises(Exception):
-            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
 
         # Reboot coverage
         cape_class_instance.config["reboot_supported"] = True
         cape_class_instance._general_flow(kwargs, file_ext, parent_section, [
-                                            {"auth_header": "blah", "ip": "blah", "port": "blah"}], True, 1, so)
+                                            {"auth_header": "blah", "ip": "blah", "port": "blah"}], True, 1, ontres)
 
         with mocker.patch.object(CAPE, "submit", side_effect=Exception("blah")):
             with pytest.raises(Exception):
-                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
+                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
 
         with mocker.patch.object(CAPE, "submit", side_effect=RecoverableError("blah")):
             with pytest.raises(RecoverableError):
-                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
+                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
 
         with mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=True):
-            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, so)
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1237,8 +1248,6 @@ class TestCapeMain:
         ]
     )
     def test_report_machine_info(machines, cape_class_instance, mocker):
-        so = SandboxOntology()
-        default_mm = so.analysis_metadata.machine_metadata.as_primitives()
         machine_name = "blah"
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah", "machines": machines}
         cape_class_instance.hosts = [host_to_use]
@@ -1266,53 +1275,41 @@ class TestCapeMain:
                 body['Tags'].append(safe_str(tag).replace('_', ' '))
             correct_result_section.set_body(json.dumps(body), BODY_FORMAT.KEY_VALUE)
             correct_result_section.add_tag('dynamic.operating_system.platform', 'Blah')
-            cape_class_instance.report_machine_info(machine_name, cape_task, parent_section, so)
+            output = cape_class_instance.report_machine_info(machine_name, cape_task, parent_section)
             assert check_section_equality(correct_result_section, parent_section.subsections[0])
-            default_mm["ip"] = str(machine['ip'])
-            default_mm["hypervisor"] = cape_task.report["info"]["machine"]["manager"]
-            default_mm["hostname"] = str(machine['name'])
-            default_mm["platform"] = "Blah"
-            assert so.analysis_metadata.machine_metadata.as_primitives() == default_mm
+            assert output == {
+                'IP': 'blah',
+                'Manager': 'blah',
+                'Name': 'blah',
+                'Platform': 'blah',
+                'Tags': [safe_str(tag).replace('_', ' ') for tag in machine.get('tags', [])]
+            }
         else:
-            cape_class_instance.report_machine_info(machine_name, cape_task, parent_section, so)
+            body = cape_class_instance.report_machine_info(machine_name, cape_task, parent_section)
             assert parent_section.subsections == []
-            assert so.analysis_metadata.machine_metadata.as_primitives() == default_mm
+            assert body is None
 
     @staticmethod
-    @pytest.mark.parametrize("machine_name, platform, expected_tags, expected_machine_metadata",
-                             [("", "", [],
-                               {}),
-                              ("blah", "blah", [("dynamic.operating_system.platform", "Blah")],
-                               {"platform": "Blah"}),
+    @pytest.mark.parametrize("machine_name, platform, expected_tags",
+                             [("", "", []),
+                              ("blah", "blah", [("dynamic.operating_system.platform", "Blah")]),
                               ("vmss-udev-win10x64", "windows",
                                [("dynamic.operating_system.platform", "Windows"),
-                                ("dynamic.operating_system.processor", "x64"),
-                                ("dynamic.operating_system.version", "10")],
-                               {"platform": "Windows", "architecture": "x64", "version": "10"}),
+                                ("dynamic.operating_system.processor", "x64")]),
                               ("vmss-udev-win7x86", "windows",
                                [("dynamic.operating_system.platform", "Windows"),
-                                ("dynamic.operating_system.processor", "x86"),
-                                ("dynamic.operating_system.version", "7")],
-                               {"platform": "Windows", "architecture": "x86", "version": "7"}),
+                                ("dynamic.operating_system.processor", "x86")]),
                               ("vmss-udev-ub1804x64", "linux",
                                [("dynamic.operating_system.platform", "Linux"),
-                                ("dynamic.operating_system.processor", "x64"),
-                                ("dynamic.operating_system.version", "1804")],
-                               {"platform": "Linux", "architecture": "x64", "version": "1804"}), ])
-    def test_add_operating_system_tags(
-            machine_name, platform, expected_tags, expected_machine_metadata, cape_class_instance):
-        so = SandboxOntology()
-        default_mm = so.analysis_metadata.machine_metadata.as_primitives()
-        for key, value in expected_machine_metadata.items():
-            default_mm[key] = value
+                                ("dynamic.operating_system.processor", "x64")])])
+    def test_add_operating_system_tags(machine_name, platform, expected_tags, cape_class_instance):
         expected_section = ResultSection("blah")
         for tag_name, tag_value in expected_tags:
             expected_section.add_tag(tag_name, tag_value)
 
         machine_section = ResultSection("blah")
-        cape_class_instance._add_operating_system_tags(machine_name, platform, machine_section, so)
+        cape_class_instance._add_operating_system_tags(machine_name, platform, machine_section)
         assert check_section_equality(expected_section, machine_section)
-        assert so.analysis_metadata.machine_metadata.as_primitives() == default_mm
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1537,19 +1534,19 @@ class TestCapeMain:
         mocker.patch.object(CAPE, 'check_powershell', return_value=None)
         mocker.patch.object(CAPE, '_unpack_zip', return_value=None)
 
-        so = SandboxOntology()
+        ontres = OntologyResults()
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         file_ext = "blah"
         parent_section = ResultSection("blah")
 
-        cape_class_instance._generate_report(file_ext, cape_task, parent_section, so)
+        cape_class_instance._generate_report(file_ext, cape_task, parent_section, ontres)
         # Get that coverage!
         assert True
 
     @staticmethod
     def test_unpack_zip(cape_class_instance, dummy_zip_class, mocker):
-        so = SandboxOntology()
+        ontres = OntologyResults()
         zip_report = b"blah"
         file_ext = "blah"
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -1563,17 +1560,17 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_extract_artifacts")
         mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
 
-        cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
+        cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
         assert True
 
         with mocker.patch.object(CAPE, "_add_json_as_supplementary_file", side_effect=MissingCapeReportException):
-            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
+            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
             assert True
 
         # Exception test for _extract_console_output or _extract_hollowshunter or _extract_artifacts
         with mocker.patch.object(CAPE, "_extract_console_output", side_effect=Exception):
             mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
+            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
             assert True
 
     @staticmethod
@@ -1640,7 +1637,13 @@ class TestCapeMain:
         ]
     )
     def test_build_report(report_info, cape_class_instance, dummy_json_doc_class_instance, mocker):
-        so = SandboxOntology()
+        ontres = OntologyResults(service_name="blah")
+        ontres.add_sandbox(
+            ontres.create_sandbox(
+                objectid=ontres.create_objectid(tag="blah", ontology_id="blah"),
+                sandbox_name="blah",
+            ),
+        )
         report_json_path = "blah"
         file_ext = "blah"
         report_json = report_info
@@ -1658,7 +1661,7 @@ class TestCapeMain:
         cape_class_instance.query_report_url = "%s"
 
         parent_section = ResultSection("blah")
-        results = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+        results = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
@@ -1667,24 +1670,24 @@ class TestCapeMain:
         # Exception tests for generate_al_result
         mocker.patch("cape.cape_main.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
         # Exception tests for json.loads
-        mocker.patch("cape.cape_main.loads", side_effect=json.JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
-        with pytest.raises(json.JSONDecodeError):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+        mocker.patch("cape.cape_main.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
+        with pytest.raises(JSONDecodeError):
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
         mocker.patch("cape.cape_main.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
 
     @staticmethod
     def test_extract_console_output(cape_class_instance, dummy_request_class, mocker):
@@ -1713,7 +1716,7 @@ class TestCapeMain:
 
     @staticmethod
     def test_extract_artifacts(cape_class_instance, dummy_request_class, dummy_zip_class, dummy_zip_member_class, mocker):
-        default_so = SandboxOntology()
+        ontres = OntologyResults()
 
         parent_section = ResultSection("blah")
         correct_artifact_list = []
@@ -1759,13 +1762,12 @@ class TestCapeMain:
         })
 
         cape_artifact_pids = {"ohmy.exe": 3}
-        cape_class_instance._extract_artifacts(zip_obj, task_id, cape_artifact_pids, parent_section, default_so)
+        cape_class_instance._extract_artifacts(zip_obj, task_id, cape_artifact_pids, parent_section, ontres)
 
         all_files = True
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
         for f in cape_class_instance.artifact_list:
             if f not in correct_artifact_list:
-                print(f"Missing {f}")
                 all_files = False
                 break
         assert all_files

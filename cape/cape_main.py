@@ -8,31 +8,55 @@ import requests
 from retrying import retry, RetryError
 from zipfile import ZipFile
 from tempfile import SpooledTemporaryFile
-from time import time, sleep
+from time import sleep
 from threading import Thread
 from typing import Optional, Dict, List, Any, Set, Tuple
 
 from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
-from assemblyline_v4_service.common.dynamic_service_helper import SandboxOntology
+from assemblyline_v4_service.common.dynamic_service_helper import (
+    OntologyResults,
+    attach_dynamic_ontology,
+)
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import Result, ResultSection, ResultImageSection, ResultTextSection, \
-    ResultKeyValueSection
+from assemblyline_v4_service.common.result import (
+    Result,
+    ResultSection,
+    ResultImageSection,
+    ResultTextSection,
+    ResultKeyValueSection,
+)
 from assemblyline_v4_service.common.tag_helper import add_tag
 
 from assemblyline.common.str_utils import safe_str
 from assemblyline.common.forge import get_identify
-from assemblyline.common.identify_defaults import type_to_extension, trusted_mimes, magic_patterns
+from assemblyline.common.identify_defaults import (
+    type_to_extension,
+    trusted_mimes,
+    magic_patterns,
+)
 from assemblyline.common.exceptions import RecoverableError
-# from assemblyline.odm.models.ontology.types.sandbox import Sandbox
 
-from cape.cape_result import ANALYSIS_ERRORS, generate_al_result, GUEST_CANNOT_REACH_HOST, \
-    SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS
-# from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+from cape.cape_result import (
+    ANALYSIS_ERRORS,
+    generate_al_result,
+    GUEST_CANNOT_REACH_HOST,
+    LINUX_IMAGE_PREFIX,
+    MACHINE_NAME_REGEX,
+    SIGNATURES_SECTION_TITLE,
+    SUPPORTED_EXTENSIONS,
+    WINDOWS_IMAGE_PREFIX,
+    x64_IMAGE_SUFFIX,
+    x86_IMAGE_SUFFIX
+)
+
+from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
 APIv2_BASE_ENDPOINT = "apiv2"
 
-HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
+HOLLOWSHUNTER_REPORT_REGEX = (
+    r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
+)
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
 
@@ -47,34 +71,43 @@ CAPE_API_SHA256_SEARCH = "tasks/search/sha256/%s/"
 
 CAPE_POLL_DELAY = 5
 GUEST_VM_START_TIMEOUT = 360  # Give the VM at least 6 minutes to start up
-REPORT_GENERATION_TIMEOUT = 420  # Give the analysis at least 7 minutes to generate the report
+REPORT_GENERATION_TIMEOUT = (
+    420  # Give the analysis at least 7 minutes to generate the report
+)
 ANALYSIS_TIMEOUT = 150
 DEFAULT_REST_TIMEOUT = 120
 DEFAULT_CONNECTION_TIMEOUT = 120
 DEFAULT_CONNECTION_ATTEMPTS = 3
 
-LINUX_IMAGE_PREFIX = "ub"
-WINDOWS_IMAGE_PREFIX = "win"
-x86_IMAGE_SUFFIX = "x86"
-x64_IMAGE_SUFFIX = "x64"
 RELEVANT_IMAGE_TAG = "auto"
 ALL_IMAGES_TAG = "all"
 ALL_RELEVANT_IMAGES_TAG = "auto_all"
 NO_PLATFORM = "none"
 WINDOWS_PLATFORM = "windows"
 LINUX_PLATFORM = "linux"
-MACHINE_NAME_REGEX = f"(?:{'|'.join([LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX])})(.*)" \
-                     f"(?:{'|'.join([x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX])})"
+
 
 # TODO: RECOGNIZED_TYPES does not exist anymore and there a no static ways we can generate this because it can be
 #       modified on the fly by administrators. I will fake a RECOGNIZED_TYPES variable but this code should be removed
 #       and the checks to determine the architecture should be self contained in the _determine_relevant_images function
 RECOGNIZED_TYPES = set(trusted_mimes.values())
-RECOGNIZED_TYPES = RECOGNIZED_TYPES.union(set([x['al_type'] for x in magic_patterns]))
+RECOGNIZED_TYPES = RECOGNIZED_TYPES.union(set([x["al_type"] for x in magic_patterns]))
 
-LINUX_x86_FILES = [file_type for file_type in RECOGNIZED_TYPES if all(val in file_type for val in ["linux", "32"])]
-LINUX_x64_FILES = [file_type for file_type in RECOGNIZED_TYPES if all(val in file_type for val in ["linux", "64"])]
-WINDOWS_x86_FILES = [file_type for file_type in RECOGNIZED_TYPES if all(val in file_type for val in ["windows", "32"])]
+LINUX_x86_FILES = [
+    file_type
+    for file_type in RECOGNIZED_TYPES
+    if all(val in file_type for val in ["linux", "32"])
+]
+LINUX_x64_FILES = [
+    file_type
+    for file_type in RECOGNIZED_TYPES
+    if all(val in file_type for val in ["linux", "64"])
+]
+WINDOWS_x86_FILES = [
+    file_type
+    for file_type in RECOGNIZED_TYPES
+    if all(val in file_type for val in ["windows", "32"])
+]
 
 ILLEGAL_FILENAME_CHARS = set('<>:"/\\|?*')
 
@@ -92,37 +125,56 @@ TASK_REPORTED = "reported"
 ANALYSIS_FAILED = "failed_analysis"
 PROCESSING_FAILED = "failed_processing"
 
-MACHINE_INFORMATION_SECTION_TITLE = 'Machine Information'
+MACHINE_INFORMATION_SECTION_TITLE = "Machine Information"
 
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 DEFAULT_TOKEN_KEY = "Token"
 
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
+# Ontology Result Constants
+SANDBOX_NAME = "CAPE Sandbox"
+SERVICE_NAME = "CAPE"
 
 
 class MissingCapeReportException(Exception):
     """Exception class for missing reports"""
+
     pass
 
 
 class CapeProcessingException(Exception):
     """Exception class for processing errors"""
+
     pass
 
 
 class CapeVMBusyException(Exception):
     """Exception class for busy VMs"""
+
     pass
 
 
 class InvalidCapeRequest(Exception):
     """Exception class for when every CAPE host's REST API returns a 200 status code with errors"""
+
+    pass
+
+class CapeHostsUnavailable(Exception):
+    """Exception class for when the service cannot reach the hosts"""
+
+    pass
+
+
+class AnalysisTimeoutExceeded(Exception):
+    """Exception class for when CAPE is not able to complete analysis before the service times out"""
+
     pass
 
 
 class AnalysisFailed(Exception):
     """Exception class for when CAPE is not able to analyze the task"""
+
     pass
 
 
@@ -158,7 +210,9 @@ class CapeTask(dict):
         self.report: Optional[Dict[str, Dict]] = None
         self.errors: List[str] = []
         self.auth_header = host_details["auth_header"]
-        self.base_url = f"http://{host_details['ip']}:{host_details['port']}/{APIv2_BASE_ENDPOINT}"
+        self.base_url = (
+            f"http://{host_details['ip']}:{host_details['port']}/{APIv2_BASE_ENDPOINT}"
+        )
         self.submit_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
         self.query_task_url = f"{self.base_url}/{CAPE_API_QUERY_TASK}"
         self.delete_task_url = f"{self.base_url}/{CAPE_API_DELETE_TASK}"
@@ -204,7 +258,6 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get('PRIVILEGED', 'false').lower() == 'true')
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
-        # self.sandbox_ontologies: List[SandboxOntology] = None
 
     def start(self) -> None:
         self.log.debug("CAPE service started...")
@@ -213,9 +266,12 @@ class CAPE(ServiceBase):
             host["auth_header"] = {'Authorization': f"{token_key} {host['token']}"}
         self.hosts = self.config["remote_host_details"]["hosts"][:]
         self.connection_timeout_in_seconds = self.config.get(
-            "connection_timeout_in_seconds", DEFAULT_CONNECTION_TIMEOUT)
+            "connection_timeout_in_seconds", DEFAULT_CONNECTION_TIMEOUT
+        )
         self.timeout = self.config.get("rest_timeout_in_seconds", DEFAULT_REST_TIMEOUT)
-        self.connection_attempts = self.config.get("connection_attempts", DEFAULT_CONNECTION_ATTEMPTS)
+        self.connection_attempts = self.config.get(
+            "connection_attempts", DEFAULT_CONNECTION_ATTEMPTS
+        )
         self.allowed_images = self.config.get("allowed_images", [])
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
@@ -223,7 +279,9 @@ class CAPE(ServiceBase):
         try:
             self.safelist = self.get_api_interface().get_safelist()
         except ServiceAPIError as e:
-            self.log.warning(f"Couldn't retrieve safelist from service: {e}. Continuing without it..")
+            self.log.warning(
+                f"Couldn't retrieve safelist from service: {e}. Continuing without it.."
+            )
 
     # noinspection PyTypeChecker
     def execute(self, request: ServiceRequest) -> None:
@@ -232,6 +290,7 @@ class CAPE(ServiceBase):
         self.artifact_list = []
         # self.sandbox_ontologies = []
         request.result = Result()
+        ontres = OntologyResults(service_name=SERVICE_NAME)
 
         # Setting working directory for request
         request._working_directory = self.working_directory
@@ -263,8 +322,13 @@ class CAPE(ServiceBase):
         platform_requested = None
         hosts_with_platform: Dict[str, List[str]] = {}
         if not (machine_requested and machine_exists):
-            platform_requested, hosts_with_platform = self._handle_specific_platform(kwargs)
-            if platform_requested and len(hosts_with_platform[next(iter(hosts_with_platform))]) == 0:
+            platform_requested, hosts_with_platform = self._handle_specific_platform(
+                kwargs
+            )
+            if (
+                platform_requested
+                and len(hosts_with_platform[next(iter(hosts_with_platform))]) == 0
+            ):
                 # If a specific platform is requested, then we are specific platform or bust!
                 return
 
@@ -284,14 +348,21 @@ class CAPE(ServiceBase):
             for relevant_image, host_list in relevant_images.items():
                 hosts = [host for host in self.hosts if host["ip"] in host_list]
                 submission_specific_kwargs = kwargs.copy()
-                parent_section = ResultSection(f"Analysis Environment Target: {relevant_image}")
+                parent_section = ResultSection(
+                    f"Analysis Environment Target: {relevant_image}"
+                )
                 self.file_res.add_section(parent_section)
-                so = SandboxOntology(sandbox_name="CAPE Sandbox")
-                # self.sandbox_ontologies.append(so)
+
                 submission_specific_kwargs["tags"] = relevant_image
                 thr = SubmissionThread(
                     target=self._general_flow,
-                    args=(submission_specific_kwargs, file_ext, parent_section, hosts, so)
+                    args=(
+                        submission_specific_kwargs,
+                        file_ext,
+                        parent_section,
+                        hosts,
+                        ontres,
+                    ),
                 )
                 submission_threads.append(thr)
                 thr.start()
@@ -300,21 +371,32 @@ class CAPE(ServiceBase):
                 thread.join()
         elif image_requested and len(relevant_images_keys) == 1:
             parent_section = ResultSection(
-                f"Analysis Environment Target: {relevant_images_keys[0]}")
+                f"Analysis Environment Target: {relevant_images_keys[0]}"
+            )
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="CAPE Sandbox")
-            # self.sandbox_ontologies.append(so)
+
             kwargs["tags"] = relevant_images_keys[0]
-            hosts = [host for host in self.hosts if host["ip"] in relevant_images[relevant_images_keys[0]]]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, so)
-        elif platform_requested and len(hosts_with_platform[next(iter(hosts_with_platform))]) > 0:
+            hosts = [
+                host
+                for host in self.hosts
+                if host["ip"] in relevant_images[relevant_images_keys[0]]
+            ]
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+        elif (
+            platform_requested
+            and len(hosts_with_platform[next(iter(hosts_with_platform))]) > 0
+        ):
             parent_section = ResultSection(
-                f"Analysis Environment Target: {next(iter(hosts_with_platform))}")
+                f"Analysis Environment Target: {next(iter(hosts_with_platform))}"
+            )
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="CAPE Sandbox")
-            # self.sandbox_ontologies.append(so)
-            hosts = [host for host in self.hosts if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, so)
+
+            hosts = [
+                host
+                for host in self.hosts
+                if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]
+            ]
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
         else:
             if kwargs.get("machine"):
                 specific_machine = self._safely_get_param("specific_machine")
@@ -323,18 +405,22 @@ class CAPE(ServiceBase):
                     hosts = [host for host in self.hosts if host["ip"] == host_ip]
                 else:
                     hosts = self.hosts
-                parent_section = ResultSection(f"Analysis Environment Target: {kwargs['machine']}")
+                parent_section = ResultSection(
+                    f"Analysis Environment Target: {kwargs['machine']}"
+                )
             else:
                 parent_section = ResultSection(
-                    "Analysis Environment Target: First Machine Available")
+                    "Analysis Environment Target: First Machine Available"
+                )
                 hosts = self.hosts
             self.file_res.add_section(parent_section)
-            so = SandboxOntology(sandbox_name="CAPE Sandbox")
-            # self.sandbox_ontologies.append(so)
-            self._general_flow(kwargs, file_ext, parent_section, hosts, so)
 
-        # Adding sandbox artifacts using the SandboxOntology helper class
-        artifact_section = SandboxOntology.handle_artifacts(self.artifact_list, self.request, collapsed=True, injection_heur_id=32)
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+
+        # Adding sandbox artifacts using the OntologyResults helper class
+        artifact_section = OntologyResults.handle_artifacts(
+            self.artifact_list, self.request, collapsed=True, injection_heur_id=32
+        )
         if artifact_section:
             self.file_res.add_section(artifact_section)
 
@@ -346,17 +432,26 @@ class CAPE(ServiceBase):
         if len(self.file_res.sections) > 1:
             section_heur_map = {}
             for section in self.file_res.sections:
-                self._get_subsection_heuristic_map(section.subsections, section_heur_map)
+                self._get_subsection_heuristic_map(
+                    section.subsections, section_heur_map
+                )
 
-        # for so in self.sandbox_ontologies:
-        #     self.log.debug("Preprocessing the ontology")
-        #     so.preprocess_ontology(safelist=SAFE_PROCESS_TREE_LEAF_HASHES.keys())
-        #     self.log.debug("Attaching the ontological result")
-        #     self.attach_ontological_result(Sandbox, so.as_primitives())
+        self.log.debug("Preprocessing the ontology")
+        ontres.preprocess_ontology(safelist=SAFE_PROCESS_TREE_LEAF_HASHES.keys())
+        self.log.debug("Attaching the ontological result")
+        attach_dynamic_ontology(self, ontres)
 
-    def _general_flow(self, kwargs: Dict[str, Any], file_ext: str, parent_section: ResultSection,
-                      hosts: List[Dict[str, Any]], so: SandboxOntology, reboot: bool = False, parent_task_id: int = 0,
-                      resubmit: bool = False) -> None:
+    def _general_flow(
+        self,
+        kwargs: Dict[str, Any],
+        file_ext: str,
+        parent_section: ResultSection,
+        hosts: List[Dict[str, Any]],
+        ontres: OntologyResults,
+        reboot: bool = False,
+        parent_task_id: int = 0,
+        resubmit: bool = False,
+    ) -> None:
         """
         This method contains the general flow of a task: submitting a file to CAPE and generating an Assemblyline
         report
@@ -365,7 +460,7 @@ class CAPE(ServiceBase):
         :param file_ext: The file extension of the file to be submitted
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param hosts: The hosts that the file could be sent to
-        :param so: The sandbox ontology class object
+        :param ontres: The ontology results class object
         :param reboot: A boolean representing if we want to reboot the sample post initial analysis
         :param parent_task_id: The ID of the parent task which the reboot analysis will be based on
         :param resubmit: A boolean representing if we are about to resubmit a file
@@ -376,7 +471,9 @@ class CAPE(ServiceBase):
 
         if reboot:
             host_to_use = hosts[0]
-            parent_section = ResultSection(f"Reboot Analysis -> {parent_section.title_text}")
+            parent_section = ResultSection(
+                f"Reboot Analysis -> {parent_section.title_text}"
+            )
             self.file_res.add_section(parent_section)
         else:
             self._set_task_parameters(kwargs, parent_section)
@@ -388,18 +485,16 @@ class CAPE(ServiceBase):
             cape_task.id = parent_task_id
 
         try:
-            start_time = time()
             self.submit(self.request.file_contents, cape_task, parent_section, reboot)
 
             if cape_task.id:
-                self._generate_report(file_ext, cape_task, parent_section, so)
+                self._generate_report(file_ext, cape_task, parent_section, ontres)
             else:
                 raise Exception(f"Task ID is None. File failed to be submitted to the CAPE nest at "
                                 f"{host_to_use['ip']}.")
         except AnalysisFailed:
-            so.update_analysis_metadata(start_time=start_time, end_time=time())
+            pass
         except Exception as e:
-            so.update_analysis_metadata(start_time=start_time, end_time=time())
             self.log.error(repr(e))
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
@@ -409,7 +504,15 @@ class CAPE(ServiceBase):
         if not reboot and self.config.get("reboot_supported", False):
             reboot = self._determine_if_reboot_required(parent_section)
             if reboot:
-                self._general_flow(kwargs, file_ext, parent_section, [host_to_use], so, reboot, cape_task.id)
+                self._general_flow(
+                    kwargs,
+                    file_ext,
+                    parent_section,
+                    [host_to_use],
+                    ontres,
+                    reboot,
+                    cape_task.id,
+                )
 
         # Delete and exit
         if cape_task and cape_task.id is not None:
@@ -420,17 +523,36 @@ class CAPE(ServiceBase):
             return
 
         for subsection in parent_section.subsections:
-            if subsection.title_text == ANALYSIS_ERRORS and GUEST_CANNOT_REACH_HOST in subsection.body:
-                self.log.debug("The first submission was sent to a machine that had difficulty communicating with "
-                               "the nest. Will try to resubmit again.")
-                parent_section = ResultSection(f"Resubmit -> {parent_section.title_text}")
+            if (
+                subsection.title_text == ANALYSIS_ERRORS
+                and GUEST_CANNOT_REACH_HOST in subsection.body
+            ):
+                self.log.debug(
+                    "The first submission was sent to a machine that had difficulty communicating with "
+                    "the nest. Will try to resubmit again."
+                )
+                parent_section = ResultSection(
+                    f"Resubmit -> {parent_section.title_text}"
+                )
                 self.file_res.add_section(parent_section)
                 host_to_use = self._determine_host_to_use(hosts)
-                self._general_flow(kwargs, file_ext, parent_section, [host_to_use], so, resubmit=True)
+                self._general_flow(
+                    kwargs,
+                    file_ext,
+                    parent_section,
+                    [host_to_use],
+                    ontres,
+                    resubmit=True,
+                )
                 break
 
-    def submit(self, file_content: bytes, cape_task: CapeTask, parent_section: ResultSection,
-               reboot: bool = False) -> None:
+    def submit(
+        self,
+        file_content: bytes,
+        cape_task: CapeTask,
+        parent_section: ResultSection,
+        reboot: bool = False,
+    ) -> None:
         """
         This method contains the submitting, polling, and report retrieving logic
         :param file_content: The content of the file to be submitted
@@ -440,9 +562,11 @@ class CAPE(ServiceBase):
         :return: None
         """
         if not reboot:
-            if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
+            if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(
+                self.request.sha256, cape_task
+            ):
                 try:
-                    """ Submits a new file to CAPE for analysis """
+                    """Submits a new file to CAPE for analysis"""
                     task_id = self.submit_file(file_content, cape_task)
                     if not task_id:
                         self.log.error("Failed to get task for submitted file.")
@@ -453,18 +577,27 @@ class CAPE(ServiceBase):
                     self.log.error(f"Error submitting to CAPE: {safe_str(e)}")
                     raise
         else:
-            resp = self.session.get(cape_task.reboot_task_url % cape_task.id, headers=cape_task.auth_header,
-                                    timeout=self.timeout)
+            resp = self.session.get(
+                cape_task.reboot_task_url % cape_task.id,
+                headers=cape_task.auth_header,
+                timeout=self.timeout,
+            )
             if resp.status_code != 200:
-                self.log.warning("Reboot selected, but task could not be rebooted. Moving on...")
+                self.log.warning(
+                    "Reboot selected, but task could not be rebooted. Moving on..."
+                )
                 return
             else:
                 reboot_resp = resp.json()
                 cape_task.id = reboot_resp["reboot_id"]
-                self.log.debug(f"Reboot selected, task {reboot_resp['task_id']} marked for"
-                               f" reboot {reboot_resp['reboot_id']}.")
+                self.log.debug(
+                    f"Reboot selected, task {reboot_resp['task_id']} marked for"
+                    f" reboot {reboot_resp['reboot_id']}."
+                )
 
-        self.log.debug(f"Submission succeeded. File: {cape_task.file} -- Task {cape_task.id}")
+        self.log.debug(
+            f"Submission succeeded. File: {cape_task.file} -- Task {cape_task.id}"
+        )
 
         self.poll_started(cape_task)
 
@@ -481,7 +614,8 @@ class CAPE(ServiceBase):
             analysis_failed_sec = ResultTextSection("CAPE Analysis/Processing Failed.")
             analysis_failed_sec.add_line(
                 f"The analysis/processing of CAPE task {cape_task.id} has failed."
-                " Contact the CAPE administrator for details.")
+                " Contact the CAPE administrator for details."
+            )
             parent_section.add_subsection(analysis_failed_sec)
             raise AnalysisFailed()
 
@@ -523,7 +657,9 @@ class CAPE(ServiceBase):
         # Check for errors first to avoid parsing exceptions
         status = task_info["status"]
         if status == ANALYSIS_FAILED:
-            self.log.error(f"Analysis has failed for task {cape_task.id} due to {task_info['errors']}.")
+            self.log.error(
+                f"Analysis has failed for task {cape_task.id} due to {task_info['errors']}."
+            )
             analysis_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
@@ -531,16 +667,24 @@ class CAPE(ServiceBase):
         elif status == PROCESSING_FAILED:
             self.log.error(f"Processing has failed for task {cape_task.id}.")
             processing_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
-            processing_errors_sec.add_line(f"Processing has failed for task {cape_task.id}.")
+            processing_errors_sec.add_line(
+                f"Processing has failed for task {cape_task.id}."
+            )
             parent_section.add_subsection(processing_errors_sec)
             return PROCESSING_FAILED
         elif status == TASK_COMPLETED:
-            self.log.debug(f"Analysis has completed for task {cape_task.id}, waiting on report to be produced.")
+            self.log.debug(
+                f"Analysis has completed for task {cape_task.id}, waiting on report to be produced."
+            )
         elif status == TASK_REPORTED:
-            self.log.debug(f"CAPE report generation has completed for task {cape_task.id}.")
+            self.log.debug(
+                f"CAPE report generation has completed for task {cape_task.id}."
+            )
             return status
         else:
-            self.log.debug(f"Waiting for task {cape_task.id} to finish. Current status: {status}.")
+            self.log.debug(
+                f"Waiting for task {cape_task.id} to finish. Current status: {status}."
+            )
 
         return None
 
@@ -627,7 +771,9 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: an integer representing the task ID
         """
-        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
+        self.log.debug(
+            f"Submitting file: {cape_task.file} to server {cape_task.submit_url}"
+        )
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
@@ -1021,25 +1167,30 @@ class CAPE(ServiceBase):
                     for item in loads(section.body):
                         fh.write(item["original"] + "\n")
                 fh.close()
-                self.log.debug(f"Adding extracted file for task {task_id}: {ps1_file_name}")
+                self.log.debug(
+                    f"Adding extracted file for task {task_id}: {ps1_file_name}"
+                )
                 artifact = {
                     "name": ps1_file_name,
                     "path": ps1_path,
                     "description": "Deobfuscated PowerShell script from CAPE analysis",
-                    "to_be_extracted": True
+                    "to_be_extracted": True,
                 }
                 self.artifact_list.append(artifact)
                 break
 
-    def report_machine_info(self, machine_name: str, cape_task: CapeTask, parent_section: ResultSection,
-                            so: SandboxOntology) -> None:
+    def report_machine_info(
+        self,
+        machine_name: str,
+        cape_task: CapeTask,
+        parent_section: ResultSection,
+    ) -> Optional[Dict[str, Any]]:
         """
         This method reports details about the machine that was used for detonation.
         :param machine_name: The name of the machine that the task ran on.
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
-        :param so: The sandbox ontology class object
-        :return: None
+        :return: A dictionary containing the machine info
         """
         # The machines here are the machines that were loaded prior to the file being submitted.
         machine = self._get_machine_by_name(machine_name)
@@ -1051,56 +1202,68 @@ class CAPE(ServiceBase):
             # NOTE: There is still a possibility of the machine not existing at either point of time.
             # So we will only try once.
             if not machine:
-                return
+                return None
 
         manager = cape_task.report["info"]["machine"]["manager"]
         platform = machine["platform"]
         body = {
-            'Name': machine_name,
-            'Manager': manager,
-            'Platform': platform,
-            'IP': machine['ip'],
-            'Tags': []}
-        for tag in machine.get('tags', []):
-            body['Tags'].append(safe_str(tag).replace('_', ' '))
+            "Name": machine_name,
+            "Manager": manager,
+            "Platform": platform,
+            "IP": machine["ip"],
+            "Tags": [],
+        }
+        for tag in machine.get("tags", []):
+            body["Tags"].append(safe_str(tag).replace("_", " "))
 
         machine_section = ResultKeyValueSection(MACHINE_INFORMATION_SECTION_TITLE)
         machine_section.update_items(body)
 
-        self._add_operating_system_tags(machine_name, platform, machine_section, so)
+        self._add_operating_system_tags(machine_name, platform, machine_section)
+        m = compile(MACHINE_NAME_REGEX).search(machine_name)
+        if m and len(m.groups()) == 1:
+            version = m.group(1)
+            _ = add_tag(machine_section, "dynamic.operating_system.version", version)
+
         parent_section.add_subsection(machine_section)
-        so.update_machine_metadata(ip=machine["ip"], hypervisor=manager, hostname=machine_name)
+        return body
 
     @staticmethod
     def _add_operating_system_tags(
-            machine_name: str, platform: str, machine_section: ResultKeyValueSection, so: SandboxOntology) -> None:
+        machine_name: str,
+        platform: str,
+        machine_section: ResultKeyValueSection,
+    ) -> None:
         """
         This method adds tags to the ResultKeyValueSection related
         to the operating system of the machine that a task was ran on
         :param machine_name: The name of the machine that the task was ran on
         :param platform: The platform of the machine that the task was ran on
         :param machine_section: The ResultKeyValueSection containing details about the machine
-        :param so: The sandbox ontology class object
         :return: None
         """
         if platform:
-            if add_tag(machine_section, "dynamic.operating_system.platform", platform.capitalize()):
-                so.update_machine_metadata(platform=platform.capitalize())
-        if any(processor_tag in machine_name for processor_tag in [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]):
+            _ = add_tag(
+                machine_section,
+                "dynamic.operating_system.platform",
+                platform.capitalize(),
+            )
+        if any(
+            processor_tag in machine_name
+            for processor_tag in [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]
+        ):
             if x86_IMAGE_SUFFIX in machine_name:
-                if add_tag(machine_section, "dynamic.operating_system.processor", x86_IMAGE_SUFFIX):
-                    so.update_machine_metadata(architecture=x86_IMAGE_SUFFIX)
+                _ = add_tag(
+                    machine_section,
+                    "dynamic.operating_system.processor",
+                    x86_IMAGE_SUFFIX,
+                )
             elif x64_IMAGE_SUFFIX in machine_name:
-                if add_tag(machine_section, "dynamic.operating_system.processor", x64_IMAGE_SUFFIX):
-                    so.update_machine_metadata(architecture=x64_IMAGE_SUFFIX)
-
-        # The assumption here is that a machine's name will contain somewhere in it the
-        # pattern: <platform prefix><version><processor>
-        m = compile(MACHINE_NAME_REGEX).search(machine_name)
-        if m and len(m.groups()) == 1:
-            version = m.group(1)
-            if add_tag(machine_section, "dynamic.operating_system.version", version):
-                so.update_machine_metadata(version=version)
+                _ = add_tag(
+                    machine_section,
+                    "dynamic.operating_system.processor",
+                    x64_IMAGE_SUFFIX,
+                )
 
     def _decode_mime_encoded_file_name(self) -> None:
         """
@@ -1118,8 +1281,10 @@ class CAPE(ServiceBase):
                 self.file_name = new_filename
             except Exception as e:
                 new_filename = generate_random_words(1)
-                self.log.warning(f"Problem decoding filename. Using randomly "
-                                 f"generated filename {new_filename}. Error: {e}")
+                self.log.warning(
+                    f"Problem decoding filename. Using randomly "
+                    f"generated filename {new_filename}. Error: {e}"
+                )
                 self.file_name = new_filename
 
     def _remove_illegal_characters_from_file_name(self) -> None:
@@ -1128,8 +1293,12 @@ class CAPE(ServiceBase):
         :return: None
         """
         if any(ch in self.file_name for ch in ILLEGAL_FILENAME_CHARS):
-            self.log.debug(f"Renaming {self.file_name} because it contains one of {ILLEGAL_FILENAME_CHARS}")
-            self.file_name = ''.join(ch for ch in self.file_name if ch not in ILLEGAL_FILENAME_CHARS)
+            self.log.debug(
+                f"Renaming {self.file_name} because it contains one of {ILLEGAL_FILENAME_CHARS}"
+            )
+            self.file_name = "".join(
+                ch for ch in self.file_name if ch not in ILLEGAL_FILENAME_CHARS
+            )
 
     def _assign_file_extension(self, kwargs: Dict[str, Any]) -> str:
         """
@@ -1139,7 +1308,7 @@ class CAPE(ServiceBase):
         :return: The file extension of the file to be submitted
         """
         # Check the file extension
-        original_ext = self.file_name.rsplit('.', 1)
+        original_ext = self.file_name.rsplit(".", 1)
         tag_extension = type_to_extension.get(self.request.file_type)
 
         # NOTE: CAPE still tries to identify files itself, so we only force the extension/package
@@ -1149,7 +1318,7 @@ class CAPE(ServiceBase):
 
         # Check for a valid tag
         # TODO: this should be more explicit in terms of "unknown" in file_type
-        if tag_extension is not None and 'unknown' not in self.request.file_type:
+        if tag_extension is not None and "unknown" not in self.request.file_type:
             file_ext = tag_extension
         # Check if the file was submitted with an extension
         elif len(original_ext) == 2:
@@ -1157,24 +1326,30 @@ class CAPE(ServiceBase):
             if submitted_ext not in SUPPORTED_EXTENSIONS:
                 # This is the case where the submitted file was NOT identified, and  the provided extension
                 # isn't in the list of extensions that we explicitly support.
-                self.log.debug("CAPE is exiting because it doesn't support the provided file type.")
+                self.log.debug(
+                    "CAPE is exiting because it doesn't support the provided file type."
+                )
                 return ""
             else:
                 if submitted_ext == "bin":
                     kwargs["package"] = "bin"
                 # This is a usable extension. It might not run (if the submitter has lied to us).
-                file_ext = '.' + submitted_ext
+                file_ext = "." + submitted_ext
         else:
             # This is unknown without an extension that we accept/recognize.. no scan!
-            self.log.debug(f"The file type of '{self.request.file_type}' could "
-                           f"not be identified. Tag extension: {tag_extension}")
+            self.log.debug(
+                f"The file type of '{self.request.file_type}' could "
+                f"not be identified. Tag extension: {tag_extension}"
+            )
             return ""
 
         # Rename based on the found extension.
         self.file_name = original_ext[0] + file_ext
         return file_ext
 
-    def _set_task_parameters(self, kwargs: Dict[str, Any], parent_section: ResultSection) -> None:
+    def _set_task_parameters(
+        self, kwargs: Dict[str, Any], parent_section: ResultSection
+    ) -> None:
         """
         This method sets the specific details about the run, through the kwargs and the task_options
         :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
@@ -1189,18 +1364,23 @@ class CAPE(ServiceBase):
         timeout = self.request.get_param("analysis_timeout_in_seconds")
         # If user specifies the timeout, then enforce it
         if timeout:
-            kwargs['enforce_timeout'] = True
-            kwargs['timeout'] = timeout
+            kwargs["enforce_timeout"] = True
+            kwargs["timeout"] = timeout
         else:
-            kwargs['enforce_timeout'] = False
-            kwargs['timeout'] = self.config.get("default_analysis_timeout_in_seconds", ANALYSIS_TIMEOUT)
+            kwargs["enforce_timeout"] = False
+            kwargs["timeout"] = self.config.get(
+                "default_analysis_timeout_in_seconds", ANALYSIS_TIMEOUT
+            )
         arguments = self.request.get_param("arguments")
         dump_memory = self.request.get_param("dump_memory")
         no_monitor = self.request.get_param("no_monitor")
 
         # If the user didn't select no_monitor, but at the service level we want no_monitor on Windows 10x64, then:
-        if not no_monitor and self.config.get("no_monitor_for_win10x64", False) and \
-            kwargs.get("tags", {}) == "win10x64":
+        if (
+            not no_monitor
+            and self.config.get("no_monitor_for_win10x64", False)
+            and kwargs.get("tags", {}) == "win10x64"
+        ):
             no_monitor = True
 
         custom_options = self.request.get_param("custom_options")
@@ -1227,7 +1407,9 @@ class CAPE(ServiceBase):
         if self.config.get("machinery_supports_memory_dumps", False) and dump_memory:
             kwargs["memory"] = True
         elif dump_memory:
-            parent_section.add_subsection(ResultSection("CAPE Machinery Cannot Generate Memory Dumps."))
+            parent_section.add_subsection(
+                ResultSection("CAPE Machinery Cannot Generate Memory Dumps.")
+            )
 
         if no_monitor:
             task_options.append("free=yes")
@@ -1255,9 +1437,9 @@ class CAPE(ServiceBase):
         if self.config.get("limit_monitor_apis", False):
             task_options.append("api-cap=1000")
 
-        kwargs['options'] = ','.join(task_options)
+        kwargs["options"] = ",".join(task_options)
         if custom_options is not None:
-            kwargs['options'] += f",{custom_options}"
+            kwargs["options"] += f",{custom_options}"
 
     def _set_hosts_that_contain_image(self, specific_image: str, relevant_images: Dict[str, List[str]]) -> None:
         """
@@ -1269,13 +1451,17 @@ class CAPE(ServiceBase):
         """
         host_list: List[str] = []
         for host in self.hosts:
-            if self._does_image_exist(specific_image, host["machines"], self.allowed_images):
+            if self._does_image_exist(
+                specific_image, host["machines"], self.allowed_images
+            ):
                 host_list.append(host["ip"])
         if host_list:
             relevant_images[specific_image] = host_list
 
     @staticmethod
-    def _does_image_exist(specific_image: str, machines: List[Dict[str, Any]], allowed_images: List[str]) -> bool:
+    def _does_image_exist(
+        specific_image: str, machines: List[Dict[str, Any]], allowed_images: List[str]
+    ) -> bool:
         """
         This method checks if the specific image exists in a list of machines
         :param specific_image: The specific image requested for the task
@@ -1293,7 +1479,9 @@ class CAPE(ServiceBase):
             return False
 
     @staticmethod
-    def _get_available_images(machines: List[Dict[str, Any]], allowed_images: List[str]) -> List[str]:
+    def _get_available_images(
+        machines: List[Dict[str, Any]], allowed_images: List[str]
+    ) -> List[str]:
         """
         This method gets a list of available images given a list of machines
         :param machines: A list of machines on a CAPE server
@@ -1319,13 +1507,18 @@ class CAPE(ServiceBase):
         dll_function = self.request.get_param("dll_function")
         # Do DLL specific stuff
         if dll_function:
-            task_options.append(f'function={dll_function}')
-        task_options.append('enable_multi=true')
-        task_options.append('use_export_name=true')
+            task_options.append(f"function={dll_function}")
+        task_options.append("enable_multi=true")
+        task_options.append("use_export_name=true")
         task_options.append(f"max_dll_exports={self.config['max_dll_exports_exec']}")
 
     def _generate_report(
-            self, file_ext: str, cape_task: CapeTask, parent_section: ResultSection, so: SandboxOntology) -> None:
+        self,
+        file_ext: str,
+        cape_task: CapeTask,
+        parent_section: ResultSection,
+        ontres: OntologyResults,
+    ) -> None:
         """
         This method generates the report for the task
         :param file_ext: The file extension of the file to be submitted
@@ -1340,15 +1533,21 @@ class CAPE(ServiceBase):
         # Submit CAPE analysis report archive as a supplementary file
         zip_report = self.query_report(cape_task)
         if zip_report is not None:
-            self._unpack_zip(zip_report, file_ext, cape_task, parent_section, so)
+            self._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
 
         # Submit dropped files and pcap if available:
         self._extract_console_output(cape_task.id)
         self._extract_injected_exes(cape_task.id)
         self.check_powershell(cape_task.id, parent_section)
 
-    def _unpack_zip(self, zip_report: bytes, file_ext: str, cape_task: CapeTask,
-                    parent_section: ResultSection, so: SandboxOntology) -> None:
+    def _unpack_zip(
+        self,
+        zip_report: bytes,
+        file_ext: str,
+        cape_task: CapeTask,
+        parent_section: ResultSection,
+        ontres: OntologyResults,
+    ) -> None:
         """
         This method unpacks the zipfile, which contains the report for the task
         :param zip_report: The zipfile in bytes which contains all artifacts from the analysis
@@ -1361,7 +1560,9 @@ class CAPE(ServiceBase):
         zip_file_name = f"{cape_task.id}_cape_report.zip"
         zip_report_path = os.path.join(self.working_directory, zip_file_name)
 
-        self._add_zip_as_supplementary_file(zip_file_name, zip_report_path, zip_report, cape_task)
+        self._add_zip_as_supplementary_file(
+            zip_file_name, zip_report_path, zip_report, cape_task
+        )
         zip_obj = ZipFile(zip_report_path)
 
         try:
@@ -1372,7 +1573,9 @@ class CAPE(ServiceBase):
             no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
-            cape_artifact_pids, main_process_tuples = self._build_report(report_json_path, file_ext, cape_task, parent_section, so)
+            cape_artifact_pids, main_process_tuples = self._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres
+            )
         else:
             cape_artifact_pids: Dict[str, Any] = {}
             main_process_tuples: List[Tuple[int, str]] = []
@@ -1380,15 +1583,24 @@ class CAPE(ServiceBase):
         # Check for any extra files in full report to add as extracted files
         try:
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
-            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, so)
+            self._extract_artifacts(
+                zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres
+            )
 
         except Exception as e:
-            self.log.exception(f"Unable to add extra file(s) for "
-                               f"task {cape_task.id}. Exception: {e}")
+            self.log.exception(
+                f"Unable to add extra file(s) for "
+                f"task {cape_task.id}. Exception: {e}"
+            )
         zip_obj.close()
 
-    def _add_zip_as_supplementary_file(self, zip_file_name: str, zip_report_path: str, zip_report: bytes,
-                                       cape_task: CapeTask) -> None:
+    def _add_zip_as_supplementary_file(
+        self,
+        zip_file_name: str,
+        zip_report_path: str,
+        zip_report: bytes,
+        cape_task: CapeTask,
+    ) -> None:
         """
         This method adds the zipfile report as a supplementary file to Assemblyline
         :param zip_file_name: The name of the zipfile
@@ -1398,22 +1610,28 @@ class CAPE(ServiceBase):
         :return: None
         """
         try:
-            report_file = open(zip_report_path, 'wb')
+            report_file = open(zip_report_path, "wb")
             report_file.write(zip_report)
             report_file.close()
             artifact = {
                 "name": zip_file_name,
                 "path": zip_report_path,
                 "description": "CAPE Sandbox analysis report archive (zip)",
-                "to_be_extracted": False
+                "to_be_extracted": False,
             }
             self.artifact_list.append(artifact)
-            self.log.debug(f"Adding supplementary file {zip_file_name} for task {cape_task.id}")
+            self.log.debug(
+                f"Adding supplementary file {zip_file_name} for task {cape_task.id}"
+            )
         except Exception as e:
-            self.log.exception(f"Unable to add tar of complete report for "
-                               f"task {cape_task.id} due to {e}")
+            self.log.exception(
+                f"Unable to add tar of complete report for "
+                f"task {cape_task.id} due to {e}"
+            )
 
-    def _add_json_as_supplementary_file(self, zip_obj: ZipFile, cape_task: CapeTask) -> str:
+    def _add_json_as_supplementary_file(
+        self, zip_obj: ZipFile, cape_task: CapeTask
+    ) -> str:
         """
         This method adds the JSON report as a supplementary file to Assemblyline
         :param zip_obj: The tarball object, containing the analysis artifacts for the task
@@ -1433,20 +1651,30 @@ class CAPE(ServiceBase):
                     "name": report_name,
                     "path": report_json_path,
                     "description": "CAPE Sandbox report (json)",
-                    "to_be_extracted": False
+                    "to_be_extracted": False,
                 }
                 self.artifact_list.append(artifact)
-                self.log.debug(f"Adding supplementary file {report_name} for task {cape_task.id}")
+                self.log.debug(
+                    f"Adding supplementary file {report_name} for task {cape_task.id}"
+                )
             else:
                 raise MissingCapeReportException
         except MissingCapeReportException:
             raise
         except Exception as e:
-            self.log.exception(f"Unable to add report.json for task {cape_task.id}. Exception: {e}")
+            self.log.exception(
+                f"Unable to add report.json for task {cape_task.id}. Exception: {e}"
+            )
         return report_json_path
 
-    def _build_report(self, report_json_path: str, file_ext: str, cape_task: CapeTask,
-                      parent_section: ResultSection, so: SandboxOntology) -> Tuple[Dict[str, int], List[Tuple[int, str]]]:
+    def _build_report(
+        self,
+        report_json_path: str,
+        file_ext: str,
+        cape_task: CapeTask,
+        parent_section: ResultSection,
+        ontres: OntologyResults,
+    ) -> Tuple[Dict[str, int], List[Tuple[int, str]]]:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -1459,31 +1687,48 @@ class CAPE(ServiceBase):
         """
         try:
             # Setting environment recursion limit for large JSONs
-            setrecursionlimit(int(self.config['recursion_limit']))
+            setrecursionlimit(int(self.config["recursion_limit"]))
             # Reading, decoding and converting to JSON
-            cape_task.report = loads(open(report_json_path, "rb").read().decode('utf-8'))
+            cape_task.report = loads(
+                open(report_json_path, "rb").read().decode("utf-8")
+            )
         except JSONDecodeError as e:
             self.log.exception(f"Failed to decode the json: {str(e)}")
             raise e
         except Exception as e:
-            url = cape_task.query_report_url % cape_task.id + '/' + "all"
-            raise Exception(f"Exception converting extracted CAPE report into json from zip file: "
-                            f"report url: {url}, file_name: {self.file_name} due to {e}")
+            url = cape_task.query_report_url % cape_task.id + "/" + "all"
+            raise Exception(
+                f"Exception converting extracted CAPE report into json from zip file: "
+                f"report url: {url}, file_name: {self.file_name} due to {e}"
+            )
         try:
             machine_name: Optional[str] = None
-            report_info = cape_task.report.get('info', {})
-            machine = report_info.get('machine', {})
+            report_info = cape_task.report.get("info", {})
+            machine = report_info.get("machine", {})
 
             if isinstance(machine, dict):
-                machine_name = machine.get('name')
+                machine_name = machine.get("name")
 
+            machine_info = None
             if machine_name is None:
-                self.log.warning('Unable to retrieve machine name from result.')
+                self.log.warning("Unable to retrieve machine name from result.")
             else:
-                self.report_machine_info(machine_name, cape_task, parent_section, so)
-            self.log.debug(f"Generating AL Result from CAPE results for task {cape_task.id}.")
-            cape_artifact_pids, main_process_tuples = generate_al_result(cape_task.report, parent_section, file_ext,
-                                                    self.config.get("random_ip_range"), self.routing, self.safelist, so)
+                machine_info = self.report_machine_info(
+                    machine_name, cape_task, parent_section
+                )
+            self.log.debug(
+                f"Generating AL Result from CAPE results for task {cape_task.id}."
+            )
+            cape_artifact_pids, main_process_tuples = generate_al_result(
+                cape_task.report,
+                parent_section,
+                file_ext,
+                self.config.get("random_ip_range"),
+                self.routing,
+                self.safelist,
+                machine_info,
+                ontres,
+            )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
@@ -1516,7 +1761,7 @@ class CAPE(ServiceBase):
                 "name": console_output_file_name,
                 "path": console_output_file_path,
                 "description": "Console Output Observed",
-                "to_be_extracted": False
+                "to_be_extracted": False,
             }
             self.artifact_list.append(artifact)
             self.log.debug(f"Adding supplementary file {console_output_file_name}")
@@ -1532,7 +1777,9 @@ class CAPE(ServiceBase):
         injected_exes: List[str] = []
         for f in os.listdir(temp_dir):
             file_path = os.path.join(temp_dir, f)
-            if os.path.isfile(file_path) and match(INJECTED_EXE_REGEX % task_id, file_path):
+            if os.path.isfile(file_path) and match(
+                INJECTED_EXE_REGEX % task_id, file_path
+            ):
                 injected_exes.append(file_path)
 
         for injected_exe in injected_exes:
@@ -1540,13 +1787,19 @@ class CAPE(ServiceBase):
                 "name": injected_exe,
                 "path": injected_exe,
                 "description": "Injected executable was found written to memory",
-                "to_be_extracted": True
+                "to_be_extracted": True,
             }
             self.artifact_list.append(artifact)
             self.log.debug(f"Adding extracted file for task {task_id}: {injected_exe}")
 
-    def _extract_artifacts(self, zip_obj: ZipFile, task_id: int, cape_artifact_pids: Dict[str, int], parent_section: ResultSection,
-                           so: SandboxOntology) -> None:
+    def _extract_artifacts(
+        self,
+        zip_obj: ZipFile,
+        task_id: int,
+        cape_artifact_pids: Dict[str, int],
+        parent_section: ResultSection,
+        ontres: OntologyResults,
+    ) -> None:
         """
         This method extracts certain artifacts from that zipfile
         :param zip_obj: The zipfile object, containing the analysis artifacts for the task
@@ -1556,7 +1809,9 @@ class CAPE(ServiceBase):
         :param so: The sandbox ontology class object
         :return: None
         """
-        image_section = ResultImageSection(self.request, f'Screenshots taken during Task {task_id}')
+        image_section = ResultImageSection(
+            self.request, f"Screenshots taken during Task {task_id}"
+        )
 
         # Extract buffers, screenshots and anything else
         zip_file_map = {
@@ -1575,14 +1830,16 @@ class CAPE(ServiceBase):
 
         task_dir = os.path.join(self.working_directory, f"{task_id}")
         for key, value in zip_file_map.items():
-            key_hits = [x.filename for x in zip_obj.filelist if x.filename.startswith(key)]
+            key_hits = [
+                x.filename for x in zip_obj.filelist if x.filename.startswith(key)
+            ]
             key_hits.sort()
 
             # We are going to get a snippet of the first 256 bytes of these files and
             # update the HTTP call details with them
             if key == "network":
                 for f in key_hits:
-                    nh = so.get_network_http_by_path(f)
+                    nh = ontres.get_network_http_by_path(f)
                     if not nh:
                         continue
                     destination_file_path = os.path.join(task_dir, f)
@@ -1607,23 +1864,35 @@ class CAPE(ServiceBase):
                         "name": f"{task_id}_{x.filename}",
                         "path": evtx_file_path,
                         "description": value,
-                        "to_be_extracted": True
+                        "to_be_extracted": True,
                     }
                     self.artifact_list.append(artifact)
-                    self.log.debug(f"Adding extracted file for task {task_id}: {task_id}_{x.filename}")
+                    self.log.debug(
+                        f"Adding extracted file for task {task_id}: {task_id}_{x.filename}"
+                    )
                 os.remove(destination_file_path)
                 continue
 
             for f in key_hits:
                 # No empty files!
-                if "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" in f:
+                if (
+                    "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    in f
+                ):
                     continue
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
                 file_name = None
 
                 if key in ["CAPE", "procdump"]:
-                    pid = next((pid for sha256, pid in cape_artifact_pids.items() if sha256 in f), None)
+                    pid = next(
+                        (
+                            pid
+                            for sha256, pid in cape_artifact_pids.items()
+                            if sha256 in f
+                        ),
+                        None,
+                    )
                     if pid:
                         file_name = f"{task_id}_{pid}_{f}"
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
@@ -1654,14 +1923,16 @@ class CAPE(ServiceBase):
                     "name": file_name,
                     "path": destination_file_path,
                     "description": value,
-                    "to_be_extracted": to_be_extracted
+                    "to_be_extracted": to_be_extracted,
                 }
                 self.artifact_list.append(artifact)
                 self.log.debug(f"Adding extracted file for task {task_id}: {file_name}")
         if image_section.body:
             parent_section.add_subsection(image_section)
 
-    def _extract_hollowshunter(self, zip_obj: ZipFile, task_id: int, main_process_tuples: List[Tuple[int, str]]) -> None:
+    def _extract_hollowshunter(
+        self, zip_obj: ZipFile, task_id: int, main_process_tuples: List[Tuple[int, str]]
+    ) -> None:
         """
         This method extracts HollowsHunter dumps from the tarball
         :param zip_obj: The tarball object, containing the analysis artifacts for the task
@@ -1704,18 +1975,25 @@ class CAPE(ServiceBase):
                     if os.path.exists(full_path):
                         with open(full_path, "rb") as f:
                             file_contents = f.read(256)
-                        if not any(PE_indicator in file_contents for PE_indicator in PE_INDICATORS):
-                            self.log.debug(f"{path} is not a valid PE. Will not upload.")
+                        if not any(
+                            PE_indicator in file_contents
+                            for PE_indicator in PE_INDICATORS
+                        ):
+                            self.log.debug(
+                                f"{path} is not a valid PE. Will not upload."
+                            )
                             os.remove(full_path)
                             continue
                 artifact = {
                     "name": file_name,
                     "path": full_path,
                     "description": desc,
-                    "to_be_extracted": to_be_extracted
+                    "to_be_extracted": to_be_extracted,
                 }
                 self.artifact_list.append(artifact)
-                self.log.debug(f"Adding HollowsHunter file {file_name} for task {task_id}")
+                self.log.debug(
+                    f"Adding HollowsHunter file {file_name} for task {task_id}"
+                )
 
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """
@@ -1731,9 +2009,12 @@ class CAPE(ServiceBase):
         return param_value
 
     @staticmethod
-    def _determine_relevant_images(file_type: str, possible_images: List[str],
-                                   auto_architecture: Dict[str, Dict[str, List]],
-                                   all_relevant: bool = False) -> List[str]:
+    def _determine_relevant_images(
+        file_type: str,
+        possible_images: List[str],
+        auto_architecture: Dict[str, Dict[str, List]],
+        all_relevant: bool = False,
+    ) -> List[str]:
         """
         This method determines the relevant images that a file should be sent to based on its type
         :param file_type: The type of file to be submitted
@@ -1762,11 +2043,17 @@ class CAPE(ServiceBase):
             arch = x64_IMAGE_SUFFIX
 
         if not all_relevant and len(auto_architecture[platform][arch]) > 0:
-            images_to_send_file_to = [image for image in auto_architecture[platform][arch]
-                                      if image in possible_images]
+            images_to_send_file_to = [
+                image
+                for image in auto_architecture[platform][arch]
+                if image in possible_images
+            ]
         else:
-            images_to_send_file_to = [image for image in possible_images
-                                      if all(item in image for item in [platform, arch])]
+            images_to_send_file_to = [
+                image
+                for image in possible_images
+                if all(item in image for item in [platform, arch])
+            ]
         return images_to_send_file_to
 
     def _handle_specific_machine(self, kwargs: Dict[str, Any]) -> Tuple[bool, bool]:
@@ -1786,17 +2073,23 @@ class CAPE(ServiceBase):
                 try:
                     host_ip, specific_machine = specific_machine.split(":")
                 except ValueError:
-                    self.log.error("If more than one host is specified in the service_manifest.yml, "
-                                   "then the specific_machine value must match the format '<host-ip>:<machine-name>'")
+                    self.log.error(
+                        "If more than one host is specified in the service_manifest.yml, "
+                        "then the specific_machine value must match the format '<host-ip>:<machine-name>'"
+                    )
                     raise
                 for host in self.hosts:
                     if host_ip == host["ip"]:
-                        machine_names = [machine["name"] for machine in host["machines"]]
+                        machine_names = [
+                            machine["name"] for machine in host["machines"]
+                        ]
                         break
             else:
                 if ":" in specific_machine:
                     _, specific_machine = specific_machine.split(":")
-                machine_names = [machine["name"] for machine in self.hosts[0]["machines"]]
+                machine_names = [
+                    machine["name"] for machine in self.hosts[0]["machines"]
+                ]
             machine_requested = True
             if any(specific_machine == machine_name for machine_name in machine_names):
                 machine_exists = True
@@ -1811,11 +2104,14 @@ class CAPE(ServiceBase):
                 no_machine_sec.add_line(f"The requested machine '{specific_machine}' is currently unavailable.")
                 no_machine_sec.add_line("General Information:")
                 no_machine_sec.add_line(
-                    f"At the moment, the current machine options for this CAPE deployment include {machine_names}.")
+                    f"At the moment, the current machine options for this CAPE deployment include {machine_names}."
+                )
                 self.file_res.add_section(no_machine_sec)
         return machine_requested, machine_exists
 
-    def _handle_specific_platform(self, kwargs: Dict[str, Any]) -> Tuple[bool, Dict[str, List[str]]]:
+    def _handle_specific_platform(
+        self, kwargs: Dict[str, Any]
+    ) -> Tuple[bool, Dict[str, List[str]]]:
         """
         This method handles if a specific platform was requested
         :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
@@ -1834,7 +2130,9 @@ class CAPE(ServiceBase):
 
         # Check every machine on every host
         for host in self.hosts:
-            machine_platforms = set([machine["platform"] for machine in host["machines"]])
+            machine_platforms = set(
+                [machine["platform"] for machine in host["machines"]]
+            )
             machine_platform_set = machine_platform_set.union(machine_platforms)
             if specific_platform in machine_platforms:
                 hosts_with_platform[specific_platform].append(host["ip"])
@@ -1874,9 +2172,12 @@ class CAPE(ServiceBase):
             image_requested = True
             if specific_image in [RELEVANT_IMAGE_TAG, ALL_RELEVANT_IMAGES_TAG]:
                 all_relevant = specific_image == ALL_RELEVANT_IMAGES_TAG
-                relevant_images_list = self._determine_relevant_images(self.request.file_type, self.allowed_images,
-                                                                       self.config.get("auto_architecture", {}),
-                                                                       all_relevant)
+                relevant_images_list = self._determine_relevant_images(
+                    self.request.file_type,
+                    self.allowed_images,
+                    self.config.get("auto_architecture", {}),
+                    all_relevant,
+                )
                 for relevant_image in relevant_images_list:
                     self._set_hosts_that_contain_image(relevant_image, relevant_images)
             elif specific_image == ALL_IMAGES_TAG:
@@ -1973,14 +2274,21 @@ class CAPE(ServiceBase):
                         continue
 
         # If the minimum queue size is shared by multiple hosts, choose a random one.
-        min_queue_hosts = [host_detail["host"] for host_detail in host_details
-                           if host_detail["queue_size"] == min_queue_size]
+        min_queue_hosts = [
+            host_detail["host"]
+            for host_detail in host_details
+            if host_detail["queue_size"] == min_queue_size
+        ]
         if len(min_queue_hosts) > 0:
             return choice(min_queue_hosts)
         else:
-            raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
+            raise CapeVMBusyException(
+                f"No host available for submission between {[host['ip'] for host in hosts]}"
+            )
 
-    def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
+    def _is_invalid_analysis_timeout(
+        self, parent_section: ResultSection, reboot: bool = False
+    ) -> bool:
         """
         This method determines if the requested analysis timeout is valid
         :param parent_section: The overarching result section detailing what image this task is being sent to
@@ -1994,16 +2302,21 @@ class CAPE(ServiceBase):
             requested_timeout *= 2
         service_timeout = int(self.service_attributes["timeout"])
         if requested_timeout > service_timeout:
-            invalid_timeout_res_sec = ResultTextSection("Invalid Analysis Timeout Requested")
+            invalid_timeout_res_sec = ResultTextSection(
+                "Invalid Analysis Timeout Requested"
+            )
             invalid_timeout_res_sec.add_line(
                 f"The analysis timeout requested was {requested_timeout}, which exceeds the time that Assemblyline "
                 f"will run the service ({service_timeout}). Choose an analysis timeout value < {service_timeout} and "
-                "submit the file again.")
+                "submit the file again."
+            )
             parent_section.add_subsection(invalid_timeout_res_sec)
             return True
         return False
 
-    def _get_subsection_heuristic_map(self, subsections: List[ResultSection], section_heur_map: Dict[str, int]) -> None:
+    def _get_subsection_heuristic_map(
+        self, subsections: List[ResultSection], section_heur_map: Dict[str, int]
+    ) -> None:
         """
         This method uses recursion to eliminate duplicate heuristics
         :param subsections: The subsections which we will iterate through, searching for heuristics
@@ -2017,9 +2330,13 @@ class CAPE(ServiceBase):
                     # associated with the second subsection, as this will artificially inflate the overall score
                     subsection.set_heuristic(None)
                 else:
-                    section_heur_map[subsection.title_text] = subsection.heuristic.heur_id
+                    section_heur_map[
+                        subsection.title_text
+                    ] = subsection.heuristic.heur_id
             if subsection.subsections:
-                self._get_subsection_heuristic_map(subsection.subsections, section_heur_map)
+                self._get_subsection_heuristic_map(
+                    subsection.subsections, section_heur_map
+                )
 
     def _determine_if_reboot_required(self, parent_section) -> bool:
         """
@@ -2037,7 +2354,10 @@ class CAPE(ServiceBase):
         for subsection in parent_section.subsections:
             if subsection.title_text == SIGNATURES_SECTION_TITLE:
                 for subsubsection in subsection.subsections:
-                    if any(item in subsubsection.title_text for item in ["persistence_autorun", "creates_service"]):
+                    if any(
+                        item in subsubsection.title_text
+                        for item in ["persistence_autorun", "creates_service"]
+                    ):
                         return True
         return False
 
@@ -2050,7 +2370,10 @@ class CAPE(ServiceBase):
         temp_dir = "/tmp"
         for file in os.listdir(temp_dir):
             file_path = os.path.join(temp_dir, file)
-            if any(leftover_file_name in file_path for leftover_file_name in ["_console_output", "_injected_memory_"]):
+            if any(
+                leftover_file_name in file_path
+                for leftover_file_name in ["_console_output", "_injected_memory_"]
+            ):
                 os.remove(file_path)
 
     def _get_machine_by_name(self, machine_name) -> Optional[Dict[str, Any]]:
@@ -2063,7 +2386,7 @@ class CAPE(ServiceBase):
         machine: Optional[Dict[str, Any]] = None
         machines = [machine for host in self.hosts for machine in host["machines"]]
         for machine in machines:
-            if machine['name'] == machine_name:
+            if machine["name"] == machine_name:
                 machine_name_exists = True
                 break
         if machine_name_exists:
@@ -2089,13 +2412,22 @@ def generate_random_words(num_words: int) -> str:
     :param num_words: The number of random words to be generated
     :return: A bunch of random words
     """
-    alpha_nums = [chr(x + 65) for x in range(26)] + [chr(x + 97) for x in range(26)] + [str(x) for x in range(10)]
-    return " ".join(["".join([choice(alpha_nums)
-                              for _ in range(int(random() * 10) + 2)])
-                     for _ in range(num_words)])
+    alpha_nums = (
+        [chr(x + 65) for x in range(26)]
+        + [chr(x + 97) for x in range(26)]
+        + [str(x) for x in range(10)]
+    )
+    return " ".join(
+        [
+            "".join([choice(alpha_nums) for _ in range(int(random() * 10) + 2)])
+            for _ in range(num_words)
+        ]
+    )
 
 
-def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submitted: List[Dict[str, Any]]) -> bool:
+def tasks_are_similar(
+    task_to_be_submitted: CapeTask, tasks_that_have_been_submitted: List[Dict[str, Any]]
+) -> bool:
     """
     This method looks for "cache hits" for tasks, based on their submission parameters
     :param task_to_be_submitted: The task to be submitted
@@ -2106,20 +2438,52 @@ def tasks_are_similar(task_to_be_submitted: CapeTask, tasks_that_have_been_submi
     for task_that_has_been_submitted in tasks_that_have_been_submitted:
         if task_that_has_been_submitted["status"] == ANALYSIS_FAILED:
             continue
-        same_file_name = task_that_has_been_submitted["target"] == task_to_be_submitted.file
-        same_timeout = task_that_has_been_submitted["timeout"] == task_to_be_submitted["timeout"]
-        same_custom = task_that_has_been_submitted["custom"] == task_to_be_submitted.get("custom", "")
-        same_package = task_that_has_been_submitted["package"] == task_to_be_submitted.get("package", "")
-        same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get("route", "")
-        same_options = task_that_has_been_submitted["options"] == task_to_be_submitted.get("options", "")
-        same_memory = task_that_has_been_submitted["memory"] == task_to_be_submitted.get("memory", False)
+        same_file_name = (
+            task_that_has_been_submitted["target"] == task_to_be_submitted.file
+        )
+        same_timeout = (
+            task_that_has_been_submitted["timeout"] == task_to_be_submitted["timeout"]
+        )
+        same_custom = task_that_has_been_submitted[
+            "custom"
+        ] == task_to_be_submitted.get("custom", "")
+        same_package = task_that_has_been_submitted[
+            "package"
+        ] == task_to_be_submitted.get("package", "")
+        same_route = task_that_has_been_submitted["route"] == task_to_be_submitted.get(
+            "route", ""
+        )
+        same_options = task_that_has_been_submitted[
+            "options"
+        ] == task_to_be_submitted.get("options", "")
+        same_memory = task_that_has_been_submitted[
+            "memory"
+        ] == task_to_be_submitted.get("memory", False)
         # TODO: This value is somehow set to True when we want it to be false
-        same_enforce_timeout = task_that_has_been_submitted["enforce_timeout"] == task_to_be_submitted.get("enforce_timeout", False)
+        same_enforce_timeout = task_that_has_been_submitted[
+            "enforce_timeout"
+        ] == task_to_be_submitted.get("enforce_timeout", False)
         # The recommended architecture tag is automatically added based on file type
         # https://github.com/kevoreilly/CAPEv2/blob/master/lib/cuckoo/core/database.py#L1297:L1314
-        same_tags = [tag for tag in task_that_has_been_submitted["tags"] if tag not in
-            [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]] == [task_to_be_submitted.get("tags", "")]
-        same_clock = task_to_be_submitted["clock"] == task_that_has_been_submitted["clock"]
-        if same_file_name and same_timeout and same_custom and same_package and same_route and same_options and same_memory and same_enforce_timeout and same_tags and same_clock:
+        same_tags = [
+            tag
+            for tag in task_that_has_been_submitted["tags"]
+            if tag not in [x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX]
+        ] == [task_to_be_submitted.get("tags", "")]
+        same_clock = (
+            task_to_be_submitted["clock"] == task_that_has_been_submitted["clock"]
+        )
+        if (
+            same_file_name
+            and same_timeout
+            and same_custom
+            and same_package
+            and same_route
+            and same_options
+            and same_memory
+            and same_enforce_timeout
+            and same_tags
+            and same_clock
+        ):
             return True
     return False
