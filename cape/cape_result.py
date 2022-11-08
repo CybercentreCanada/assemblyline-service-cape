@@ -766,7 +766,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=network_flow["timestamp"],
+                time_observed=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT),
             )
             objectid.assign_guid()
             nc = ontres.create_network_connection(
@@ -793,7 +793,7 @@ def process_network(
                 ),
                 pid=network_flow["pid"],
                 image=network_flow.get("image"),
-                start_time=network_flow["timestamp"]
+                start_time=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT)
             )
             ontres.add_network_connection(nc)
 
@@ -1916,7 +1916,7 @@ def _create_signature_result_section(
                         v = ','.join([item if isinstance(item, str) else str(item) for item in v])
                     elif not isinstance(v, str):
                         v = str(v)
-                    _tag_mark_values(sig_res, k, v, attributes, process_map)
+                    _tag_mark_values(sig_res, k, v, attributes, process_map, ontres)
             if mark_body.body:
                 sig_res.add_section_part(mark_body)
                 mark_count += 1
@@ -1929,7 +1929,7 @@ def _create_signature_result_section(
 
 def _tag_mark_values(
     sig_res: ResultSection, key: str, value: str, attributes: List[Attribute],
-    process_map: Dict[int, Dict[str, Any]],
+    process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults
 ) -> None:
     """
     This method tags a given value accordingly by the key
@@ -1938,6 +1938,7 @@ def _tag_mark_values(
     :param value: The mark's value for the given key
     :param attributes: A list of Attribute objects from the OntologyResults model
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
+    :param ontres: The Ontology Results class object
     :return: None
     """
     delimiters = [":", "->", ",", " ", "("]
