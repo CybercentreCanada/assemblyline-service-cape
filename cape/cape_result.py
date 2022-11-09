@@ -766,7 +766,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=network_flow["timestamp"],
+                time_observed=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT) if not isinstance(network_flow["timestamp"], str) else network_flow["timestamp"],
             )
             objectid.assign_guid()
             nc = ontres.create_network_connection(
@@ -794,7 +794,7 @@ def process_network(
                     ),
                     pid=network_flow["pid"],
                     image=network_flow.get("image"),
-                    start_time=network_flow["timestamp"]
+                    start_time=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT) if not isinstance(network_flow["timestamp"], str) else network_flow["timestamp"]
                 )
             ontres.add_network_connection(nc)
 
