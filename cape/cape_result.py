@@ -936,7 +936,11 @@ def process_network(
                         suspicious_user_agent_sec.add_line(f"\t{sus_user_agent_used}")
                         sus_user_agents_used.append(sus_user_agent_used)
 
-            process = ontres.get_network_connection_by_network_http(http_call).process
+            nh = ontres.get_network_connection_by_network_http(http_call)
+            if nh:
+                process = nh.process
+            else:
+                process = None
             http_sec.add_row(
                 TableRow(
                     process_name=f"{process.image} ({process.pid})"
