@@ -766,7 +766,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT),
+                time_observed=network_flow["timestamp"],
             )
             objectid.assign_guid()
             nc = ontres.create_network_connection(
@@ -784,17 +784,18 @@ def process_network(
                     "image": network_flow.get("image"),
                 }
             )
-            nc.update_process(
-                objectid=ontres.create_objectid(
-                    tag=Process.create_objectid_tag(network_flow.get("image")),
-                    ontology_id=p_oid,
-                    guid=network_flow.get("guid"),
-                    session=session,
-                ),
-                pid=network_flow["pid"],
-                image=network_flow.get("image"),
-                start_time=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT)
-            )
+            if network_flow.get("image"):
+                nc.update_process(
+                    objectid=ontres.create_objectid(
+                        tag=Process.create_objectid_tag(network_flow.get("image")),
+                        ontology_id=p_oid,
+                        guid=network_flow.get("guid"),
+                        session=session,
+                    ),
+                    pid=network_flow["pid"],
+                    image=network_flow.get("image"),
+                    start_time=network_flow["timestamp"]
+                )
             ontres.add_network_connection(nc)
 
             # We want all key values for all network flows except for timestamps and event_type
