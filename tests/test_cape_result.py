@@ -2081,8 +2081,9 @@ class TestCapeResult:
     def test_tag_mark_values(key, value, expected_tags):
         from assemblyline_v4_service.common.result import ResultSection
         from cape.cape_result import _tag_mark_values
+        ontres = OntologyResults("CAPE")
         actual_res_sec = ResultSection("blah")
-        _tag_mark_values(actual_res_sec, key, value, [], {})
+        _tag_mark_values(actual_res_sec, key, value, [], {}, ontres)
         assert actual_res_sec.tags == expected_tags
 
     @staticmethod
