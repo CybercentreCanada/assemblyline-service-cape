@@ -1302,29 +1302,30 @@ def _process_http_calls(
                 nc = ontres.get_network_connection_by_network_http(nh)
 
             match = False
-            for process, process_details in process_map.items():
-                for network_call in process_details["network_calls"]:
-                    send = next(
-                        (
-                            network_call[api_call]
-                            for api_call in HTTP_API_CALLS
-                            if api_call in network_call
-                        ),
-                        {},
-                    )
-                    if (
-                        send != {}
-                        and (
-                            send.get("service", 0) == 3
-                            or send.get("buffer", "") == request
+            if nc:
+                for process, process_details in process_map.items():
+                    for network_call in process_details["network_calls"]:
+                        send = next(
+                            (
+                                network_call[api_call]
+                                for api_call in HTTP_API_CALLS
+                                if api_call in network_call
+                            ),
+                            {},
                         )
-                        or send.get("url", "") == uri
-                    ):
-                        nc.update_process(image=process_details["name"], pid=process)
-                        match = True
+                        if (
+                            send != {}
+                            and (
+                                send.get("service", 0) == 3
+                                or send.get("buffer", "") == request
+                            )
+                            or send.get("url", "") == uri
+                        ):
+                            nc.update_process(image=process_details["name"], pid=process)
+                            match = True
+                            break
+                    if match:
                         break
-                if match:
-                    break
 
             if nh_to_add:
                 ontres.add_network_http(nh)
