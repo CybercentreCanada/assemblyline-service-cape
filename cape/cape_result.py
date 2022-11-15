@@ -2015,6 +2015,8 @@ def _tag_mark_values(
         reg_match = search(YARA_RULE_EXTRACTOR, value)
         if reg_match:
             _ = add_tag(sig_res, "file.rule.yara", reg_match.group(1))
+    elif key.lower() in ["domain"]:
+        _ = add_tag(sig_res, "network.dynamic.domain", value)
 
 
 def _process_non_http_traffic_over_http(
