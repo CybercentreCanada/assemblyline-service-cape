@@ -1988,6 +1988,8 @@ def _tag_mark_values(
             # Determine which attribute is to be assigned the uri
             for attribute in attributes:
                 process = ontres.get_process_by_guid(attribute.source.guid)
+                if not process:
+                    continue
                 for network_call in process_map[process.pid]["network_calls"]:
                     send = next(
                         (
