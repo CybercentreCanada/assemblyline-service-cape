@@ -362,7 +362,7 @@ def process_machine_info(machine_info: Dict[str, Any], ontres: OntologyResults):
     machine_name = machine_info["Name"]
     sandbox.update_machine_metadata(
         hostname=machine_name,
-        platform=machine_info["Platform"],
+        platform=machine_info["Platform"].capitalize(),
         ip=machine_info["IP"],
         hypervisor=machine_info["Manager"],
     )
