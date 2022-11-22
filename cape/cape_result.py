@@ -267,7 +267,7 @@ def generate_al_result(
         )
 
     if sigs:
-        is_process_martian = process_signatures(sigs, process_map, al_result, ontres)
+        is_process_martian = process_signatures(sigs, process_map, al_result, ontres, safelist)
 
     build_process_tree(al_result, is_process_martian, ontres)
 
@@ -574,6 +574,7 @@ def process_signatures(
     process_map: Dict[int, Dict[str, Any]],
     parent_result_section: ResultSection,
     ontres: OntologyResults,
+    safelist: Dict[str, Dict[str, List[str]]],
 ) -> bool:
     """
     This method processes the signatures section of the CAPE report, adding anything noteworthy to the
@@ -582,6 +583,7 @@ def process_signatures(
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :param ontres: The Ontology Results class object
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :return: A boolean flag that indicates if the is_process_martian signature was raised
     """
     if len(sigs) <= 0:
@@ -621,12 +623,12 @@ def process_signatures(
             score=translated_score,
         )
         sig_res = _create_signature_result_section(
-            sig_name, sig, translated_score, ontres_sig, ontres, process_map
+            sig_name, sig, translated_score, ontres_sig, ontres, process_map, safelist
         )
 
-        sigs_res.add_subsection(sig_res)
-
-        ontres.add_signature(ontres_sig)
+        if sig_res:
+            sigs_res.add_subsection(sig_res)
+            ontres.add_signature(ontres_sig)
     if len(sigs_res.subsections) > 0:
         parent_result_section.add_subsection(sigs_res)
     return is_process_martian
@@ -871,6 +873,7 @@ def process_network(
     http_calls = ontres.get_network_http()
     if len(http_calls) > 0:
         http_sec = ResultTableSection("Protocol: HTTP/HTTPS")
+        http_header_sec = ResultTableSection("IOCs found in HTTP/HTTPS Headers")
         remote_file_access_sec = ResultTextSection("Access Remote File")
         remote_file_access_sec.add_line(
             "The sample attempted to download the following files:"
@@ -889,7 +892,7 @@ def process_network(
             )
 
             for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_sec)
+                extract_iocs_from_text_blob(value, http_header_sec)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
@@ -952,6 +955,8 @@ def process_network(
             )
         if remote_file_access_sec.heuristic:
             http_sec.add_subsection(remote_file_access_sec)
+        if http_header_sec.body:
+            http_sec.add_subsection(http_header_sec)
         if suspicious_user_agent_sec.heuristic:
             suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
             http_sec.add_subsection(suspicious_user_agent_sec)
@@ -1825,7 +1830,8 @@ def _create_signature_result_section(
     ontres_sig: Signature,
     ontres: OntologyResults,
     process_map: Dict[int, Dict[str, Any]],
-) -> ResultMultiSection:
+    safelist: Dict[str, Dict[str, List[str]]],
+) -> Optional[ResultMultiSection]:
     """
     This method creates a ResultMultiSection for the given signature
     :param name: The name of the signature
@@ -1834,13 +1840,66 @@ def _create_signature_result_section(
     :param ontres_sig: The signature for the Ontology Results
     :param ontres: The Ontology Results class object
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
-    :return: A ResultMultiSection containing details about the signature
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :return: A ResultMultiSection containing details about the signature, unless the signature is deemed a False Positive
     """
     sig_res = ResultMultiSection(f"Signature: {name}")
     description = signature.get("description", "No description for signature.")
     sig_res.add_section_part(TextSectionBody(body=description))
 
-    # Setting up the heuristic for each signature
+    _set_heuristic_signature(name, signature, sig_res, translated_score)
+    _set_attack_ids(signature.get("ttp", {}), sig_res, ontres_sig)
+    _set_families(signature.get("families", []), sig_res, ontres_sig)
+
+    # Get the evidence that supports why the signature was raised
+    mark_count = 0
+    call_count = 0
+    message_added = False
+    attributes: List[Attribute] = list()
+    action = SIGNATURE_TO_ATTRIBUTE_ACTION_MAP.get(name)
+    fp_mark_count = 0
+
+    for mark in signature["data"]:
+        if mark_count >= 10 and not message_added:
+            sig_res.add_section_part(
+                TextSectionBody(body=f"There were {len(signature['data']) - mark_count - call_count} more marks that were not displayed.")
+            )
+            message_added = True
+        mark_body = KVSectionBody()
+
+        # Check if the mark is a call
+        if _is_mark_call(mark.keys()):
+            call_count += 1
+            _handle_mark_call(mark.get("pid"), action, attributes, ontres)
+        else:
+            _handle_mark_data(mark.items(), sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+            if mark_body.body:
+                sig_res.add_section_part(mark_body)
+                mark_count += 1
+            else:
+                fp_mark_count += 1
+
+    if attributes:
+        [ontres_sig.add_attribute(attribute) for attribute in attributes]
+    ontres_sig.update(name=name, score=translated_score)
+
+    # If there are more true positive marks than false positive marks, return signature result section
+    if not fp_mark_count or fp_mark_count != len(signature['data']) - call_count:
+        return sig_res
+    else:
+        log.debug(f"The signature {name} was marked as a false positive, ignoring...")
+        return None
+
+
+def _set_heuristic_signature(name: str, signature: Dict[str, Any], sig_res: ResultMultiSection, translated_score: int) -> None:
+    """
+    This method sets up the heuristic for each signature
+    :param name: The name of the signature
+    :param signature: The details of the signature
+    :param sig_res: The signature result section
+    :param translated_score: The Assemblyline-adapted score of the signature
+    :return: None
+    """
     sig_id = get_category_id(name)
     if sig_id == 9999:
         log.warning(f"Unknown signature detected: {signature}")
@@ -1851,8 +1910,15 @@ def _create_signature_result_section(
     # Adding signature and score
     sig_res.heuristic.add_signature_id(name, score=translated_score)
 
-    # Setting the Mitre ATT&CK ID for the heuristic
-    attack_ids = signature.get("ttp", {})
+
+def _set_attack_ids(attack_ids: Dict[str, Dict[str, str]], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
+    """
+    This method sets the Mitre ATT&CK ID for the heuristic and the Ontology Results Signature
+    :param attack_ids: A dictionary of ATT&CK IDs
+    :param sig_res: The signature result section
+    :param ontres_sig: The signature for the Ontology Results
+    :return: None
+    """
     for attack_id in attack_ids:
         if attack_id in revoke_map:
             attack_id = revoke_map[attack_id]
@@ -1861,10 +1927,18 @@ def _create_signature_result_section(
     for attack_id in sig_res.heuristic.attack_ids:
         ontres_sig.add_attack_id(attack_id)
 
-    # Getting the signature family and tagging it
+
+def _set_families(families: List[str], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
+    """
+    This method gets the signature family and tags it
+    :param families: A list of families
+    :param sig_res: The signature result section
+    :param ontres_sig: The signature for the Ontology Results
+    :return: None
+    """
     sig_families = [
         family
-        for family in signature.get("families", [])
+        for family in families
         if family not in SKIPPED_FAMILIES
     ]
     if len(sig_families) > 0:
@@ -1876,65 +1950,72 @@ def _create_signature_result_section(
         _ = add_tag(sig_res, "dynamic.signature.family", sig_families)
         ontres_sig.set_malware_families(sig_families)
 
-    # Get the evidence that supports why the signature was raised
-    mark_count = 0
-    call_count = 0
-    message_added = False
-    attributes: List[Attribute] = list()
-    action = SIGNATURE_TO_ATTRIBUTE_ACTION_MAP.get(name)
 
-    for mark in signature["data"]:
-        if mark_count >= 10 and not message_added:
-            sig_res.add_section_part(
-                TextSectionBody(body=f"There were {len(signature['data']) - mark_count - call_count} more marks that were not displayed.")
-            )
-            message_added = True
-        mark_body = KVSectionBody()
+def _is_mark_call(mark_keys: List[str]) -> bool:
+    """
+    This method determines if a mark is a "call" rather than "data"
+    :param mark_keys: A list of mark keys
+    :return: A boolean representing if the mark is a "call"
+    """
+    return all(k in ["type", "pid", "cid", "call"] for k in mark_keys)
 
-        # Check if the mark is a call
-        if all(k in ["type", "pid", "cid", "call"] for k in mark.keys()):
-            pid = mark.get("pid")
-            # The way that this would work is that the marks of the signature contain a call followed by a non-call
-            source = ontres.get_process_by_pid(pid)
-            # If the source is the same as a previous attribute for the same signature, skip
-            if source and all(attribute.action != action and attribute.source.as_primitives() != source.as_primitives() for attribute in attributes):
-                attribute = ontres_sig.create_attribute(
-                    source=source.objectid,
-                    action=action,
-                )
 
-                attributes.append(attribute)
-        else:
-            for k, v in mark.items():
-                if not v:
-                    continue
-                if k in MARK_KEYS_TO_NOT_DISPLAY:
-                    continue
-                if dumps({k: v}) in sig_res.section_body.body:
-                    continue
-                else:
-                    if mark_count < 10:
-                        if (isinstance(v, str) or isinstance(v, bytes)) and len(v) > 512:
-                            v = truncate(v, 512)
-                        mark_body.set_item(k, v)
+def _handle_mark_call(pid: Optional[int], action: Optional[str], attributes: List[Attribute], ontres: OntologyResults) -> None:
+    """
+    This method handles a mark that is a "call"
+    :param pid: The process ID, if given, of the call
+    :param action: The action representing the signature, as per the OntologyResults model for Signature
+    :param attributes: A list of attribute objects
+    :param ontres: The Ontology Results class object
+    :return: None
+    """
+    # The way that this would work is that the marks of the signature contain a call followed by a non-call
+    source = ontres.get_process_by_pid(pid)
+    # If the source is the same as a previous attribute for the same signature, skip
+    if source and all(attribute.action != action and attribute.source.as_primitives() != source.as_primitives() for attribute in attributes):
+        attribute = ontres.create_attribute(
+            source=source.objectid,
+            action=action,
+        )
+        attributes.append(attribute)
 
-                    if isinstance(v, list):
-                        v = ','.join([item if isinstance(item, str) else str(item) for item in v])
-                    elif not isinstance(v, str):
-                        v = str(v)
-                    _tag_mark_values(sig_res, k, v, attributes, process_map, ontres)
-            if mark_body.body:
-                sig_res.add_section_part(mark_body)
-                mark_count += 1
 
-    if attributes:
-        [ontres_sig.add_attribute(attribute) for attribute in attributes]
-    ontres_sig.update(name=name, score=translated_score)
-    return sig_res
+def _handle_mark_data(mark_items: List[Tuple[str, Any]], sig_res: ResultMultiSection, mark_count: int, mark_body: KVSectionBody, attributes: List[Attribute], process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], ontres: OntologyResults) -> None:
+    """
+    This method handles a mark that is "data"
+    :param mark_items: A list of tuples representing the mark
+    :param sig_res: The signature result section
+    :param mark_count: The count representing the number of marks that have been added to the mark_body
+    :param mark_body: The ResultSection body object
+    :param attributes: A list of attribute objects
+    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :param ontres: The Ontology Results class object
+    :return: None
+    """
+    for k, v in mark_items:
+        if not v or k in MARK_KEYS_TO_NOT_DISPLAY or dumps({k: v}) in sig_res.section_body.body:
+            continue
+
+        # The mark_count limit only exists for diaply purposes
+        if mark_count < 10:
+            if isinstance(v, str) and len(v) > 512:
+                v = truncate(v, 512)
+            if isinstance(v, str) and is_tag_safelisted(v, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+                continue
+
+            mark_body.set_item(k, v)
+
+        # Regardless of the mark_count limit, attempt to tag items. This type-casting is required in _tag_mark_values
+        if isinstance(v, list):
+            v = ','.join([item if isinstance(item, str) else str(item) for item in v])
+        elif not isinstance(v, str):
+            v = str(v)
+        _tag_mark_values(sig_res, k, v, attributes, process_map, ontres)
 
 
 def _tag_mark_values(
-    sig_res: ResultSection, key: str, value: str, attributes: List[Attribute],
+    sig_res: ResultMultiSection, key: str, value: str, attributes: List[Attribute],
     process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults
 ) -> None:
     """
