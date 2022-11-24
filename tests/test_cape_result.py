@@ -380,6 +380,11 @@ class TestCapeResult:
             build_process_tree(actual_res_sec, is_process_martian, default_so)
             assert actual_res_sec.subsections == []
 
+    # TODO: complete unit tests for process_signatures
+    @staticmethod
+    def test_process_signatures():
+        pass
+
     # TODO: complete unit tests for process_network
     @staticmethod
     def test_process_network():
@@ -2010,6 +2015,330 @@ class TestCapeResult:
 
         safelist = {"regex": {"dynamic.process.file_name": [r"C:\\Windows\\System32\\lsass\.exe"]}}
         assert get_process_map(processes, safelist) == correct_process_map
+
+    @staticmethod
+    def test_create_signature_result_section():
+        from cape.cape_result import _create_signature_result_section
+        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, OntologyResults, Signature
+        # Case 1: Bare minimum
+        name = "blah"
+        signature = {"data": []}
+        translated_score = 0
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres = OntologyResults(service_name="blah")
+        process_map = {}
+        safelist = {}
+        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+
+        assert actual_res_sec.title_text == "Signature: blah"
+        assert actual_res_sec.body == '[["TEXT", "No description for signature."]]'
+        assert actual_res_sec.heuristic.heur_id == 9999
+        assert ontres_sig.as_primitives() == {
+            'actors': [],
+            'attacks': [],
+            'attributes': [],
+            'malware_families': [],
+            'name': 'blah',
+            'objectid': {
+                'guid': None,
+                'ontology_id': 'blah',
+                'processtree': None,
+                'service_name': 'blah',
+                'session': None,
+                'tag': 'blah',
+                'time_observed': None,
+                'treeid': None
+            },
+            'type': 'CUCKOO',
+        }
+
+        # Case 2: More than 10 marks
+        signature = {"data": [{"a": "b"}, {"b": "b"}, {"c": "b"}, {"d": "b"}, {"e": "b"}, {"f": "b"}, {"g": "b"}, {"h": "b"}, {"i": "b"}, {"j": "b"}, {"k": "b"}, {"l": "b"}]}
+        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+        assert actual_res_sec.body == '[["TEXT", "No description for signature."], ["KEY_VALUE", {"a": "b"}], ["KEY_VALUE", {"b": "b"}], ["KEY_VALUE", {"c": "b"}], ["KEY_VALUE", {"d": "b"}], ["KEY_VALUE", {"e": "b"}], ["KEY_VALUE", {"f": "b"}], ["KEY_VALUE", {"g": "b"}], ["KEY_VALUE", {"h": "b"}], ["KEY_VALUE", {"i": "b"}], ["KEY_VALUE", {"j": "b"}], ["TEXT", "There were 2 more marks that were not displayed."]]'
+        assert ontres_sig.as_primitives() == {
+            'actors': [],
+            'attacks': [],
+            'attributes': [],
+            'malware_families': [],
+            'name': 'blah',
+            'objectid': {
+                'guid': None,
+                'ontology_id': 'blah',
+                'processtree': None,
+                'service_name': 'blah',
+                'session': None,
+                'tag': 'blah',
+                'time_observed': None,
+                'treeid': None
+            },
+            'type': 'CUCKOO',
+        }
+
+        # Case 3: Attribute is added
+        p = ontres.create_process(
+            start_time="1970-01-01 00:00:02",
+            pid=1,
+            image="blah",
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        )
+        ontres.add_process(p)
+        signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}]}
+        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+        assert actual_res_sec.body == '[["TEXT", "No description for signature."]]'
+        attr_as_primitives = ontres_sig.attributes[0].as_primitives()
+        attr_as_primitives["source"].pop("guid")
+        assert attr_as_primitives == {
+            'action': None,
+            'domain': None,
+            'event_record_id': None,
+            'file_hash': None,
+            'meta': None,
+            'source': {
+                'ontology_id': 'blah',
+                'processtree': None,
+                'service_name': 'CAPE',
+                'session': None,
+                'tag': 'blah',
+                'time_observed': '1970-01-01 00:00:02',
+                'treeid': None
+            },
+            'target': None,
+            'uri': None
+        }
+
+        # Case 4: False Positive Signature with False Positive mark
+        signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}]}
+        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+        assert actual_res_sec is None
+
+        # Case 5: True Positive Signature with False Positive mark
+        signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}, {"domain": "google.ru"}]}
+        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+        assert actual_res_sec.body == '[["TEXT", "No description for signature."], ["KEY_VALUE", {"domain": "google.ru"}]]'
+
+    @staticmethod
+    def test_set_heuristic_signature():
+        from cape.cape_result import _set_heuristic_signature
+        from assemblyline_v4_service.common.result import ResultMultiSection
+        # Case 1: Unknown signature with 0 score
+        name = "blah"
+        signature = {"a": "b"}
+        sig_res = ResultMultiSection("blah")
+        translated_score = 0
+        _set_heuristic_signature(name, signature, sig_res, translated_score)
+        assert sig_res.heuristic.heur_id == 9999
+        assert sig_res.heuristic.signatures == {name: 1}
+        assert sig_res.heuristic.score == 0
+
+        # Case 2: Known signature with 100 score
+        name = "http_request"
+        signature = {"http_request": "b"}
+        sig_res = ResultMultiSection("blah")
+        translated_score = 100
+        _set_heuristic_signature(name, signature, sig_res, translated_score)
+        assert sig_res.heuristic.heur_id == 41
+        assert sig_res.heuristic.signatures == {name: 1}
+        assert sig_res.heuristic.score == 100
+
+    @staticmethod
+    def test_set_attack_ids():
+        from cape.cape_result import _set_attack_ids
+        from assemblyline_v4_service.common.result import ResultMultiSection
+        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
+        # Case 1: No Attack IDs
+        attack_ids = {}
+        sig_res = ResultMultiSection("blah")
+        sig_res.set_heuristic(1)
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        _set_attack_ids(attack_ids, sig_res, ontres_sig)
+        assert sig_res.heuristic.attack_ids == []
+        assert ontres_sig.attacks == []
+
+        # Case 2: Multiple Attack IDs
+        attack_ids = {"T1001": {"a": "b"}, "T1003": {"a": "b"}, "T1021": {"a": "b"}}
+        _set_attack_ids(attack_ids, sig_res, ontres_sig)
+        assert sig_res.heuristic.attack_ids == ["T1001", "T1003", "T1021"]
+        assert [attack_id["attack_id"] for attack_id in ontres_sig.attacks] == ["T1001", "T1003", "T1021"]
+
+        # Case 3: Attack ID in revoke_map
+        attack_ids = {"G0042": {"a": "b"}}
+        _set_attack_ids(attack_ids, sig_res, ontres_sig)
+        assert sig_res.heuristic.attack_ids == ["T1001", "T1003", "T1021", "G0040"]
+        assert [attack_id["attack_id"] for attack_id in ontres_sig.attacks] == ["T1001", "T1003", "T1021", "G0040"]
+
+    @staticmethod
+    def test_set_families():
+        from cape.cape_result import _set_families
+        from assemblyline_v4_service.common.result import ResultMultiSection
+        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
+        # Case 1: No families
+        families = []
+        sig_res = ResultMultiSection("blah")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        _set_families(families, sig_res, ontres_sig)
+        assert sig_res.body is None
+        assert ontres_sig.malware_families == []
+
+        # Case 2: Multiple families
+        families = ["blah", "blahblah", "blahblahblah"]
+        _set_families(families, sig_res, ontres_sig)
+        assert sig_res.body == '[["TEXT", "\\tFamilies: blah,blahblah,blahblahblah"]]'
+        assert ontres_sig.malware_families == ['blah', 'blahblah', 'blahblahblah']
+
+        # Case 3: Families in SKIPPED_FAMILIES
+        families = ["generic", "wow"]
+        sig_res = ResultMultiSection("blah")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        _set_families(families, sig_res, ontres_sig)
+        assert sig_res.body == '[["TEXT", "\\tFamilies: wow"]]'
+        assert ontres_sig.malware_families == ["wow"]
+
+    @staticmethod
+    def test_is_mark_call():
+        from cape.cape_result import _is_mark_call
+        assert _is_mark_call(["blah"]) is False
+        assert _is_mark_call(["type", "pid", "cid", "call"]) is True
+
+    @staticmethod
+    def test_handle_mark_call():
+        from cape.cape_result import _handle_mark_call
+        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+        # Case 1: pid is None
+        pid = None
+        action = "blah"
+        attributes = []
+        ontres = OntologyResults(service_name="blah")
+        _handle_mark_call(pid, action, attributes, ontres)
+        assert attributes == []
+
+        # Case 2: Source does not exist
+        pid = 1
+        _handle_mark_call(pid, action, attributes, ontres)
+        assert attributes == []
+
+        # Case 3: Source does exist and attributes is empty
+        p = ontres.create_process(
+            start_time="1970-01-01 00:00:02",
+            pid=1,
+            image="blah",
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        )
+        ontres.add_process(p)
+        _handle_mark_call(pid, action, attributes, ontres)
+        attribute_as_prim = attributes[0].as_primitives()
+        attribute_as_prim["source"].pop("guid")
+        assert attribute_as_prim == {
+            'action': 'blah',
+            'domain': None,
+            'event_record_id': None,
+            'file_hash': None,
+            'meta': None,
+            'source': {
+                'ontology_id': 'blah',
+                'processtree': None,
+                'service_name': 'CAPE',
+                'session': None,
+                'tag': 'blah',
+                'time_observed': '1970-01-01 00:00:02',
+                'treeid': None
+            },
+            'target': None,
+            'uri': None,
+        }
+
+        # Case 4: action is None
+        action = None
+        _handle_mark_call(pid, action, attributes, ontres)
+        attribute_as_prim = attributes[1].as_primitives()
+        attribute_as_prim["source"].pop("guid")
+        assert attribute_as_prim == {
+            'action': None,
+            'domain': None,
+            'event_record_id': None,
+            'file_hash': None,
+            'meta': None,
+            'source': {
+                'ontology_id': 'blah',
+                'processtree': None,
+                'service_name': 'CAPE',
+                'session': None,
+                'tag': 'blah',
+                'time_observed': '1970-01-01 00:00:02',
+                'treeid': None
+            },
+            'target': None,
+            'uri': None,
+        }
+
+    @staticmethod
+    def test_handle_mark_data():
+        from json import loads
+        from cape.cape_result import _handle_mark_data
+        from assemblyline_v4_service.common.result import KVSectionBody, ResultMultiSection, TextSectionBody
+        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+        # Case 1: Bare minimum
+        mark_items = {}
+        sig_res = ResultMultiSection("blah")
+        sig_res.add_section_part(TextSectionBody(body="blah"))
+        sig_res.add_section_part(KVSectionBody(body={"b": "a"}))
+        mark_count = 0
+        mark_body = KVSectionBody()
+        attributes = []
+        process_map = {}
+        safelist = {}
+        ontres = OntologyResults(service_name="blah")
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body is None
+
+        # Case 2: Basic mark items
+        mark_items = [("a", "b")]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b"}'
+
+        # Case 3: not v, k in MARK_KEYS_TO_NOT_DISPLAY, dumps({k: v}) in sig_res.section_body.body
+        mark_items = [("a", None), ("data_being_encrypted", "blah"), ("b", "a")]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b"}'
+
+        # Case 4: mark_count >= 10
+        mark_count = 10
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b"}'
+
+        # Case 5: Add multiple mark items
+        mark_count = 0
+        mark_items = [("c", "d"), ("d", "e")]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
+
+        # Case 6: Add mark item of type bytes
+        mark_items = [("f", b"blah")]
+        with pytest.raises(TypeError):
+            _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+
+        # Case 7: Mark item contains a safelisted value
+        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        mark_items = [("f", "google.com")]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
+
+        # Case 8: Mark item value is a list
+        mark_items = [("g", [0, 1, 2])]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2]}'
+
+        # Case 8: Mark item value is not a string or a list
+        mark_items = [("h", 999)]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2], "h": 999}'
+
+        # Case 9: Add mark item (str) with long value
+        mark_items = [("f", "blah"*150)]
+        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        assert loads(mark_body.body)["f"] == "blah"*128 + "..."
 
     @staticmethod
     @pytest.mark.parametrize(
