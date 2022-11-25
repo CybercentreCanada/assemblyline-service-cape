@@ -1368,8 +1368,6 @@ class TestCapeMain:
                 assert cape_class_instance.file_name == correct_file_name
                 return
             else:
-                if submitted_ext == "bin":
-                    is_bin = True
                 file_ext = '.' + submitted_ext
         else:
             assert cape_class_instance._assign_file_extension(kwargs) == ""
