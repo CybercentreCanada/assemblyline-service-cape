@@ -116,13 +116,17 @@ The method for interpretting this structure is that files are divided between Li
 * **token_key** - [default: Token] This the default keyword for the Django Rest Framework.
 If you change it on the CAPE REST API, change this value to reflect that new value.
 
-####
+#### If the desired machine is not present in the configuration, sleep and try again?
 * **retry_on_no_machine** - [default: False] If your CAPE machinery deletes machines, (AWS/Azure), there is a chance that a certain machine may not be present
 for a period of time. This configuration will raise a RecoverableError in that situation, after sleeping for a certain
 time period.
 
-####
+#### Too many monitor logs?
 * **limit_monitor_apis** - [default: False] Apply a limit of 1000 to APIs that the CAPE monitor logs.
+
+#### Should we setup the VM prior to sample execution by opening a few applications?
+Note that this is only applicable to samples that would use the `doc` and `js` packages normally.
+* **use_antivm_packages** - [default: False] Start some applications prior to execution.
 
 ### CAPE Submission Options
 

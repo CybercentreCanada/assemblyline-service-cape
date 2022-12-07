@@ -1314,7 +1314,6 @@ class CAPE(ServiceBase):
         # NOTE: CAPE still tries to identify files itself, so we only force the extension/package
         # if the user specifies one. However, we go through the trouble of renaming the file because
         # the only way to have certain modules run is to use the appropriate suffix (.jar, .vbs, etc.)
-        # TODO: Adapt to be able to match packages found in https://github.com/kevoreilly/CAPEv2/blob/master/analyzer/windows/lib/core/packages.py
 
         # Check for a valid tag
         # TODO: this should be more explicit in terms of "unknown" in file_type
@@ -1331,8 +1330,6 @@ class CAPE(ServiceBase):
                 )
                 return ""
             else:
-                if submitted_ext == "bin":
-                    kwargs["package"] = "bin"
                 # This is a usable extension. It might not run (if the submitter has lied to us).
                 file_ext = "." + submitted_ext
         else:
@@ -1398,8 +1395,14 @@ class CAPE(ServiceBase):
         elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf", "archive/zip"]:
             task_options.append("file=")
 
+        # Package-related logic
+        # If the user requests a package, give it to them
         if package:
             kwargs["package"] = package
+        # If the user wants to use antivm packages and the file type makes sense, give it to them
+        elif self.config.get("use_antivm_packages", False) and self.request.file_type in ["code/javascript", "document/office/word"]:
+            # Assign the appropriate package based on file type. As of 2022-11-25, there are only two.
+            kwargs["package"] = "doc_antivm" if self.request.file_type == "document/office/word" else "js_antivm"
 
         if arguments:
             task_options.append(f"arguments={arguments}")

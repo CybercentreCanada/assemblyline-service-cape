@@ -2,7 +2,7 @@ name: CAPE
 version: $SERVICE_TAG
 description: Provides dynamic malware analysis through sandboxing.
 
-accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)|shortcut/windows|archive/(iso|vhd|udf|zip)
+accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)|shortcut/windows|archive/(chm/iso|vhd|udf|zip)
 rejects: empty|metadata/.*
 
 stage: CORE
@@ -68,6 +68,9 @@ config:
 
   # Apply a limit of 1000 to APIs that the CAPE monitor logs (normally this value is 5000).
   limit_monitor_apis: false
+
+  # Use the "antivm" packages for winword.exe and wscript.exe, which open a few applications prior to execution in the VM
+  use_antivm_packages: false
 
 submission_params:
   - default: 0
