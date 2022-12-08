@@ -103,6 +103,7 @@ LINUX_x64_FILES = [
     for file_type in RECOGNIZED_TYPES
     if all(val in file_type for val in ["linux", "64"])
 ]
+LINUX_x64_FILES.append("code/shell")
 WINDOWS_x86_FILES = [
     file_type
     for file_type in RECOGNIZED_TYPES
