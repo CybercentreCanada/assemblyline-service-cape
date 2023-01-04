@@ -1392,7 +1392,7 @@ class CAPE(ServiceBase):
 
         # This is a CAPE workaround because otherwise CAPE will extract an archive
         # into extracted files and submit each as a separate task
-        elif self.request.file_type in ["archive/iso", "archive/vhd", "archive/udf", "archive/zip"]:
+        elif self.request.file_type in ["archive/iso", "archive/rar", "archive/vhd", "archive/udf", "archive/zip"]:
             task_options.append("file=")
 
         # Package-related logic
@@ -1403,6 +1403,9 @@ class CAPE(ServiceBase):
         elif self.config.get("use_antivm_packages", False) and self.request.file_type in ["code/javascript", "document/office/word"]:
             # Assign the appropriate package based on file type. As of 2022-11-25, there are only two.
             kwargs["package"] = "doc_antivm" if self.request.file_type == "document/office/word" else "js_antivm"
+        # Force the "archive" package instead of the "rar" package since it is more feature-full, and 7zip can extract rar files too.
+        elif self.request.file_type == "archive/rar":
+            kwargs["package"] = "archive"
 
         if arguments:
             task_options.append(f"arguments={arguments}")
