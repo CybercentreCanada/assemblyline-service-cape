@@ -1686,7 +1686,7 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, 
                     if is_tag_safelisted(buffer, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
                         continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
+                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist)
                     # We only want to display network buffers if an IOC is found
                     length_of_ioc_table_post_extraction = (
                         len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
