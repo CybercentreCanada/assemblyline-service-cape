@@ -2,7 +2,7 @@ name: CAPE
 version: $SERVICE_TAG
 description: Provides dynamic malware analysis through sandboxing.
 
-accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)|shortcut/windows|archive/(chm|iso|rar|vhd|udf|zip)
+accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta)|shortcut/windows|archive/(chm|iso|rar|vhd|udf|zip)|text/windows/registry
 rejects: empty|metadata/.*
 
 stage: CORE
