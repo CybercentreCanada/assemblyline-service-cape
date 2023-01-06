@@ -1350,8 +1350,6 @@ class TestCapeMain:
     def test_assign_file_extension(
             file_type, test_file_name, correct_file_extension, correct_file_name, cape_class_instance,
             dummy_request_class):
-        kwargs = dict()
-        is_bin = False
 
         cape_class_instance.file_name = test_file_name
         cape_class_instance.request = dummy_request_class()
@@ -1364,23 +1362,21 @@ class TestCapeMain:
         elif len(original_ext) == 2:
             submitted_ext = original_ext[1]
             if submitted_ext not in SUPPORTED_EXTENSIONS:
-                assert cape_class_instance._assign_file_extension(kwargs) == ""
+                assert cape_class_instance._assign_file_extension() == ""
                 assert cape_class_instance.file_name == correct_file_name
                 return
             else:
                 file_ext = '.' + submitted_ext
         else:
-            assert cape_class_instance._assign_file_extension(kwargs) == ""
+            assert cape_class_instance._assign_file_extension() == ""
             assert cape_class_instance.file_name == correct_file_name
             return
 
         if file_ext:
-            assert cape_class_instance._assign_file_extension(kwargs) == correct_file_extension
+            assert cape_class_instance._assign_file_extension() == correct_file_extension
             assert cape_class_instance.file_name == correct_file_name
-            if is_bin:
-                assert kwargs == {"package": "bin"}
         else:
-            assert cape_class_instance._assign_file_extension(kwargs) == ""
+            assert cape_class_instance._assign_file_extension() == ""
             assert cape_class_instance.file_name == correct_file_name
 
     @staticmethod
