@@ -307,7 +307,7 @@ class CAPE(ServiceBase):
         self.file_name = os.path.basename(request.task.file_name)
         self._decode_mime_encoded_file_name()
         self._remove_illegal_characters_from_file_name()
-        file_ext = self._assign_file_extension(kwargs)
+        file_ext = self._assign_file_extension()
         if not file_ext:
             # File extension or bust!
             return
@@ -1300,11 +1300,9 @@ class CAPE(ServiceBase):
                 ch for ch in self.file_name if ch not in ILLEGAL_FILENAME_CHARS
             )
 
-    def _assign_file_extension(self, kwargs: Dict[str, Any]) -> str:
+    def _assign_file_extension(self) -> str:
         """
         This method determines the correct file extension to the file to be submitted
-        :param kwargs: The keyword arguments that will be sent to CAPE when submitting the file, detailing specifics
-        about the run
         :return: The file extension of the file to be submitted
         """
         # Check the file extension
