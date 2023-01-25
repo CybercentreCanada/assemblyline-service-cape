@@ -164,7 +164,7 @@ ENCRYPTED_BUFFER_LIMIT = 25
 SYSTEM_PROCESS_ID = 4
 MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
-YARA_RULE_EXTRACTOR = r"'(.\w+)'"
+YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
 
 x86_IMAGE_SUFFIX = "x86"
@@ -2096,8 +2096,16 @@ def _tag_mark_values(
         _ = add_tag(sig_res, "dynamic.process.file_name", key.replace("_", "."))
     elif key.lower() in ["hit"]:
         reg_match = search(YARA_RULE_EXTRACTOR, value)
-        if reg_match:
-            _ = add_tag(sig_res, "file.rule.yara", reg_match.group(1))
+        if reg_match and len(reg_match.regs) == 3:
+            if reg_match.group(1):
+                pid = int(reg_match.group(1))
+                process_with_pid = ontres.get_process_by_pid(pid)
+                if process_with_pid:
+                    attribute = ontres.create_attribute(
+                        source=process_with_pid.objectid,
+                    )
+                    attributes.append(attribute)
+            _ = add_tag(sig_res, "file.rule.yara", reg_match.group(2))
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 

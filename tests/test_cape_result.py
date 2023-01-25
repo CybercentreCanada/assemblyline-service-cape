@@ -2405,6 +2405,8 @@ class TestCapeResult:
             ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}),
             # Standard key for file.rule.yara, nothing special with value
             ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
+            # Standard key for file.rule.yara, value has PID in it
+            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
         ]
     )
     def test_tag_mark_values(key, value, expected_tags):
