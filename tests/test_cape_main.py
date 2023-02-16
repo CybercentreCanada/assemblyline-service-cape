@@ -125,7 +125,7 @@ def dummy_request_class(dummy_task_class):
                 return val
 
         @staticmethod
-        def add_image(path, name, description, classification=None, ocr_heuristic_id=None):
+        def add_image(path, name, description, classification=None, ocr_heuristic_id=None, ocr_io=None):
             return {
                 "img": {"path": path, "name": name, "description": description, "classification": classification},
                 "thumb": {"path": path, "name": f"{name}.thumb", "description": description, "classification": classification}
