@@ -1582,7 +1582,7 @@ class CAPE(ServiceBase):
                 report_json_path, file_ext, cape_task, parent_section, ontres
             )
         else:
-            cape_artifact_pids: Dict[str, Any] = {}
+            cape_artifact_pids: List[Dict[str, str]] = list()
             main_process_tuples: List[Tuple[int, str]] = []
 
         # Check for any extra files in full report to add as extracted files
@@ -1679,7 +1679,7 @@ class CAPE(ServiceBase):
         cape_task: CapeTask,
         parent_section: ResultSection,
         ontres: OntologyResults,
-    ) -> Tuple[Dict[str, int], List[Tuple[int, str]]]:
+    ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -1687,7 +1687,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
-        :return: A map of payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
+        :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
         the initial process and the process name
         """
         try:
@@ -1801,7 +1801,7 @@ class CAPE(ServiceBase):
         self,
         zip_obj: ZipFile,
         task_id: int,
-        cape_artifact_pids: Dict[str, int],
+        cape_artifact_pids: List[Dict[str, str]],
         parent_section: ResultSection,
         ontres: OntologyResults,
     ) -> None:
@@ -1809,7 +1809,7 @@ class CAPE(ServiceBase):
         This method extracts certain artifacts from that zipfile
         :param zip_obj: The zipfile object, containing the analysis artifacts for the task
         :param task_id: An integer representing the CAPE Task ID
-        :param cape_artifact_pids: A map of payloads and the pids that they were hollowed out of
+        :param cape_artifact_pids: A list of dictionaries with details about the payloads and the pids that they were hollowed out of
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param so: The sandbox ontology class object
         :return: None
@@ -1827,10 +1827,12 @@ class CAPE(ServiceBase):
             "network": None,  # These are only used for updating the sandbox ontology
             "files/": "File extracted during analysis",
             "sum.pcap": "TCPDUMP captured during analysis",
+            # These keys will only be accessed if deep scan is on or if a CAPE payload
+            # has a YARA rule associated with it
+            "CAPE": "Memory Dump",
+            "procdump": "Memory Dump",
         }
-        if self.request.deep_scan and self.config["extract_cape_dumps"]:
-            zip_file_map["CAPE"] = "Memory Dump"
-            zip_file_map["procdump"] = "Memory Dump"
+        if self.request.deep_scan:
             zip_file_map["macros"] = "Macros found during analysis"
 
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -1889,12 +1891,26 @@ class CAPE(ServiceBase):
                 zip_obj.extract(f, path=task_dir)
                 file_name = None
 
+                # If we are here, we really want to make sure we want these dumps
                 if key in ["CAPE", "procdump"]:
+                    # If extract_cape_dumps or deep_scan is set to true, we want them all!
+                    if not self.config["extract_cape_dumps"] or not self.request.deep_scan:
+                        yara_hit = False
+                        # If we don't want them all, we only want those with yara hits
+                        for artifact_dict in cape_artifact_pids:
+                            if artifact_dict["sha256"] in f and artifact_dict["is_yara_hit"]:
+                                yara_hit = True
+                                break
+
+                        # We don't want this
+                        if not yara_hit:
+                            continue
+
                     pid = next(
                         (
-                            pid
-                            for sha256, pid in cape_artifact_pids.items()
-                            if sha256 in f
+                            artifact_dict.get("pid")
+                            for artifact_dict in cape_artifact_pids
+                            if artifact_dict.get("sha256") and artifact_dict["sha256"] in f
                         ),
                         None,
                     )

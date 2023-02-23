@@ -1769,9 +1769,9 @@ class TestCapeResult:
     @pytest.mark.parametrize(
         "input, output",
         [
-            ({}, {}),
-            ({"payloads": []}, {}),
-            ({"payloads": [{"sha256": "blah", "pid": 1}]}, {"blah": 1}),
+            ({}, []),
+            ({"payloads": []}, []),
+            ({"payloads": [{"sha256": "blah", "pid": 1, "cape_yara": ["hi"]}, {"sha256": "blahblah", "pid": 2, "cape_yara": []}]}, [{"sha256": "blah", "pid": 1, "is_yara_hit": True}, {"sha256": "blahblah", "pid": 2, "is_yara_hit": False}]),
         ]
     )
     def test_process_cape(input, output):
