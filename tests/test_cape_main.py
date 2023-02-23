@@ -1755,7 +1755,7 @@ class TestCapeMain:
             "to_be_extracted": True
         })
 
-        cape_artifact_pids = {"ohmy.exe": 3}
+        cape_artifact_pids = [{"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False}]
         cape_class_instance._extract_artifacts(zip_obj, task_id, cape_artifact_pids, parent_section, ontres)
 
         all_files = True
