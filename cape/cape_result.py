@@ -187,7 +187,7 @@ def generate_al_result(
     safelist: Dict[str, Dict[str, List[str]]],
     machine_info: Dict[str, Any],
     ontres: OntologyResults,
-) -> Tuple[Dict[str, int], List[Tuple[int, str]]]:
+) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
     :param api_report: The JSON report for the CAPE analysis
@@ -199,7 +199,7 @@ def generate_al_result(
     :param machine_name: The name of the machine that analyzed
     :param machine_info: The details about the machine that analyzed the file
     :param ontres: The Ontology Results class object
-    :return: A map of payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
+    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
     the initial process and the process name
     """
     global global_safelist
@@ -1717,13 +1717,20 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, 
         parent_result_section.add_subsection(buffer_res)
 
 
-def process_cape(cape: Dict[str, Any]) -> Dict[str, int]:
+def process_cape(cape: Dict[str, Any]) -> List[Dict[str, str]]:
     """
     This method creates a map of payloads and the pids that they were hollowed out of
     :param cape: A dictionary containing the CAPE reporting output
-    :return: A map of payloads and the pids that they were hollowed out of
+    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of
     """
-    return {payload["sha256"]: payload["pid"] for payload in cape.get("payloads", [])}
+    cape_artifacts: List[Dict[str, str]] = list()
+    for payload in cape.get("payloads", []):
+        cape_artifacts.append({
+            "sha256": payload["sha256"],
+            "pid": payload["pid"],
+            "is_yara_hit": True if len(payload["cape_yara"]) else False,
+        })
+    return cape_artifacts
 
 
 def get_process_map(
