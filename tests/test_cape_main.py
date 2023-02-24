@@ -1499,7 +1499,7 @@ class TestCapeMain:
         [
             ({"dll_function": ""}),
             ({"dll_function": "blah"}),
-            ({"dll_function": "blah|blah"}),
+            ({"dll_function": "blah:blah"}),
             ({"dll_function": ""}),
         ]
     )
@@ -1512,7 +1512,7 @@ class TestCapeMain:
         dll_function = params["dll_function"]
         if dll_function:
             correct_task_options.append(f'function={dll_function}')
-            if "|" in dll_function:
+            if ":" in dll_function:
                 correct_task_options.append("enable_multi=true")
 
         cape_class_instance.request = dummy_request_class(**params)
@@ -1550,14 +1550,14 @@ class TestCapeMain:
 
         if dll_parsed is None:
             PE = None
-            correct_task_options = ['function=DllMain|DllRegisterServer', 'enable_multi=true']
+            correct_task_options = ['function=DllMain:DllRegisterServer', 'enable_multi=true']
             correct_result_section = ResultSection(
                 title_text="Executed Multiple DLL Exports",
                 body=f"The following exports were executed: DllMain, DllRegisterServer"
             )
         else:
             PE = FakePE()
-            correct_task_options = ['function=DllMain|DllRegisterServer|#blah|blah4|blah2', 'enable_multi=true']
+            correct_task_options = ['function=DllMain:DllRegisterServer:#blah:blah4:blah2', 'enable_multi=true']
             correct_result_section = ResultSection(
                 title_text="Executed Multiple DLL Exports",
                 body="The following exports were executed: DllMain, DllRegisterServer, #blah, blah4, blah2"

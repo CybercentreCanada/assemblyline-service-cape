@@ -1519,7 +1519,7 @@ class CAPE(ServiceBase):
 
             # Check to see if there are pipes in the dll_function
             # This is reliant on analyzer/windows/modules/packages/dll.py
-            if "|" in dll_function:
+            if ":" in dll_function:
                 task_options.append("enable_multi=true")
 
         if not dll_function:
@@ -1590,11 +1590,11 @@ class CAPE(ServiceBase):
         else:
             exports_to_run = exports_available[:max_dll_exports]
 
-        task_options.append(f"function={'|'.join(exports_to_run)}")
+        task_options.append(f"function={':'.join(exports_to_run)}")
         task_options.append("enable_multi=true")
 
         self.log.debug(
-            f"Trying to run DLL with following function(s): {'|'.join(exports_to_run)}")
+            f"Trying to run DLL with following function(s): {':'.join(exports_to_run)}")
 
         if len(exports_available) > 0:
             dll_multi_section = ResultTextSection("Executed Multiple DLL Exports")
