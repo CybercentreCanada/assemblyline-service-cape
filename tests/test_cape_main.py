@@ -1499,25 +1499,75 @@ class TestCapeMain:
         [
             ({"dll_function": ""}),
             ({"dll_function": "blah"}),
-            ({"dll_function": "blah,blah"}),
+            ({"dll_function": "blah:blah"}),
             ({"dll_function": ""}),
         ]
     )
-    def test_prepare_dll_submission(params, cape_class_instance, dummy_request_class):
-        kwargs = dict()
-        correct_kwargs = dict()
+    def test_prepare_dll_submission(params, cape_class_instance, dummy_request_class, mocker):
+        mocker.patch.object(CAPE, '_parse_dll', return_value=None)
         task_options = []
         correct_task_options = []
+        parent_section = ResultSection("blah")
 
         dll_function = params["dll_function"]
         if dll_function:
             correct_task_options.append(f'function={dll_function}')
-        correct_task_options.extend(["enable_multi=true", "use_export_name=true", "max_dll_exports=5"])
+            if ":" in dll_function:
+                correct_task_options.append("enable_multi=true")
 
         cape_class_instance.request = dummy_request_class(**params)
-        cape_class_instance._prepare_dll_submission(task_options)
-        assert kwargs == correct_kwargs
+        cape_class_instance._prepare_dll_submission(task_options, parent_section)
         assert task_options == correct_task_options
+
+    @staticmethod
+    @pytest.mark.parametrize("dll_parsed", [None, "blah"])
+    def test_parse_dll(dll_parsed, cape_class_instance, mocker):
+        task_options = []
+
+        # Dummy Symbol class
+        class Symbol(object):
+            def __init__(self, name):
+                self.name = name
+                self.ordinal = "blah"
+
+        # Dummy DIRECTORY_ENTRY_EXPORT class
+        class DirectoryEntryExport(object):
+            def __init__(self):
+                self.symbols = [
+                    Symbol(None),
+                    Symbol("blah"),
+                    Symbol(b"blah"),
+                    Symbol("blah2"),
+                    Symbol("blah3"),
+                    Symbol("blah4")]
+
+        # Dummy PE class
+        class FakePE(object):
+            def __init__(self):
+                self.DIRECTORY_ENTRY_EXPORT = DirectoryEntryExport()
+
+        parent_section = ResultSection("blah")
+
+        if dll_parsed is None:
+            PE = None
+            correct_task_options = ['function=DllMain:DllRegisterServer', 'enable_multi=true']
+            correct_result_section = ResultSection(
+                title_text="Executed Multiple DLL Exports",
+                body=f"The following exports were executed: DllMain, DllRegisterServer"
+            )
+        else:
+            PE = FakePE()
+            correct_task_options = ['function=DllMain:DllRegisterServer:#blah:blah4:blah2', 'enable_multi=true']
+            correct_result_section = ResultSection(
+                title_text="Executed Multiple DLL Exports",
+                body="The following exports were executed: DllMain, DllRegisterServer, #blah, blah4, blah2"
+            )
+            correct_result_section.add_line("There were 2 other exports: blah, blah3")
+
+        mocker.patch.object(CAPE, '_create_pe_from_file_contents', return_value=PE)
+        cape_class_instance._parse_dll(task_options, parent_section)
+        assert task_options == correct_task_options
+        assert check_section_equality(parent_section.subsections[0], correct_result_section)
 
     @staticmethod
     @pytest.mark.parametrize("zip_report", [None, "blah"])
