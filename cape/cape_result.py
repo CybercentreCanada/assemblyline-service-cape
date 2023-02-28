@@ -2116,6 +2116,13 @@ def _tag_mark_values(
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 
+    # Hunt for IOCs in the value
+    else:
+        signature_iocs = ResultTableSection("IOCs found in Signature data")
+        extract_iocs_from_text_blob(truncate(value, 5000), signature_iocs, is_network_static=True)
+        if signature_iocs.body:
+            sig_res.add_subsection(signature_iocs)
+
 
 def _process_non_http_traffic_over_http(
     network_res: ResultSection, unique_netflows: List[Dict[str, Any]]
