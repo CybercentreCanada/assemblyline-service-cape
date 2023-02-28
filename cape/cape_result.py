@@ -2119,7 +2119,7 @@ def _tag_mark_values(
     # Hunt for IOCs in the value
     else:
         signature_iocs = ResultTableSection("IOCs found in Signature data")
-        extract_iocs_from_text_blob(value, signature_iocs, is_network_static=True)
+        extract_iocs_from_text_blob(truncate(value, 5000), signature_iocs, is_network_static=True)
         if signature_iocs.body:
             sig_res.add_subsection(signature_iocs)
 
