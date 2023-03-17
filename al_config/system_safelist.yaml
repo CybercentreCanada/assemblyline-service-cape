@@ -175,6 +175,7 @@ regex:
   - login\.microsoftonline\.com$
   - skydrivesync\.policies\.live\.net$
   - api\.onedrive\.com$
+  - microsoftwindows\.client\.cbs$
   # Windows
   - .+\.windowsupdate\.com$
   - time\.(microsoft|windows)\.com$
