@@ -1036,6 +1036,7 @@ def _get_dns_map(
         if len(dns_call["answers"]) > 0:
             answer = dns_call["answers"][0]["data"]
         else:
+            # We still want these DNS calls in the resolved_ips map, so use int as unique ID
             answer = str(no_answer_count)
             no_answer_count += 1
 
