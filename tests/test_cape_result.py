@@ -410,6 +410,20 @@ class TestCapeResult:
         actual_res_sec = _get_dns_sec(resolved_ips, safelist)
         assert check_section_equality(actual_res_sec, expected_res_sec)
 
+        resolved_ips = {"0": {"domain": "blah.com"}}
+        expected_res_sec = ResultSection(
+            "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=dumps([{"domain": "blah.com"}])
+        )
+        expected_res_sec.set_heuristic(1000)
+        expected_res_sec.add_tag("network.protocol", "dns")
+        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        expected_res_sec.add_subsection(ResultSection(
+            title_text="DNS services are down!",
+            body="Contact the CAPE administrator for details.",
+        ))
+        actual_res_sec = _get_dns_sec(resolved_ips, safelist)
+        assert check_section_equality(actual_res_sec, expected_res_sec)
+
     @staticmethod
     @pytest.mark.parametrize(
         "dns_calls, process_map, routing, expected_return",
@@ -583,6 +597,21 @@ class TestCapeResult:
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {},
+            ),
+            (
+                [{"answers": [], "request": "request", "type": "dns_type"}],
+                {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
+                "",
+                {
+                    '0': {
+                        'domain': 'request',
+                        'guid': None,
+                        'process_id': 1,
+                        'process_name': 'blah',
+                        'time': None,
+                        'type': 'dns_type'
+                    }
+                },
             ),
         ],
     )

@@ -806,6 +806,8 @@ def process_network(
             del network_flow["timestamp"]
 
     for answer, request in resolved_ips.items():
+        if answer.isdigit():
+            continue
         nd = ontres.create_network_dns(
             domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"]
         )
@@ -980,6 +982,7 @@ def _get_dns_sec(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :return: the result section containing details that we care about
     """
+    answer_exists = False
     if len(resolved_ips.keys()) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
@@ -990,13 +993,26 @@ def _get_dns_sec(
         request = request_dict["domain"]
         _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
         if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
-            # If there is only UDP and no TCP traffic, then we need to tag the domains here:
-            dns_request = {
-                "domain": request,
-                "ip": answer,
-            }
+            if answer.isdigit():
+                dns_request = {
+                    "domain": request,
+                }
+            else:
+                # If there is only UDP and no TCP traffic, then we need to tag the domains here:
+                dns_request = {
+                    "domain": request,
+                    "ip": answer,
+                }
+                answer_exists = True
             dns_body.append(dns_request)
     [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
+
+    if not answer_exists:
+        _ = ResultTextSection(
+            title_text="DNS services are down!",
+            body="Contact the CAPE administrator for details.",
+            parent=dns_res_sec
+        )
     return dns_res_sec
 
 
@@ -1015,46 +1031,53 @@ def _get_dns_map(
     :return: the mapping of resolved IPs and their corresponding domains
     """
     resolved_ips: Dict[str, Dict[str, Any]] = {}
+    no_answer_count = 0
     for dns_call in dns_calls:
         if len(dns_call["answers"]) > 0:
             answer = dns_call["answers"][0]["data"]
-            request = dns_call["request"]
-            dns_type = dns_call["type"]
+        else:
+            answer = str(no_answer_count)
+            no_answer_count += 1
 
-            # If the method of routing is INetSim or a variation of INetSim, then we will not use PTR records. The reason being that there is
-            # always a chance for collision between IPs and hostnames due to the DNS cache, and that chance increases
-            # the smaller the size of the random network space
-            if routing.lower() in [INETSIM.lower(), "none"] and dns_type == "PTR":
+        request = dns_call.get("request")
+        if not request:
+            continue
+        dns_type = dns_call["type"]
+
+        # If the method of routing is INetSim or a variation of INetSim, then we will not use PTR records.
+        # The reason being that there is always a chance for collision between IPs and hostnames due to the
+        # DNS cache, and that chance increases the smaller the size of the random network space
+        if routing.lower() in [INETSIM.lower(), "none"] and dns_type == "PTR":
+            continue
+
+        # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
+        if dns_type == "PTR" and "in-addr.arpa" in request:
+            # Determine the ip from the ARPA request by extracting and reversing the IP from the "ip"
+            request = request.replace(".in-addr.arpa", "")
+            split_ip = request.split(".")
+            request = f"{split_ip[3]}.{split_ip[2]}.{split_ip[1]}.{split_ip[0]}"
+
+            # If PTR and A request for the same ip-domain pair, we choose the A
+            if request in resolved_ips:
                 continue
 
-            # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
-            if dns_type == "PTR" and "in-addr.arpa" in request:
-                # Determine the ip from the ARPA request by extracting and reversing the IP from the "ip"
-                request = request.replace(".in-addr.arpa", "")
-                split_ip = request.split(".")
-                request = f"{split_ip[3]}.{split_ip[2]}.{split_ip[1]}.{split_ip[0]}"
-
-                # If PTR and A request for the same ip-domain pair, we choose the A
-                if request in resolved_ips:
-                    continue
-
-                resolved_ips[request] = {"domain": answer}
-            elif dns_type == "PTR" and "ip6.arpa" in request:
-                # Drop it
-                continue
-            # Some Windows nonsense
-            elif answer in dns_servers:
-                continue
-            # An 'A' record provides the IP address associated with a domain name.
-            else:
-                resolved_ips[answer] = {
-                    "domain": request,
-                    "process_id": dns_call.get("pid"),
-                    "process_name": dns_call.get("image"),
-                    "time": dns_call.get("time"),
-                    "guid": dns_call.get("guid"),
-                    "type": dns_type,
-                }
+            resolved_ips[request] = {"domain": answer}
+        elif dns_type == "PTR" and "ip6.arpa" in request:
+            # Drop it
+            continue
+        # Some Windows nonsense
+        elif answer in dns_servers:
+            continue
+        # An 'A' record provides the IP address associated with a domain name.
+        else:
+            resolved_ips[answer] = {
+                "domain": request,
+                "process_id": dns_call.get("pid"),
+                "process_name": dns_call.get("image"),
+                "time": dns_call.get("time"),
+                "guid": dns_call.get("guid"),
+                "type": dns_type,
+            }
     # now map process_name to the dns_call
     for process, process_details in process_map.items():
         for network_call in process_details["network_calls"]:
@@ -1071,7 +1094,7 @@ def _get_dns_map(
                     (
                         ip
                         for ip, details in resolved_ips.items()
-                        if details["domain"]
+                        if details["domain"] and not ip.isdigit()
                         in [dns.get("hostname"), dns.get("servername")]
                     ),
                     None,
@@ -1145,6 +1168,8 @@ def _get_low_level_flows(
                 "pid": network_call.get("pid"),
             }
             if dst in resolved_ips.keys():
+                if dst.isdigit():
+                    continue
                 network_flow["domain"] = resolved_ips[dst]["domain"]
                 if not network_flow["image"]:
                     network_flow["image"] = resolved_ips[dst].get("process_name")
@@ -1199,6 +1224,8 @@ def _process_http_calls(
                     host == item["domain"] for item in resolved_ips.values()
                 ):
                     for ip, details in resolved_ips.items():
+                        if ip.isdigit():
+                            continue
                         if details["domain"] == host:
                             http_call["dst"] = ip
                             break
