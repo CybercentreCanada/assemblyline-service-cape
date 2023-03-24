@@ -720,9 +720,9 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
         "command_line": 'C:\\Windows\\system32\\sc.exe start w32time task_started',
         "children": []
     },
-    '833315d9ffa1b1188e89ee2eae51a1c3720a4501d7a5ab9fdc9801902a0f6502': {
-        "image": '?sys32\\net.exe|?sys32\\net1.exe',
-        "command_line": 'C:\\Windows\\system32\\net1 start winmgmt',
+    '99adabfe8e0f84fb13a54944584fc85042aa71dd649c79f7bd42977507c28050': {
+        "image": '?sys32\\calc.exe',
+        "command_line": 'C:\\Windows\\SysWOW64\\calc.exe',
         "children": []
     }
 }
