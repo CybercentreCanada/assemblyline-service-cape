@@ -720,9 +720,34 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
         "command_line": 'C:\\Windows\\system32\\sc.exe start w32time task_started',
         "children": []
     },
-    '833315d9ffa1b1188e89ee2eae51a1c3720a4501d7a5ab9fdc9801902a0f6502': {
-        "image": '?sys32\\net.exe|?sys32\\net1.exe',
-        "command_line": 'C:\\Windows\\system32\\net1 start winmgmt',
+    '99adabfe8e0f84fb13a54944584fc85042aa71dd649c79f7bd42977507c28050': {
+        "image": '?sys32\\calc.exe',
+        "command_line": 'C:\\Windows\\SysWOW64\\calc.exe',
         "children": []
-    }
+    },
+    '666cb65f44287de82e3b77628abd670990c78732e42ef209b4baaf6e5fe8bace': {
+        "image": '?pf86\\microsoft\\edge\\application\\msedge.exe',
+        "command_line": 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+        "children": []
+    },
+    '524241b8a3e1a062d8edf4058545fbd5c7300068c9c3cdffd4ea81c008553c99': {
+        "image": '?pf86\\microsoft\\edge\\application\\106.0.1370.47\\identity_helper.exe',
+        "command_line": 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\106.0.1370.47\\identity_helper.exe',
+        "children": []
+    },
+    '7a569f652c1711967a935feedac0a2bf196c3bd5a7e8f75f85f02c65fe48e188': {
+        "image": '?pf86\\microsoft\\edge\\application\\106.0.1370.47\\bho\\ie_to_edge_stub.exe',
+        "command_line": 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\106.0.1370.47\\BHO\\ie_to_edge_stub.exe',
+        "children": []
+    },
+    'c7e4b5c4b3a1ae3fefaf965b87233e02beeb961c43e3844165979c69f199980d': {
+        "image": '?pf86\\microsoft\\edge\\application\\msedge.exe|?pf86\\microsoft\\edge\\application\\msedge.exe',
+        "command_line": '"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --type=crashpad-handler "--user-data-dir=C:\\Users\\buddy\\AppData\\Local\\Microsoft\\Edge\\User Data" /prefetch:7 --monitor-self-annotation=ptype=crashpad-handler "--database=C:\\Users\\buddy\\AppData\\Local\\Microsoft\\Edge\\User Data\\Crashpad" --annotation=IsOfficialBuild=1 --annotation=channel= --annotation=chromium-version=106.0.5249.119 "--annotation=exe=C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" --annotation=plat=Win64 "--annotation=prod=Microsoft Edge" --annotation=ver=106.0.1370.47 --initial-client-data=0xe8,0xec,0xf0,0xb4,0xfc,0x7ffb13406e08,0x7ffb13406e18,0x7ffb13406e28',
+        "children": []
+    },
+    '1b4a01c9672bc7575a1be176490f1e46b52bbfb88c5267a4b6c3d6b5c1ff3a95': {
+        "image": '?pf86\\windowsapps\\microsoft.windows.photos_2022.30070.26007.0_x64__8wekyb3d8bbwe\\microsoft.photos.exe',
+        "command_line": '"C:\\Program Files\\WindowsApps\\Microsoft.Windows.Photos_2022.30070.26007.0_x64__8wekyb3d8bbwe\\Microsoft.Photos.exe" -ServerName:App.AppXzst44mncqdg84v7sv6p7yznqwssy6f7f.mca',
+        "children": []
+    },
 }
