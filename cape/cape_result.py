@@ -1,56 +1,42 @@
 from datetime import datetime
-from ipaddress import ip_address, ip_network, IPv4Network
+from ipaddress import IPv4Network, ip_address, ip_network
 from json import dumps
 from logging import getLogger
-from re import compile as re_compile, findall, match as re_match, search, sub
+from re import compile as re_compile
+from re import findall
+from re import match as re_match
+from re import search, sub
 from typing import Any, Dict, List, Optional, Tuple
 
-from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.isotime import LOCAL_FMT
 from assemblyline.common.net import is_valid_ip
-from assemblyline.odm.base import IPV4_REGEX, FULL_URI
-from assemblyline.odm.models.ontology.results.network import (
-    NetworkConnection as NetworkConnectionModel,
-)
-from assemblyline.odm.models.ontology.results import (
-    Process as ProcessModel,
-    Sandbox as SandboxModel,
+from assemblyline.common.str_utils import safe_str, truncate
+from assemblyline.odm.base import FULL_URI, IPV4_REGEX
+from assemblyline.odm.models.ontology.results import Process as ProcessModel
+from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
+from assemblyline.odm.models.ontology.results import \
     Signature as SignatureModel
-)
-from assemblyline_v4_service.common.result import (
-    ResultSection,
-    ResultKeyValueSection,
-    ResultTextSection,
-    ResultTableSection,
-    TableRow,
-    ResultMultiSection,
-    TextSectionBody,
-    KVSectionBody,
-)
+from assemblyline.odm.models.ontology.results.network import \
+    NetworkConnection as NetworkConnectionModel
+from assemblyline_v4_service.common.dynamic_service_helper import (
+    MAX_TIME, MIN_DOMAIN_CHARS, MIN_TIME, Attribute, NetworkConnection,
+    OntologyResults, Process, Sandbox, Signature, attach_dynamic_ontology,
+    extract_iocs_from_text_blob)
+from assemblyline_v4_service.common.result import (KVSectionBody,
+                                                   ResultKeyValueSection,
+                                                   ResultMultiSection,
+                                                   ResultSection,
+                                                   ResultTableSection,
+                                                   ResultTextSection, TableRow,
+                                                   TextSectionBody)
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
 from assemblyline_v4_service.common.tag_helper import add_tag
-
-from cape.signatures import (
-    get_category_id,
-    CAPE_DROPPED_SIGNATURES,
-    SIGNATURE_TO_ATTRIBUTE_ACTION_MAP,
-)
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-from assemblyline_v4_service.common.dynamic_service_helper import (
-    attach_dynamic_ontology,
-    Attribute,
-    extract_iocs_from_text_blob,
-    OntologyResults,
-    Process,
-    Sandbox,
-    Signature,
-    NetworkConnection,
-    MIN_DOMAIN_CHARS,
-    MIN_TIME,
-    MAX_TIME,
-)
+from cape.signatures import (CAPE_DROPPED_SIGNATURES,
+                             SIGNATURE_TO_ATTRIBUTE_ACTION_MAP,
+                             get_category_id)
 
 al_log.init_logging("service.cape.cape_result")
 log = getLogger("assemblyline.service.cape.cape_result")
@@ -154,10 +140,13 @@ SUPPORTED_EXTENSIONS = [
     "zip",
 ]
 ANALYSIS_ERRORS = "Analysis Errors"
-# Substring of Warning Message frm https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/guest.py#L561
+# Substring of Warning Message from
+# https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/guest.py#L561
 GUEST_LOSING_CONNNECTIVITY = "Virtual Machine /status failed. This can indicate the guest losing network connectivity"
-# Substring of Error Message from https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/scheduler.py#L572
-GUEST_CANNOT_REACH_HOST = "it appears that this Virtual Machine hasn't been configured properly as the CAPE Host wasn't able to connect to the Guest."
+# Substring of Error Message from
+# https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/scheduler.py#L572
+GUEST_CANNOT_REACH_HOST = "it appears that this Virtual Machine hasn't been configured properly " \
+                          "as the CAPE Host wasn't able to connect to the Guest."
 GUEST_LOST_CONNECTIVITY = 5
 SIGNATURES_SECTION_TITLE = "Signatures"
 ENCRYPTED_BUFFER_LIMIT = 25
@@ -175,6 +164,7 @@ MACHINE_NAME_REGEX = (
     f"(?:{'|'.join([LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX])})(.*)"
     f"(?:{'|'.join([x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX])})"
 )
+
 
 # noinspection PyBroadException
 # TODO: break this into smaller methods
@@ -199,7 +189,8 @@ def generate_al_result(
     :param machine_name: The name of the machine that analyzed
     :param machine_info: The details about the machine that analyzed the file
     :param ontres: The Ontology Results class object
-    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
+    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and
+             a list of tuples representing both the PID of
     the initial process and the process name
     """
     global global_safelist
@@ -246,7 +237,10 @@ def generate_al_result(
         # this result section, because the file can still run, it just won't have a processtree or processes sections.
         if not any(item > 0 for item in sample_executed) and machine_info.get("Platform") != "linux":
             noexec_res = ResultTextSection("Sample Did Not Execute")
-            noexec_res.add_line(f"Either no program is available to execute a file with the extension: {safe_str(file_ext)} OR see the '{ANALYSIS_ERRORS}' section for details.")
+            noexec_res.add_line(
+                "Either no program is available to execute a file with the extension: "
+                f"{safe_str(file_ext)} OR see the '{ANALYSIS_ERRORS}' section for details."
+            )
             al_result.add_subsection(noexec_res)
         else:
             # Otherwise, moving on!
@@ -730,7 +724,8 @@ def process_network(
                             and connect["port"] == network_flow["dest_port"]
                             or (
                                 network_flow["domain"]
-                                and network_flow["domain"] in connect.get("url", "") or network_flow["domain"] == connect.get("servername", "")
+                                and network_flow["domain"] in connect.get("url", "")
+                                or network_flow["domain"] == connect.get("servername", "")
                             )
                         ):
                             network_flow["image"] = (
@@ -770,7 +765,11 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT) if not isinstance(network_flow["timestamp"], str) else network_flow["timestamp"],
+                time_observed=datetime.fromtimestamp(
+                    int(network_flow["timestamp"])
+                ).strftime(LOCAL_FMT)
+                if not isinstance(network_flow["timestamp"], str)
+                else network_flow["timestamp"],
             )
             objectid.assign_guid()
             nc = ontres.create_network_connection(
@@ -798,7 +797,11 @@ def process_network(
                     ),
                     pid=network_flow["pid"],
                     image=network_flow.get("image"),
-                    start_time=datetime.fromtimestamp(int(network_flow["timestamp"])).strftime(LOCAL_FMT) if not isinstance(network_flow["timestamp"], str) else network_flow["timestamp"]
+                    start_time=datetime.fromtimestamp(
+                        int(network_flow["timestamp"])
+                    ).strftime(LOCAL_FMT)
+                    if not isinstance(network_flow["timestamp"], str)
+                    else network_flow["timestamp"]
                 )
             ontres.add_network_connection(nc)
 
@@ -1251,13 +1254,9 @@ def _process_http_calls(
             response_body_path = http_call.get("resp", {}).get("path")
 
             if request_body_path:
-                request_body_path = request_body_path[
-                    request_body_path.index("network/") :
-                ]
+                request_body_path = request_body_path[request_body_path.index("network/"):]
             if response_body_path:
-                response_body_path = response_body_path[
-                    response_body_path.index("network/") :
-                ]
+                response_body_path = response_body_path[response_body_path.index("network/"):]
 
             request_headers = _handle_http_headers(request)
             response_headers = _handle_http_headers(http_call.get("response"))
@@ -1668,7 +1667,11 @@ def process_hollowshunter(
         parent_result_section.add_subsection(hollowshunter_res)
 
 
-def process_buffers(process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], parent_result_section: ResultSection) -> None:
+def process_buffers(
+    process_map: Dict[int, Dict[str, Any]],
+    safelist: Dict[str, Dict[str, List[str]]],
+    parent_result_section: ResultSection
+) -> None:
     """
     This method checks for any buffers found in the process map, and adds them to the Assemblyline report
     :param process_map: A map of process IDs to process names, network calls, and buffers
@@ -1713,7 +1716,11 @@ def process_buffers(process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, 
                 if api_call in network_call:
                     buffer = network_call[api_call]["buffer"]
                     buffer = _remove_bytes_from_buffer(buffer)
-                    if is_tag_safelisted(buffer, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+                    if is_tag_safelisted(
+                        buffer,
+                        ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"],
+                        safelist
+                    ):
                         continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist)
@@ -1837,7 +1844,11 @@ def get_process_map(
                                 args_of_interest[arg] = kv["value"]
                                 break
                             elif category in ["network", "crypto"]:
-                                if is_tag_safelisted(kv["value"], ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+                                if is_tag_safelisted(
+                                    kv["value"],
+                                    ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"],
+                                    safelist
+                                ):
                                     continue
                                 args_of_interest[arg] = kv["value"]
                                 break
@@ -1878,7 +1889,8 @@ def _create_signature_result_section(
     :param ontres: The Ontology Results class object
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :return: A ResultMultiSection containing details about the signature, unless the signature is deemed a False Positive
+    :return: A ResultMultiSection containing details about the signature,
+             unless the signature is deemed a False Positive
     """
     sig_res = ResultMultiSection(f"Signature: {name}")
     description = signature.get("description", "No description for signature.")
@@ -1895,11 +1907,15 @@ def _create_signature_result_section(
     attributes: List[Attribute] = list()
     action = SIGNATURE_TO_ATTRIBUTE_ACTION_MAP.get(name)
     fp_mark_count = 0
+    iocs_found_in_data_res_sec: Optional[ResultTableSection] = None
 
     for mark in signature["data"]:
         if mark_count >= 10 and not message_added:
             sig_res.add_section_part(
-                TextSectionBody(body=f"There were {len(signature['data']) - mark_count - call_count} more marks that were not displayed.")
+                TextSectionBody(
+                    body=f"There were {len(signature['data']) - mark_count - call_count} "
+                         "more marks that were not displayed."
+                )
             )
             message_added = True
         mark_body = KVSectionBody()
@@ -1909,12 +1925,25 @@ def _create_signature_result_section(
             call_count += 1
             _handle_mark_call(mark.get("pid"), action, attributes, ontres)
         else:
-            _handle_mark_data(mark.items(), sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+            iocs_found_in_data_res_sec = _handle_mark_data(
+                mark.items(),
+                sig_res,
+                mark_count,
+                mark_body,
+                attributes,
+                process_map,
+                safelist,
+                ontres,
+                iocs_found_in_data_res_sec
+            )
             if mark_body.body:
                 sig_res.add_section_part(mark_body)
                 mark_count += 1
             else:
                 fp_mark_count += 1
+
+    if iocs_found_in_data_res_sec and iocs_found_in_data_res_sec.body:
+        sig_res.add_subsection(iocs_found_in_data_res_sec)
 
     if attributes:
         [ontres_sig.add_attribute(attribute) for attribute in attributes]
@@ -1928,7 +1957,12 @@ def _create_signature_result_section(
         return None
 
 
-def _set_heuristic_signature(name: str, signature: Dict[str, Any], sig_res: ResultMultiSection, translated_score: int) -> None:
+def _set_heuristic_signature(
+    name: str,
+    signature: Dict[str, Any],
+    sig_res: ResultMultiSection,
+    translated_score: int
+) -> None:
     """
     This method sets up the heuristic for each signature
     :param name: The name of the signature
@@ -1997,7 +2031,12 @@ def _is_mark_call(mark_keys: List[str]) -> bool:
     return all(k in ["type", "pid", "cid", "call"] for k in mark_keys)
 
 
-def _handle_mark_call(pid: Optional[int], action: Optional[str], attributes: List[Attribute], ontres: OntologyResults) -> None:
+def _handle_mark_call(
+    pid: Optional[int],
+    action: Optional[str],
+    attributes: List[Attribute],
+    ontres: OntologyResults
+) -> None:
     """
     This method handles a mark that is a "call"
     :param pid: The process ID, if given, of the call
@@ -2009,7 +2048,11 @@ def _handle_mark_call(pid: Optional[int], action: Optional[str], attributes: Lis
     # The way that this would work is that the marks of the signature contain a call followed by a non-call
     source = ontres.get_process_by_pid(pid)
     # If the source is the same as a previous attribute for the same signature, skip
-    if source and all(attribute.action != action and attribute.source.as_primitives() != source.as_primitives() for attribute in attributes):
+    if source and all(
+        attribute.action != action
+        and attribute.source.as_primitives() != source.as_primitives()
+        for attribute in attributes
+    ):
         attribute = ontres.create_attribute(
             source=source.objectid,
             action=action,
@@ -2017,7 +2060,17 @@ def _handle_mark_call(pid: Optional[int], action: Optional[str], attributes: Lis
         attributes.append(attribute)
 
 
-def _handle_mark_data(mark_items: List[Tuple[str, Any]], sig_res: ResultMultiSection, mark_count: int, mark_body: KVSectionBody, attributes: List[Attribute], process_map: Dict[int, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]], ontres: OntologyResults) -> None:
+def _handle_mark_data(
+    mark_items: List[Tuple[str, Any]],
+    sig_res: ResultMultiSection,
+    mark_count: int,
+    mark_body: KVSectionBody,
+    attributes: List[Attribute],
+    process_map: Dict[int, Dict[str, Any]],
+    safelist: Dict[str, Dict[str, List[str]]],
+    ontres: OntologyResults,
+    iocs_found_in_data_res_sec: Optional[ResultTableSection] = None
+) -> None:
     """
     This method handles a mark that is "data"
     :param mark_items: A list of tuples representing the mark
@@ -2028,6 +2081,7 @@ def _handle_mark_data(mark_items: List[Tuple[str, Any]], sig_res: ResultMultiSec
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
+    :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
     :return: None
     """
     for k, v in mark_items:
@@ -2038,7 +2092,11 @@ def _handle_mark_data(mark_items: List[Tuple[str, Any]], sig_res: ResultMultiSec
         if mark_count < 10:
             if isinstance(v, str) and len(v) > 512:
                 v = truncate(v, 512)
-            if isinstance(v, str) and is_tag_safelisted(v, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist):
+            if isinstance(v, str) and is_tag_safelisted(
+                v,
+                ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"],
+                safelist
+            ):
                 continue
 
             mark_body.set_item(k, v)
@@ -2048,13 +2106,18 @@ def _handle_mark_data(mark_items: List[Tuple[str, Any]], sig_res: ResultMultiSec
             v = ','.join([item if isinstance(item, str) else str(item) for item in v])
         elif not isinstance(v, str):
             v = str(v)
-        _tag_mark_values(sig_res, k, v, attributes, process_map, ontres)
+        iocs_found_in_data_res_sec = _tag_mark_values(
+            sig_res, k, v, attributes, process_map, ontres, iocs_found_in_data_res_sec
+        )
+
+    return iocs_found_in_data_res_sec
 
 
 def _tag_mark_values(
     sig_res: ResultMultiSection, key: str, value: str, attributes: List[Attribute],
-    process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults
-) -> None:
+    process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults,
+    iocs_found_in_data_res_sec: Optional[ResultTableSection] = None
+) -> Optional[ResultTableSection]:
     """
     This method tags a given value accordingly by the key
     :param sig_res: The signature result section
@@ -2063,10 +2126,21 @@ def _tag_mark_values(
     :param attributes: A list of Attribute objects from the OntologyResults model
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param ontres: The Ontology Results class object
+    :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
     :return: None
     """
     delimiters = [":", "->", ",", " ", "("]
-    if key.lower() in ["cookie", "process", "binary", "copy", "office_martian", "file", "service", "getasynckeystate", "setwindowshookexw"]:
+    if key.lower() in [
+        "cookie",
+        "process",
+        "binary",
+        "copy",
+        "office_martian",
+        "file",
+        "service",
+        "getasynckeystate",
+        "setwindowshookexw"
+    ]:
         if "process: " in value.lower():
             value = value.lower().replace("process: ", "")
         if any(delimiter in value for delimiter in delimiters):
@@ -2148,10 +2222,11 @@ def _tag_mark_values(
 
     # Hunt for IOCs in the value
     else:
-        signature_iocs = ResultTableSection("IOCs found in Signature data")
-        extract_iocs_from_text_blob(truncate(value, 5000), signature_iocs, is_network_static=True)
-        if signature_iocs.body:
-            sig_res.add_subsection(signature_iocs)
+        if not iocs_found_in_data_res_sec:
+            iocs_found_in_data_res_sec = ResultTableSection("IOCs found in Signature data")
+        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, is_network_static=True)
+        if iocs_found_in_data_res_sec.body:
+            return iocs_found_in_data_res_sec
 
 
 def _process_non_http_traffic_over_http(
@@ -2352,13 +2427,12 @@ def _remove_bytes_from_buffer(buffer: str) -> str:
 
 
 if __name__ == "__main__":
-    from sys import argv
     from json import loads
-    from assemblyline_v4_service.common.base import ServiceBase
+    from sys import argv
 
     # pip install PyYAML
     import yaml
-    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+    from assemblyline_v4_service.common.base import ServiceBase
 
     report_path = argv[1]
     file_ext = argv[2]
