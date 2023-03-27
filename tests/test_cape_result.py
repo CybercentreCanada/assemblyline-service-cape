@@ -1,7 +1,10 @@
 import json
+
 import pytest
-from test_cape_main import create_tmp_manifest, remove_tmp_manifest, check_section_equality
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+from assemblyline_v4_service.common.dynamic_service_helper import \
+    OntologyResults
+from test_cape_main import (check_section_equality, create_tmp_manifest,
+                            remove_tmp_manifest)
 
 
 class TestCapeResult:
@@ -49,9 +52,10 @@ class TestCapeResult:
         ],
     )
     def test_generate_al_result(api_report, mocker):
-        from cape.cape_result import generate_al_result, ANALYSIS_ERRORS
         from ipaddress import ip_network
+
         from assemblyline_v4_service.common.result import ResultSection
+        from cape.cape_result import ANALYSIS_ERRORS, generate_al_result
 
         correct_process_map = {"blah": "blah"}
         mocker.patch("cape.cape_result.process_info")
@@ -125,8 +129,9 @@ class TestCapeResult:
         ],
     )
     def test_process_info(info, correct_body, expected_am):
+        from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                           ResultSection)
         from cape.cape_result import process_info
-        from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
 
         al_result = ResultSection("blah")
         so = OntologyResults(service_name="CAPE")
@@ -155,8 +160,8 @@ class TestCapeResult:
         ],
     )
     def test_process_debug(debug, correct_body):
-        from cape.cape_result import process_debug
         from assemblyline_v4_service.common.result import ResultSection
+        from cape.cape_result import process_debug
 
         al_result = ResultSection("blah")
         process_debug(debug, al_result)
@@ -360,8 +365,9 @@ class TestCapeResult:
         ],
     )
     def test_build_process_tree(events, is_process_martian, correct_body):
+        from assemblyline_v4_service.common.result import (
+            ProcessItem, ResultProcessTreeSection, ResultSection)
         from cape.cape_result import build_process_tree
-        from assemblyline_v4_service.common.result import ResultProcessTreeSection, ResultSection, ProcessItem
 
         default_so = OntologyResults()
         for event in events:
@@ -392,9 +398,11 @@ class TestCapeResult:
 
     @staticmethod
     def test_get_dns_sec():
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cape.cape_result import _get_dns_sec
         from json import dumps
+
+        from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                           ResultSection)
+        from cape.cape_result import _get_dns_sec
 
         resolved_ips = {}
         safelist = []
@@ -711,8 +719,9 @@ class TestCapeResult:
         ],
     )
     def test_get_low_level_flows(resolved_ips, flows, expected_return):
+        from assemblyline_v4_service.common.result import (ResultSection,
+                                                           ResultTableSection)
         from cape.cape_result import _get_low_level_flows
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection
 
         expected_network_flows_table, expected_netflows_sec_body = expected_return
         correct_netflows_sec = ResultTableSection(title_text="TCP/UDP Network Traffic")
@@ -1185,8 +1194,10 @@ class TestCapeResult:
     @staticmethod
     def test_process_non_http_traffic_over_http():
         from json import dumps
+
+        from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                           ResultSection)
         from cape.cape_result import _process_non_http_traffic_over_http
-        from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
 
         test_parent_section = ResultSection("blah")
         network_flows = [
@@ -1207,8 +1218,10 @@ class TestCapeResult:
 
     @staticmethod
     def test_process_all_events():
+        from assemblyline_v4_service.common.result import (ResultSection,
+                                                           ResultTableSection,
+                                                           TableRow)
         from cape.cape_result import process_all_events
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
 
         default_so = OntologyResults()
         al_result = ResultSection("blah")
@@ -1291,8 +1304,9 @@ class TestCapeResult:
         ],
     )
     def test_process_curtain(curtain, process_map):
+        from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                           ResultSection)
         from cape.cape_result import process_curtain
-        from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT
 
         al_result = ResultSection("blah")
 
@@ -1709,8 +1723,10 @@ class TestCapeResult:
 
     @staticmethod
     def test_process_hollowshunter():
+        from assemblyline_v4_service.common.result import (ResultSection,
+                                                           ResultTableSection,
+                                                           TableRow)
         from cape.cape_result import process_hollowshunter
-        from assemblyline_v4_service.common.result import ResultSection, TableRow, ResultTableSection
 
         hollowshunter = {}
         process_map = {123: {"name": "blah"}}
@@ -1770,8 +1786,11 @@ class TestCapeResult:
         ],
     )
     def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
+        from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                           ResultSection,
+                                                           ResultTableSection,
+                                                           TableRow)
         from cape.cape_result import process_buffers
-        from assemblyline_v4_service.common.result import ResultSection, BODY_FORMAT, ResultTableSection, TableRow
 
         safelist = {}
         parent_section = ResultSection("blah")
@@ -2047,8 +2066,10 @@ class TestCapeResult:
 
     @staticmethod
     def test_create_signature_result_section():
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            ObjectID, OntologyResults, Signature)
         from cape.cape_result import _create_signature_result_section
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, OntologyResults, Signature
+
         # Case 1: Bare minimum
         name = "blah"
         signature = {"data": []}
@@ -2057,7 +2078,15 @@ class TestCapeResult:
         ontres = OntologyResults(service_name="blah")
         process_map = {}
         safelist = {}
-        actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
+        actual_res_sec = _create_signature_result_section(
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist
+        )
 
         assert actual_res_sec.title_text == "Signature: blah"
         assert actual_res_sec.body == '[["TEXT", "No description for signature."]]'
@@ -2150,8 +2179,9 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_heuristic_signature():
-        from cape.cape_result import _set_heuristic_signature
         from assemblyline_v4_service.common.result import ResultMultiSection
+        from cape.cape_result import _set_heuristic_signature
+
         # Case 1: Unknown signature with 0 score
         name = "blah"
         signature = {"a": "b"}
@@ -2174,9 +2204,11 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_attack_ids():
-        from cape.cape_result import _set_attack_ids
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            ObjectID, Signature)
         from assemblyline_v4_service.common.result import ResultMultiSection
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
+        from cape.cape_result import _set_attack_ids
+
         # Case 1: No Attack IDs
         attack_ids = {}
         sig_res = ResultMultiSection("blah")
@@ -2200,9 +2232,11 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_families():
-        from cape.cape_result import _set_families
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            ObjectID, Signature)
         from assemblyline_v4_service.common.result import ResultMultiSection
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
+        from cape.cape_result import _set_families
+
         # Case 1: No families
         families = []
         sig_res = ResultMultiSection("blah")
@@ -2233,8 +2267,10 @@ class TestCapeResult:
 
     @staticmethod
     def test_handle_mark_call():
+        from assemblyline_v4_service.common.dynamic_service_helper import \
+            OntologyResults
         from cape.cape_result import _handle_mark_call
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+
         # Case 1: pid is None
         pid = None
         action = "blah"
@@ -2305,9 +2341,14 @@ class TestCapeResult:
     @staticmethod
     def test_handle_mark_data():
         from json import loads
+
+        from assemblyline_v4_service.common.dynamic_service_helper import \
+            OntologyResults
+        from assemblyline_v4_service.common.result import (KVSectionBody,
+                                                           ResultMultiSection,
+                                                           TextSectionBody)
         from cape.cape_result import _handle_mark_data
-        from assemblyline_v4_service.common.result import KVSectionBody, ResultMultiSection, TextSectionBody
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+
         # Case 1: Bare minimum
         mark_items = {}
         sig_res = ResultMultiSection("blah")
@@ -2319,29 +2360,34 @@ class TestCapeResult:
         process_map = {}
         safelist = {}
         ontres = OntologyResults(service_name="blah")
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body is None
+        assert ioc_res is None
 
         # Case 2: Basic mark items
         mark_items = [("a", "b")]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b"}'
+        assert ioc_res is None
 
         # Case 3: not v, k in MARK_KEYS_TO_NOT_DISPLAY, dumps({k: v}) in sig_res.section_body.body
         mark_items = [("a", None), ("data_being_encrypted", "blah"), ("b", "a")]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b"}'
+        assert ioc_res is None
 
         # Case 4: mark_count >= 10
         mark_count = 10
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b"}'
+        assert ioc_res is None
 
         # Case 5: Add multiple mark items
         mark_count = 0
         mark_items = [("c", "d"), ("d", "e")]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
+        assert ioc_res is None
 
         # Case 6: Add mark item of type bytes
         mark_items = [("f", b"blah")]
@@ -2351,23 +2397,27 @@ class TestCapeResult:
         # Case 7: Mark item contains a safelisted value
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         mark_items = [("f", "google.com")]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
+        assert ioc_res is None
 
         # Case 8: Mark item value is a list
         mark_items = [("g", [0, 1, 2])]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2]}'
+        assert ioc_res is None
 
         # Case 8: Mark item value is not a string or a list
         mark_items = [("h", 999)]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2], "h": 999}'
+        assert ioc_res is None
 
         # Case 9: Add mark item (str) with long value
         mark_items = [("f", "blah"*150)]
-        _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
+        ioc_res = _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
         assert loads(mark_body.body)["f"] == "blah"*128 + "..."
+        assert ioc_res is None
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -2436,15 +2486,26 @@ class TestCapeResult:
             ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
             # Standard key for file.rule.yara, value has PID in it
             ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
+            # IOC found in data
+            ("data", "Hey you I want to callout to http://blah.com", {}),
         ]
     )
     def test_tag_mark_values(key, value, expected_tags):
-        from assemblyline_v4_service.common.result import ResultSection
+        from assemblyline_v4_service.common.result import (ResultSection,
+                                                           ResultTableSection,
+                                                           TableRow)
         from cape.cape_result import _tag_mark_values
         ontres = OntologyResults("CAPE")
         actual_res_sec = ResultSection("blah")
-        _tag_mark_values(actual_res_sec, key, value, [], {}, ontres)
+        iocs_res = _tag_mark_values(actual_res_sec, key, value, [], {}, ontres)
         assert actual_res_sec.tags == expected_tags
+        if key == "data":
+            correct_iocs_res = ResultTableSection("IOCs found in Signature data")
+            correct_iocs_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
+            correct_iocs_res.add_row(TableRow({"ioc_type": "uri", "ioc": "http://blah.com"}))
+            correct_iocs_res.add_tag("network.static.domain", "blah.com")
+            correct_iocs_res.add_tag("network.static.uri", "http://blah.com")
+            assert check_section_equality(iocs_res, correct_iocs_res)
 
     @staticmethod
     @pytest.mark.parametrize(
