@@ -77,7 +77,12 @@ class TestCapeResult:
         file_ext = "blah"
         safelist = {}
         machine_info = {}
-        output = generate_al_result(api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, machine_info, so)
+        custom_tree_id_safelist = list()
+
+        output = generate_al_result(
+            api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, machine_info,
+            so, custom_tree_id_safelist
+        )
 
         assert output == ({}, [])
         if api_report == {}:
@@ -375,15 +380,16 @@ class TestCapeResult:
             default_so.add_process(p)
         correct_res_sec = ResultProcessTreeSection(title_text="Spawned Process Tree")
         actual_res_sec = ResultSection("blah")
+        custom_tree_id_safelist = list()
         if correct_body:
             correct_res_sec.add_process(ProcessItem(**correct_body))
             if is_process_martian:
                 correct_res_sec.set_heuristic(19)
                 correct_res_sec.heuristic.add_signature_id("process_martian", score=10)
-            build_process_tree(actual_res_sec, is_process_martian, default_so)
+            build_process_tree(actual_res_sec, is_process_martian, default_so, custom_tree_id_safelist)
             assert actual_res_sec.subsections[0].section_body.__dict__ == correct_res_sec.section_body.__dict__
         else:
-            build_process_tree(actual_res_sec, is_process_martian, default_so)
+            build_process_tree(actual_res_sec, is_process_martian, default_so, custom_tree_id_safelist)
             assert actual_res_sec.subsections == []
 
     # TODO: complete unit tests for process_signatures
@@ -1281,7 +1287,8 @@ class TestCapeResult:
         for item in table_data:
             correct_ioc_table.add_row(TableRow(**item))
         correct_result_section.add_subsection(correct_ioc_table)
-        process_all_events(al_result, default_so)
+        custom_tree_id_safelist = list()
+        process_all_events(al_result, default_so, custom_tree_id_safelist)
         assert check_section_equality(al_result.subsections[0], correct_result_section)
 
     @staticmethod
