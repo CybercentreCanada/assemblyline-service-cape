@@ -1,59 +1,44 @@
+import os
 from email.header import decode_header
 from json import JSONDecodeError, loads
 from math import ceil
-import os
-from pefile import PE, PEFormatError
 from random import choice, random
 from re import compile, match
-import requests
-from retrying import retry, RetryError
-from SetSimilaritySearch import SearchIndex
 from sys import maxsize, setrecursionlimit
 from tempfile import SpooledTemporaryFile
 from threading import Thread
 from time import sleep
-from typing import Optional, Dict, List, Any, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
 
+import requests
+from assemblyline.common.exceptions import RecoverableError
+from assemblyline.common.forge import get_identify
+from assemblyline.common.identify_defaults import (magic_patterns,
+                                                   trusted_mimes,
+                                                   type_to_extension)
+from assemblyline.common.str_utils import safe_str
 from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.dynamic_service_helper import (
-    OntologyResults,
-    attach_dynamic_ontology,
-)
+    OntologyResults, attach_dynamic_ontology)
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import (
-    Result,
-    ResultSection,
-    ResultImageSection,
-    ResultTextSection,
-    ResultKeyValueSection,
-)
+from assemblyline_v4_service.common.result import (Result, ResultImageSection,
+                                                   ResultKeyValueSection,
+                                                   ResultSection,
+                                                   ResultTextSection)
 from assemblyline_v4_service.common.tag_helper import add_tag
-
-from assemblyline.common.str_utils import safe_str
-from assemblyline.common.forge import get_identify
-from assemblyline.common.identify_defaults import (
-    type_to_extension,
-    trusted_mimes,
-    magic_patterns,
-)
-from assemblyline.common.exceptions import RecoverableError
-
-from cape.cape_result import (
-    ANALYSIS_ERRORS,
-    generate_al_result,
-    GUEST_CANNOT_REACH_HOST,
-    LINUX_IMAGE_PREFIX,
-    MACHINE_NAME_REGEX,
-    SIGNATURES_SECTION_TITLE,
-    SUPPORTED_EXTENSIONS,
-    WINDOWS_IMAGE_PREFIX,
-    x64_IMAGE_SUFFIX,
-    x86_IMAGE_SUFFIX
-)
-
+from cape.cape_result import (ANALYSIS_ERRORS, GUEST_CANNOT_REACH_HOST,
+                              LINUX_IMAGE_PREFIX, MACHINE_NAME_REGEX,
+                              SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS,
+                              WINDOWS_IMAGE_PREFIX,
+                              convert_processtree_id_to_tree_id,
+                              generate_al_result, x64_IMAGE_SUFFIX,
+                              x86_IMAGE_SUFFIX)
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+from pefile import PE, PEFormatError
+from retrying import RetryError, retry
+from SetSimilaritySearch import SearchIndex
 
 APIv2_BASE_ENDPOINT = "apiv2"
 
@@ -345,6 +330,16 @@ class CAPE(ServiceBase):
                 return
             relevant_images_keys = list(relevant_images.keys())
 
+        # Set this up since we are about to enter the general flow
+        custom_tree_id_safelist = list(SAFE_PROCESS_TREE_LEAF_HASHES.values())
+        custom_tree_id_safelist.extend(
+            [
+                convert_processtree_id_to_tree_id(item)
+                for item in self.config.get("custom_processtree_id_safelist", list())
+                if item not in custom_tree_id_safelist
+            ]
+        )
+
         # If an image has been requested, and there is more than 1 image to send the file to, then use threads
         if image_requested and len(relevant_images_keys) > 1:
             submission_threads: List[SubmissionThread] = []
@@ -365,6 +360,7 @@ class CAPE(ServiceBase):
                         parent_section,
                         hosts,
                         ontres,
+                        custom_tree_id_safelist,
                     ),
                 )
                 submission_threads.append(thr)
@@ -384,7 +380,7 @@ class CAPE(ServiceBase):
                 for host in self.hosts
                 if host["ip"] in relevant_images[relevant_images_keys[0]]
             ]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
         elif (
             platform_requested
             and len(hosts_with_platform[next(iter(hosts_with_platform))]) > 0
@@ -399,7 +395,7 @@ class CAPE(ServiceBase):
                 for host in self.hosts
                 if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]
             ]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
         else:
             if kwargs.get("machine"):
                 specific_machine = self._safely_get_param("specific_machine")
@@ -418,7 +414,7 @@ class CAPE(ServiceBase):
                 hosts = self.hosts
             self.file_res.add_section(parent_section)
 
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
         # Adding sandbox artifacts using the OntologyResults helper class
         artifact_section = OntologyResults.handle_artifacts(
@@ -440,7 +436,7 @@ class CAPE(ServiceBase):
                 )
 
         self.log.debug("Preprocessing the ontology")
-        ontres.preprocess_ontology(safelist=SAFE_PROCESS_TREE_LEAF_HASHES.keys())
+        ontres.preprocess_ontology(safelist=custom_tree_id_safelist)
         self.log.debug("Attaching the ontological result")
         attach_dynamic_ontology(self, ontres)
 
@@ -451,6 +447,7 @@ class CAPE(ServiceBase):
         parent_section: ResultSection,
         hosts: List[Dict[str, Any]],
         ontres: OntologyResults,
+        custom_tree_id_safelist: List[str],
         reboot: bool = False,
         parent_task_id: int = 0,
         resubmit: bool = False,
@@ -464,6 +461,7 @@ class CAPE(ServiceBase):
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param hosts: The hosts that the file could be sent to
         :param ontres: The ontology results class object
+        :param custom_tree_id_safelist: A list of hashes used for safelisting process tree IDs
         :param reboot: A boolean representing if we want to reboot the sample post initial analysis
         :param parent_task_id: The ID of the parent task which the reboot analysis will be based on
         :param resubmit: A boolean representing if we are about to resubmit a file
@@ -491,7 +489,7 @@ class CAPE(ServiceBase):
             self.submit(self.request.file_contents, cape_task, parent_section, reboot)
 
             if cape_task.id:
-                self._generate_report(file_ext, cape_task, parent_section, ontres)
+                self._generate_report(file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
             else:
                 raise Exception(f"Task ID is None. File failed to be submitted to the CAPE nest at "
                                 f"{host_to_use['ip']}.")
@@ -513,6 +511,7 @@ class CAPE(ServiceBase):
                     parent_section,
                     [host_to_use],
                     ontres,
+                    custom_tree_id_safelist,
                     reboot,
                     cape_task.id,
                 )
@@ -545,6 +544,7 @@ class CAPE(ServiceBase):
                     parent_section,
                     [host_to_use],
                     ontres,
+                    custom_tree_id_safelist,
                     resubmit=True,
                 )
                 break
@@ -1636,13 +1636,15 @@ class CAPE(ServiceBase):
         cape_task: CapeTask,
         parent_section: ResultSection,
         ontres: OntologyResults,
+        custom_tree_id_safelist: List[str],
     ) -> None:
         """
         This method generates the report for the task
         :param file_ext: The file extension of the file to be submitted
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
-        :param so: The sandbox ontology class object
+        :param ontres: The sandbox ontology class object
+        :param custom_tree_id_safelist: A list of hashes used for safelisting process tree IDs
         :return: None
         """
         # Retrieve artifacts from analysis
@@ -1651,7 +1653,7 @@ class CAPE(ServiceBase):
         # Submit CAPE analysis report archive as a supplementary file
         zip_report = self.query_report(cape_task)
         if zip_report is not None:
-            self._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
+            self._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
 
         # Submit dropped files and pcap if available:
         self._extract_console_output(cape_task.id)
@@ -1665,6 +1667,7 @@ class CAPE(ServiceBase):
         cape_task: CapeTask,
         parent_section: ResultSection,
         ontres: OntologyResults,
+        custom_tree_id_safelist: List[str],
     ) -> None:
         """
         This method unpacks the zipfile, which contains the report for the task
@@ -1672,7 +1675,8 @@ class CAPE(ServiceBase):
         :param file_ext: The file extension of the file to be submitted
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
-        :param so: The sandbox ontology class object
+        :param ontres: The sandbox ontology class object
+        :param custom_tree_id_safelist: A list of hashes used for safelisting process tree IDs
         :return: None
         """
         zip_file_name = f"{cape_task.id}_cape_report.zip"
@@ -1692,7 +1696,7 @@ class CAPE(ServiceBase):
             parent_section.add_subsection(no_json_res_sec)
         if report_json_path:
             cape_artifact_pids, main_process_tuples = self._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
         else:
             cape_artifact_pids: List[Dict[str, str]] = list()
@@ -1792,6 +1796,7 @@ class CAPE(ServiceBase):
         cape_task: CapeTask,
         parent_section: ResultSection,
         ontres: OntologyResults,
+        custom_tree_id_safelist: List[str],
     ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
@@ -1799,7 +1804,8 @@ class CAPE(ServiceBase):
         :param file_ext: The file extension of the file to be submitted
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :param parent_section: The overarching result section detailing what image this task is being sent to
-        :param so: The sandbox ontology class object
+        :param ontres: The sandbox ontology class object
+        :param custom_tree_id_safelist: A list of hashes used for safelisting process tree IDs
         :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
         the initial process and the process name
         """
@@ -1846,6 +1852,7 @@ class CAPE(ServiceBase):
                 self.safelist,
                 machine_info,
                 ontres,
+                custom_tree_id_safelist,
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
@@ -1924,7 +1931,7 @@ class CAPE(ServiceBase):
         :param task_id: An integer representing the CAPE Task ID
         :param cape_artifact_pids: A list of dictionaries with details about the payloads and the pids that they were hollowed out of
         :param parent_section: The overarching result section detailing what image this task is being sent to
-        :param so: The sandbox ontology class object
+        :param ontres: The sandbox ontology class object
         :return: None
         """
         image_section = ResultImageSection(
@@ -2546,6 +2553,7 @@ class CAPE(ServiceBase):
             return not any(e in error for e in CONNECTION_ERRORS)
         else:
             return True
+
 
 def generate_random_words(num_words: int) -> str:
     """

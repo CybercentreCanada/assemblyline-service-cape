@@ -128,6 +128,9 @@ time period.
 Note that this is only applicable to samples that would use the `doc` and `js` packages normally.
 * **use_antivm_packages** - [default: False] Start some applications prior to execution.
 
+#### You want to add your own `processtree_id` values on the fly?
+* **custom_processtree_id_safelist** - [default: list()] A list of `processtree_id`s to be safelisted
+
 ### CAPE Submission Options
 
 The options available for submissions to the CAPE service via REST API are not the clearest, but the [submission utility](https://capev2.readthedocs.io/en/latest/usage/submit.html#submission-utility) gives us a glimpse. These are the options you can select per analysis wittout having to go under the hood:
