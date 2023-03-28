@@ -236,7 +236,7 @@ def generate_al_result(
         ]
         # Since CAPE does not have behavioural analysis for Linux files in a production state, we should not raise
         # this result section, because the file can still run, it just won't have a processtree or processes sections.
-        if not any(item > 0 for item in sample_executed) and machine_info.get("Platform") != "linux":
+        if not any(item > 0 for item in sample_executed) and machine_info and machine_info.get("Platform") != "linux":
             noexec_res = ResultTextSection("Sample Did Not Execute")
             noexec_res.add_line(
                 "Either no program is available to execute a file with the extension: "
