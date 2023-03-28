@@ -1579,6 +1579,8 @@ class CAPE(ServiceBase):
                 index = SearchIndex(exports_available, similarity_func_name='jaccard', similarity_threshold=0.1)
                 similarity_scores = []
                 for exp in exports_available:
+                    if not exp:
+                        continue
                     res = index.query(exp)
                     avg_sim = sum(x[1] for x in res)/len(res)
                     similarity_scores.append((avg_sim, exp))
