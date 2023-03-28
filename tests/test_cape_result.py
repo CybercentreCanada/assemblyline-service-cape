@@ -59,6 +59,7 @@ class TestCapeResult:
 
         correct_process_map = {"blah": "blah"}
         mocker.patch("cape.cape_result.process_info")
+        mocker.patch("cape.cape_result.process_machine_info")
         mocker.patch("cape.cape_result.process_debug")
         mocker.patch("cape.cape_result.get_process_map", return_value=correct_process_map)
         mocker.patch("cape.cape_result.process_signatures", return_value=False)
@@ -76,7 +77,7 @@ class TestCapeResult:
         al_result = ResultSection("blah")
         file_ext = "blah"
         safelist = {}
-        machine_info = {}
+        machine_info = {"blah": "blah"}
         custom_tree_id_safelist = list()
 
         output = generate_al_result(
