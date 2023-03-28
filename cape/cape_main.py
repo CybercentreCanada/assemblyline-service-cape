@@ -1833,7 +1833,7 @@ class CAPE(ServiceBase):
             if isinstance(machine, dict):
                 machine_name = machine.get("name")
 
-            machine_info = None
+            machine_info: Dict[str, Any] = {}
             if machine_name is None:
                 self.log.warning("Unable to retrieve machine name from result.")
             else:
