@@ -1,4 +1,5 @@
 from datetime import datetime
+from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
 from json import dumps
 from logging import getLogger
@@ -34,7 +35,6 @@ from assemblyline_v4_service.common.result import (KVSectionBody,
                                                    TextSectionBody)
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
 from assemblyline_v4_service.common.tag_helper import add_tag
-from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 from cape.signatures import (CAPE_DROPPED_SIGNATURES,
                              SIGNATURE_TO_ATTRIBUTE_ACTION_MAP,
                              get_category_id)
@@ -168,7 +168,6 @@ MACHINE_NAME_REGEX = (
 
 
 # noinspection PyBroadException
-# TODO: break this into smaller methods
 def generate_al_result(
     api_report: Dict[str, Any],
     al_result: ResultSection,
@@ -178,6 +177,7 @@ def generate_al_result(
     safelist: Dict[str, Dict[str, List[str]]],
     machine_info: Dict[str, Any],
     ontres: OntologyResults,
+    processtree_id_safelist: List[str],
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -190,9 +190,9 @@ def generate_al_result(
     :param machine_name: The name of the machine that analyzed
     :param machine_info: The details about the machine that analyzed the file
     :param ontres: The Ontology Results class object
-    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and
-             a list of tuples representing both the PID of
-    the initial process and the process name
+    :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
+    :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
+             the initial process and the process name
     """
     global global_safelist
     global_safelist = safelist
@@ -266,9 +266,9 @@ def generate_al_result(
     if sigs:
         is_process_martian = process_signatures(sigs, process_map, al_result, ontres, safelist)
 
-    build_process_tree(al_result, is_process_martian, ontres)
+    build_process_tree(al_result, is_process_martian, ontres, processtree_id_safelist)
 
-    process_all_events(al_result, ontres)
+    process_all_events(al_result, ontres, processtree_id_safelist)
 
     if curtain:
         process_curtain(curtain, al_result, process_map)
@@ -543,18 +543,20 @@ def build_process_tree(
     parent_result_section: ResultSection,
     is_process_martian: bool,
     ontres: OntologyResults,
+    processtree_id_safelist: List[str],
 ) -> None:
     """
     This method builds a process tree ResultSection
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :param is_process_martian: A boolean flag that indicates if the is_process_martian signature was raised
     :param ontres: The Ontology Results class object
+    :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
     :return: None
     """
     if not ontres.get_processes():
         return
     process_tree_section = ontres.get_process_tree_result_section(
-        SAFE_PROCESS_TREE_LEAF_HASHES.keys()
+        processtree_id_safelist
     )
     if is_process_martian:
         sig_name = "process_martian"
@@ -1387,12 +1389,13 @@ def _handle_http_headers(header_string: str) -> Dict[str, str]:
 
 
 def process_all_events(
-    parent_result_section: ResultSection, ontres: OntologyResults
+    parent_result_section: ResultSection, ontres: OntologyResults, processtree_id_safelist: List[str],
 ) -> None:
     """
     This method converts all events to a table that is sorted by timestamp
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :param ontres: The Ontology Results class object
+    :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
     :return: None
     """
     # Each item in the events table will follow the structure below:
@@ -1405,7 +1408,7 @@ def process_all_events(
         return
     events_section = ResultTableSection("Event Log")
     event_ioc_table = ResultTableSection("Event Log IOCs")
-    for event in ontres.get_events(safelist=SAFE_PROCESS_TREE_LEAF_HASHES.keys()):
+    for event in ontres.get_events(safelist=processtree_id_safelist):
         if isinstance(event, NetworkConnection):
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
@@ -2193,6 +2196,16 @@ def _remove_bytes_from_buffer(buffer: str) -> str:
     return ",".join(non_byte_chars)
 
 
+def convert_processtree_id_to_tree_id(processtree_id: str) -> str:
+    possible_sha256 = ""
+    for proc in processtree_id.split("|"):
+        value_to_create_hash_from = (possible_sha256 + proc).encode()
+        tree_id = sha256(value_to_create_hash_from).hexdigest()
+        possible_sha256 = tree_id
+
+    return tree_id
+
+
 if __name__ == "__main__":
     from json import loads
     from sys import argv
@@ -2200,12 +2213,15 @@ if __name__ == "__main__":
     # pip install PyYAML
     import yaml
     from assemblyline_v4_service.common.base import ServiceBase
+    from cape.safe_process_tree_leaf_hashes import \
+        SAFE_PROCESS_TREE_LEAF_HASHES
 
     report_path = argv[1]
     file_ext = argv[2]
     random_ip_range = argv[3]
     routing = argv[4]
     safelist_path = argv[5]
+    custom_processtree_id_safelist = loads(argv[6])
 
     with open(safelist_path, "r") as f:
         safelist = yaml.safe_load(f)
@@ -2226,6 +2242,16 @@ if __name__ == "__main__":
         "IP": "1.1.1.1",
         "Tags": [],
     }
+
+    custom_tree_id_safelist = list(SAFE_PROCESS_TREE_LEAF_HASHES.values())
+    custom_tree_id_safelist.extend(
+        [
+            convert_processtree_id_to_tree_id(item)
+            for item in custom_processtree_id_safelist
+            if item not in custom_tree_id_safelist
+        ]
+    )
+
     generate_al_result(
         api_report,
         al_result,
@@ -2235,10 +2261,11 @@ if __name__ == "__main__":
         safelist,
         machine_info,
         ontres,
+        custom_tree_id_safelist,
     )
 
     service = ServiceBase()
 
-    ontres.preprocess_ontology(SAFE_PROCESS_TREE_LEAF_HASHES.keys())
+    ontres.preprocess_ontology(custom_tree_id_safelist)
     print(dumps(ontres.as_primitives(), indent=4))
     attach_dynamic_ontology(service, ontres)

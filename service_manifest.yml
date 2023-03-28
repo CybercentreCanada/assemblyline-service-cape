@@ -72,6 +72,9 @@ config:
   # Use the "antivm" packages for winword.exe and wscript.exe, which open a few applications prior to execution in the VM
   use_antivm_packages: false
 
+  # This is a list of processtree_id values that will be added to the stock safelist found at safe_process_tree_leaf_hashes.py
+  custom_processtree_id_safelist: []
+
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds

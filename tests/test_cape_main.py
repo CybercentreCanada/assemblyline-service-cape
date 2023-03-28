@@ -1,27 +1,26 @@
-import os
 import json
+import os
 import re
-
-from multiprocessing import Process
-import pytest
 import shutil
-from requests import Session, exceptions, ConnectionError
-import requests_mock
-from retrying import RetryError
+from multiprocessing import Process
 from sys import getrecursionlimit
-from assemblyline_v4_service.common.task import Task
-from assemblyline.odm.messages.task import Task as ServiceTask
+
+import pytest
+import requests_mock
 from assemblyline.common.exceptions import RecoverableError
 from assemblyline.common.identify_defaults import type_to_extension
 from assemblyline.common.str_utils import safe_str
-
+from assemblyline.odm.messages.task import Task as ServiceTask
+from assemblyline_v4_service.common.dynamic_service_helper import \
+    OntologyResults
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import ResultSection, ResultImageSection, BODY_FORMAT
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
-
+from assemblyline_v4_service.common.result import (BODY_FORMAT,
+                                                   ResultImageSection,
+                                                   ResultSection)
+from assemblyline_v4_service.common.task import Task
 from cape.cape_main import *
-
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+from requests import ConnectionError, Session, exceptions
+from retrying import RetryError
 
 # Getting absolute paths, names and regexes
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -599,25 +598,32 @@ class TestCapeMain:
         kwargs = dict()
         file_ext = "blah"
         parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
         # Purely for code coverage
         with pytest.raises(Exception):
-            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
         # Reboot coverage
         cape_class_instance.config["reboot_supported"] = True
-        cape_class_instance._general_flow(kwargs, file_ext, parent_section, [
-                                            {"auth_header": "blah", "ip": "blah", "port": "blah"}], True, 1, ontres)
+        cape_class_instance._general_flow(
+            kwargs, file_ext, parent_section, [{"auth_header": "blah", "ip": "blah", "port": "blah"}],
+            ontres, custom_tree_id_safelist, True, 1,
+        )
 
         with mocker.patch.object(CAPE, "submit", side_effect=Exception("blah")):
             with pytest.raises(Exception):
-                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+                cape_class_instance._general_flow(
+                    kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist
+                )
 
         with mocker.patch.object(CAPE, "submit", side_effect=RecoverableError("blah")):
             with pytest.raises(RecoverableError):
-                cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+                cape_class_instance._general_flow(
+                    kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist
+                )
 
         with mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=True):
-            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres)
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -1583,8 +1589,9 @@ class TestCapeMain:
         cape_task = CapeTask("blah", host_to_use)
         file_ext = "blah"
         parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
 
-        cape_class_instance._generate_report(file_ext, cape_task, parent_section, ontres)
+        cape_class_instance._generate_report(file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
         # Get that coverage!
         assert True
 
@@ -1596,6 +1603,7 @@ class TestCapeMain:
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
         cape_task = CapeTask("blah", host_to_use)
         parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
 
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
@@ -1604,17 +1612,23 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_extract_artifacts")
         mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
 
-        cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
+        cape_class_instance._unpack_zip(
+            zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+        )
         assert True
 
         with mocker.patch.object(CAPE, "_add_json_as_supplementary_file", side_effect=MissingCapeReportException):
-            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
+            cape_class_instance._unpack_zip(
+                zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
             assert True
 
         # Exception test for _extract_console_output or _extract_hollowshunter or _extract_artifacts
         with mocker.patch.object(CAPE, "_extract_console_output", side_effect=Exception):
             mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-            cape_class_instance._unpack_zip(zip_report, file_ext, cape_task, parent_section, ontres)
+            cape_class_instance._unpack_zip(
+                zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
             assert True
 
     @staticmethod
@@ -1705,7 +1719,11 @@ class TestCapeMain:
         cape_class_instance.query_report_url = "%s"
 
         parent_section = ResultSection("blah")
-        results = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+        custom_tree_id_safelist = list()
+
+        results = cape_class_instance._build_report(
+            report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+        )
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
@@ -1714,24 +1732,34 @@ class TestCapeMain:
         # Exception tests for generate_al_result
         mocker.patch("cape.cape_main.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
 
         mocker.patch("cape.cape_main.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
 
         # Exception tests for json.loads
         mocker.patch("cape.cape_main.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
         with pytest.raises(JSONDecodeError):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
 
         mocker.patch("cape.cape_main.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
-            _ = cape_class_instance._build_report(report_json_path, file_ext, cape_task, parent_section, ontres)
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
 
     @staticmethod
     def test_extract_console_output(cape_class_instance, dummy_request_class, mocker):
