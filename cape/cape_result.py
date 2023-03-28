@@ -775,15 +775,25 @@ def process_network(
                 else network_flow["timestamp"],
             )
             objectid.assign_guid()
-            nc = ontres.create_network_connection(
-                objectid=objectid,
-                source_ip=network_flow["src_ip"],
-                source_port=network_flow["src_port"],
-                destination_ip=network_flow["dest_ip"],
-                destination_port=network_flow["dest_port"],
-                transport_layer_protocol=network_flow["protocol"],
-                direction=NetworkConnection.OUTBOUND,
-            )
+            try:
+                nc = ontres.create_network_connection(
+                    objectid=objectid,
+                    source_ip=network_flow["src_ip"],
+                    source_port=network_flow["src_port"],
+                    destination_ip=network_flow["dest_ip"],
+                    destination_port=network_flow["dest_port"],
+                    transport_layer_protocol=network_flow["protocol"],
+                    direction=NetworkConnection.OUTBOUND,
+                )
+            except ValueError as e:
+                log.warning(
+                    f"{e}. The required values passed were:\n"
+                    f"objectid={objectid}\n"
+                    f"destination_ip={network_flow['dest_ip']}\n"
+                    f"destination_port={network_flow['dest_port']}\n"
+                    f"transport_layer_protocol={network_flow['protocol']}"
+                )
+                continue
             p_oid = ProcessModel.get_oid(
                 {
                     "pid": network_flow["pid"],
