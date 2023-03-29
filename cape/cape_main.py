@@ -1628,7 +1628,7 @@ class CAPE(ServiceBase):
         dll_parsed = None
         try:
             dll_parsed = PE(data=self.request.file_contents)
-        except PEFormatError as e:
+        except (PEFormatError, AttributeError) as e:
             self.log.warning(f"Could not parse PE file due to {safe_str(e)}")
         return dll_parsed
 
