@@ -14,7 +14,7 @@ from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.isotime import LOCAL_FMT
 from assemblyline.common.net import is_valid_ip
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, IPV4_REGEX
+from assemblyline.odm.base import FULL_URI
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import \
@@ -85,6 +85,7 @@ HTTP_API_CALLS = [
     "InternetConnectW",
     "InternetConnectA",
     "URLDownloadToFileW",
+    "InternetCrackUrlA",
     "InternetCrackUrlW",
     "InternetOpenUrlA",
     "WinHttpConnect",
@@ -1363,12 +1364,18 @@ def _process_http_calls(
                         if (
                             send != {}
                             and (
-                                send.get("service", 0) == 3
-                                or send.get("buffer", "") == request
+                                (
+                                    send.get("service", 0) == 3
+                                    or send.get("buffer", "") == request
+                                )
+                                or _uris_are_equal_despite_discrepancies(send.get("url"), uri)
                             )
-                            or send.get("url", "") == uri
                         ):
-                            nc.update_process(image=process_details["name"], pid=process)
+                            if not nc.process:
+                                p = ontres.get_process_by_pid(process)
+                                nc.set_process(p)
+                            else:
+                                nc.update_process(image=process_details["name"], pid=process)
                             match = True
                             break
                     if match:
@@ -1376,6 +1383,33 @@ def _process_http_calls(
 
             if nh_to_add:
                 ontres.add_network_http(nh)
+
+
+def _uris_are_equal_despite_discrepancies(api_uri: Optional[str], pcap_uri: str) -> bool:
+    """
+    Sometimes there are discrepancies between the URIs associated with an HTTP request between PCAP parsing and API call parsing
+    Ex. http://<domain>:443 and https://<domain>:443/
+    :param api_uri: The URI parsed from an API call
+    :param pcap_uri: The URI parsed from PCAP traffic
+    :return: A boolean indicating whether the two URIs are equal*
+    """
+    if api_uri and pcap_uri:
+        # Okay so far so good
+        if api_uri.startswith("https://") and pcap_uri.startswith("http://"):
+            # Getting warmer...
+            api_domain_and_path = api_uri.split("://", 1)[1]
+            pcap_domain_and_path = pcap_uri.split("://", 1)[1]
+
+            if api_domain_and_path == pcap_domain_and_path:
+                # Jackpot!
+                return True
+
+            # If no jackpot yet, here is another discrepancy
+            elif api_domain_and_path.endswith("/") and not pcap_domain_and_path.endswith("/") and api_domain_and_path.rstrip("/") == pcap_domain_and_path.rstrip("/"):
+                # Bingo bongo!
+                return True
+
+    return False
 
 
 def _handle_http_headers(header_string: str) -> Dict[str, str]:
@@ -1669,7 +1703,7 @@ def get_process_map(
     """
     process_map: Dict[int, Dict[str, Any]] = {}
     api_calls_of_interest = {
-        "getaddrinfo": ["hostname"],  # DNS
+        "getaddrinfo": ["hostname", "nodename"],  # DNS
         "GetAddrInfoW": ["hostname", "nodename"],  # DNS
         "gethostbyname": ["hostname"],  # DNS
         "connect": ["ip_address", "port"],  # Connecting to IP
@@ -1682,7 +1716,15 @@ def get_process_map(
             "servername",
             "serverport",
         ],
-        "InternetConnectA": ["username", "service", "password", "hostname", "port"],
+        "InternetConnectA": [
+            "username",
+            "service",
+            "password",
+            "hostname",
+            "port",
+            "servername",
+            "serverport",
+        ],
         # DNS and Connecting to IP, if service = 3 then HTTP
         "send": ["buffer"],  # HTTP Request
         "WSASend": ["buffer"],  # Socket connection
@@ -1699,6 +1741,7 @@ def get_process_map(
             "string"
         ],  # Used for certain malware files that use configuration files
         "URLDownloadToFileW": ["url"],
+        "InternetCrackUrlA": ["url"],
         "InternetCrackUrlW": ["url"],
         "InternetOpenUrlA": ["url"],
         "WinHttpGetProxyForUrl": ["url"],
