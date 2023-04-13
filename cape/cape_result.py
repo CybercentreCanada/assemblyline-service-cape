@@ -1215,14 +1215,12 @@ def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[
     :param dns_servers: A list of DNS servers
     :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
     :param http_call: The parsed HTTP call data
-    :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
+    :return: A tuple of the URI reached out to, and the potentially modified parsed HTTP call data
     """
     path = http_call["uri"]
     if host in path:
         path = path.split(host)[1]
 
-    request = http_call["request"]
-    port = http_call["dport"]
     uri = f"{http_call['protocol']}://{host}{path}"
 
     # The dst could be the nest IP, so we want to replace this
@@ -1236,7 +1234,7 @@ def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[
                 http_call["dst"] = ip
                 break
 
-    return request, port, uri, http_call
+    return uri, http_call
 
 
 def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, int, str, Dict[str, Any]]:
@@ -1251,7 +1249,9 @@ def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: 
     """
     # <protocol>_ex data is weird and requires special parsing
     if "ex" in protocol:
-        request, port, uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
+        uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
+        request = http_call["request"]
+        port = http_call["dport"]
     else:
         request = http_call["data"]
         port = http_call["port"]
@@ -1294,14 +1294,14 @@ def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optio
     return request_body_path, response_body_path
 
 
-def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults) -> str:
+def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults) -> Optional[str]:
     """
     This method returns the destination IP used for the HTTP call
     :param http_call: The parsed HTTP call data
     :param dns_servers: A list of DNS servers
     :param host: The actual host
     :param ontres: The Ontology Results class object
-    :return: The destination IP reached out to
+    :return: The destination IP reached out to, if it exists
     """
     if http_call.get("dst") and http_call["dst"] not in dns_servers:
         destination_ip = http_call["dst"]
@@ -1310,7 +1310,7 @@ def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host:
     return destination_ip
 
 
-def _create_network_http(uri: str, http_call: Dict[str, Any], request_headers: Dict[str, str], response_headers: Dict[str, str], request_body_path: str, response_body_path: str, ontres: OntologyResults) -> NetworkHTTP:
+def _create_network_http(uri: str, http_call: Dict[str, Any], request_headers: Dict[str, str], response_headers: Dict[str, str], request_body_path: Optional[str], response_body_path: Optional[str], ontres: OntologyResults) -> NetworkHTTP:
     """
     This method is basically a wrapper for the OntologyResults create_network_http method
     :param uri: URI reached out to

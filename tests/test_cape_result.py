@@ -764,6 +764,128 @@ class TestCapeResult:
         assert check_section_equality(netflows_sec, correct_netflows_sec)
 
     @staticmethod
+    def test_massage_host_data():
+        from cape.cape_result import _massage_host_data
+        assert _massage_host_data("blah.blah") == "blah.blah"
+        assert _massage_host_data("blah.blah:80") == "blah.blah"
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call",
+        [
+            # normal host, no dns servers, no resolved_ips, normal http_call
+            ("blah.com", [], {}, {"uri": "/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "/blah", "protocol": "http", "dst": "127.0.0.1"}),
+            # host in path/uri, no dns servers, no resolved_ips, normal http_call
+            ("blah.com", [], {}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}),
+            # http_call[dst] is in dns_servers, but no resolved_ips, normal http_call
+            ("blah.com", ["127.0.0.1"], {}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}),
+            # http_call[dst] is in dns_servers, with resolved_ips, normal http_call
+            ("blah.com", ["127.0.0.1"], {"1.1.1.1": {"domain": "blah.com"}, "1": {"domain": "blah"}}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"}),
+        ]
+    )
+    def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
+        from cape.cape_result import _massage_http_ex_data
+        assert _massage_http_ex_data(host, dns_servers, resolved_ips, http_call) == (expected_uri, expected_http_call)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call",
+        [
+            # non-ex protocol
+            # normal host, no dns servers, no resolved_ips, normal http_call
+            ("http", "blah.com", [], {}, {"data": "GET blah.com", "uri": "http://blah.com/blah", "port": 123}, "GET blah.com", 123, "http://blah.com/blah", {"data": "GET blah.com", "uri": "http://blah.com/blah", "port": 123}),
+            # ex protocol
+            # normal host, no dns servers, no resolved_ips, normal http_call
+            ("http_ex", "blah.com", [], {}, {"request": "GET blah.com", "dport": 123, "uri": "/blah", "protocol": "http", "dst": "127.0.0.1"}, "GET blah.com", 123, "http://blah.com/blah", {"request": "GET blah.com", "dport": 123, "uri": "/blah", "protocol": "http", "dst": "127.0.0.1"}),
+        ]
+    )
+    def test_get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call):
+        from cape.cape_result import _get_important_fields_from_http_call
+        assert _get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call) == (expected_request, expected_port, expected_uri, expected_http_call)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "host, safelist, uri, is_http_call_safelisted",
+        [
+            # Not safelisted
+            ("blah.com", {}, "http://blah.com/blah", False),
+            # Host is safelisted domain
+            ("blah.com", {"match": {"network.dynamic.domain": ["blah.com"]}}, "http://blah.com/blah", True),
+            # URI is safelisted URI
+            ("blah.com", {"match": {"network.dynamic.uri": ["http://blah.com/blah"]}}, "http://blah.com/blah", True),
+            # /wpad.dat is in URI
+            ("blah.com", {}, "http://blah.com/wpad.dat", True),
+            # URI is not a URI
+            ("blah.com", {}, "yabadabadoo", True),
+        ]
+    )
+    def test_is_http_call_safelisted(host, safelist, uri, is_http_call_safelisted):
+        from cape.cape_result import _is_http_call_safelisted
+        assert _is_http_call_safelisted(host, safelist, uri) == is_http_call_safelisted
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "http_call, expected_request_body_path, expected_response_body_path",
+        [
+            # No body paths
+            ({}, None, None),
+            # Body paths with network/ (note that this always exists if a path exists)
+            ({"req": {"path": "blah/network/blahblah"}, "resp": {"path": "blah/network/blahblah"}}, "network/blahblah", "network/blahblah"),
+        ]
+    )
+    def test_massage_body_paths(http_call, expected_request_body_path, expected_response_body_path):
+        from cape.cape_result import _massage_body_paths
+        assert _massage_body_paths(http_call) == (expected_request_body_path, expected_response_body_path)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "http_call, dns_servers, host, expected_destination_ip",
+        [
+            # http_call has no dst and NetworkDNS object does not exist in ontres, no dns_servers
+            ({}, [], "blah.com", None),
+            # http_call has dst and dst in dns_servers and NetworkDNS object does not exist in ontres
+            ({"dst": "127.0.0.1"}, ["127.0.0.1"], "blah.com", None),
+            # http_call has dst and dst not in dns_servers and NetworkDNS object does not exist in ontres
+            ({"dst": "127.0.0.1"}, [], "blah.com", "127.0.0.1"),
+            # http_call has no dst and NetworkDNS object does exists in ontres
+            ({}, [], "blah.ca", "1.1.1.1"),
+        ]
+    )
+    def test_get_destination_ip(http_call, dns_servers, host, expected_destination_ip):
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkDNS, OntologyResults)
+        from cape.cape_result import _get_destination_ip
+        ontres = OntologyResults(service_name="blah")
+        dns = NetworkDNS("blah.ca", ["1.1.1.1"], "A")
+        ontres.add_network_dns(dns)
+
+        assert _get_destination_ip(http_call, dns_servers, host, ontres) == expected_destination_ip
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "uri, http_call, request_headers, response_headers, request_body_path, response_body_path, expected_nh",
+        [
+            # No body paths
+            ("http://blah.com/blah", {"method": "GET"}, {}, {}, None, None, {
+                'request_body': None,
+                'request_headers': {},
+                'request_method': 'GET',
+                'request_uri': 'http://blah.com/blah',
+                'response_body': None,
+                'response_headers': {},
+                'response_status_code': None
+            }),
+        ]
+    )
+    def test_create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, expected_nh):
+        from assemblyline_v4_service.common.dynamic_service_helper import \
+            OntologyResults
+        from cape.cape_result import _create_network_http
+        ontres = OntologyResults(service_name="blah")
+        assert _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres).as_primitives() == expected_nh
+
+
+    @staticmethod
     @pytest.mark.parametrize(
         "process_map, http_level_flows, expected_req_table",
         [
