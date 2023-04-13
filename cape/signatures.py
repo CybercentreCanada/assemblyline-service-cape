@@ -384,7 +384,7 @@ CAPE_SIGNATURES = {
     "network_http": "Network",
     "network_http_post": "Network",
     "network_icmp": "Network",
-    "network_ip_exe": "Network",
+    "network_ip_exe": "Downloader",
     "network_irc": "Network",
     "network_multiple_direct_ip_connections": "Network",
     "network_open_proxy": "Network",
