@@ -23,8 +23,8 @@ from assemblyline.odm.models.ontology.results.network import \
     NetworkConnection as NetworkConnectionModel
 from assemblyline_v4_service.common.dynamic_service_helper import (
     MAX_TIME, MIN_DOMAIN_CHARS, MIN_TIME, Attribute, NetworkConnection,
-    OntologyResults, Process, Sandbox, Signature, attach_dynamic_ontology,
-    convert_sysmon_network, convert_sysmon_processes,
+    NetworkHTTP, OntologyResults, Process, Sandbox, Signature,
+    attach_dynamic_ontology, convert_sysmon_network, convert_sysmon_processes,
     extract_iocs_from_text_blob)
 from assemblyline_v4_service.common.result import (KVSectionBody,
                                                    ResultKeyValueSection,
@@ -1197,6 +1197,97 @@ def _get_low_level_flows(
     return network_flows_table, netflows_sec
 
 
+def _massage_host_data(host: str) -> str:
+    if ":" in host:  # split on port if port exists
+        host = host.split(":")[0]
+    return host
+
+
+def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, str, str, Dict[str, Any]]:
+    path = http_call["uri"]
+    if host in path:
+        path = path.split(host)[1]
+
+    request = http_call["request"]
+    port = http_call["dport"]
+    uri = f"{http_call['protocol']}://{host}{path}"
+
+    # The dst could be the nest IP, so we want to replace this
+    if http_call["dst"] in dns_servers and any(
+        host == item["domain"] for item in resolved_ips.values()
+    ):
+        for ip, details in resolved_ips.items():
+            if ip.isdigit():
+                continue
+            if details["domain"] == host:
+                http_call["dst"] = ip
+                break
+
+    return request, port, uri, http_call
+
+
+def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, int, str, Dict[str, Any]]:
+        # <protocol>_ex data is weird and requires special parsing
+        if "ex" in protocol:
+            request, port, uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
+        else:
+            request = http_call["data"]
+            port = http_call["port"]
+            uri = http_call["uri"]
+        return request, port, uri, http_call
+
+
+def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]], uri: str) -> bool:
+    return (
+        is_tag_safelisted(
+            host, ["network.dynamic.ip", "network.dynamic.domain"], safelist
+        )
+        or is_tag_safelisted(uri, ["network.dynamic.uri"], safelist)
+        or "/wpad.dat" in uri
+        or not re_match(FULL_URI, uri)
+    )
+
+
+def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    request_body_path = http_call.get("req", {}).get("path")
+    response_body_path = http_call.get("resp", {}).get("path")
+
+    if request_body_path:
+        request_body_path = request_body_path[request_body_path.index("network/"):]
+    if response_body_path:
+        response_body_path = response_body_path[response_body_path.index("network/"):]
+
+    return request_body_path, response_body_path
+
+
+def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults) -> str:
+    if http_call.get("dst") and http_call["dst"] not in dns_servers:
+        destination_ip = http_call["dst"]
+    else:
+        destination_ip = ontres.get_destination_ip_by_domain(host)
+    return destination_ip
+
+
+def _create_network_http(uri: str, http_call: Dict[str, Any], request_headers: Dict[str, str], response_headers: Dict[str, str], request_body_path: str, response_body_path: str, ontres: OntologyResults) -> NetworkHTTP:
+    return ontres.create_network_http(
+        request_uri=uri,
+        response_status_code=http_call.get("status"),
+        request_method=http_call["method"],
+        request_headers=request_headers,
+        response_headers=response_headers,
+        request_body_path=request_body_path,
+        response_body_path=response_body_path,
+    )
+
+
+def _get_network_connection_by_details(destination_ip: str, destination_port: int, ontres: OntologyResults) -> NetworkConnection:
+    return ontres.get_network_connection_by_details(
+        destination_ip=destination_ip,
+        destination_port=destination_port,
+        direction=NetworkConnection.OUTBOUND,
+        transport_layer_protocol=NetworkConnection.TCP,
+    )
+
 def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
     process_map: Dict[int, Dict[str, Any]],
@@ -1216,104 +1307,65 @@ def _process_http_calls(
     :return: None
     """
     session = ontres.sandboxes[-1].objectid.session
+    # Http level flows consist of http, http_ex, https and https_ex
     for protocol, http_calls in http_level_flows.items():
-        if len(http_calls) <= 0:
-            continue
+        # Let's go
         for http_call in http_calls:
 
-            host = http_call["host"]
-            if ":" in host:  # split on port if port exists
-                host = host.split(":")[0]
+            # First thing's first, is there a host?
+            host = _massage_host_data(http_call["host"])
             if not host:
                 continue
+
+            # Assign a previosuly non-existent dst field if the host is an IP
             if is_valid_ip(host) and "dst" not in http_call:
                 http_call["dst"] = host
 
-            if "ex" in protocol:
-                path = http_call["uri"]
-                if host in path:
-                    path = path.split(host)[1]
-                request = http_call["request"]
-                port = http_call["dport"]
-                uri = f"{http_call['protocol']}://{host}{path}"
+            # request, port and uri are the main fields that we want to have as separate variables
+            request, port, uri, http_call = _get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call)
 
-                # The dst could be the nest IP, so we want to replace this
-                if http_call["dst"] in dns_servers and any(
-                    host == item["domain"] for item in resolved_ips.values()
-                ):
-                    for ip, details in resolved_ips.items():
-                        if ip.isdigit():
-                            continue
-                        if details["domain"] == host:
-                            http_call["dst"] = ip
-                            break
-
-            else:
-                path = http_call["path"]
-                request = http_call["data"]
-                port = http_call["port"]
-                uri = http_call["uri"]
-
-            if (
-                is_tag_safelisted(
-                    host, ["network.dynamic.ip", "network.dynamic.domain"], safelist
-                )
-                or is_tag_safelisted(uri, ["network.dynamic.uri"], safelist)
-                or "/wpad.dat" in uri
-                or not re_match(FULL_URI, uri)
-            ):
+            # Now that we've massaged the data, let's confirm that this uri is not safelisted
+            # We don't mess with safe uris
+            if _is_http_call_safelisted(host, safelist, uri):
                 continue
 
-            request_body_path = http_call.get("req", {}).get("path")
-            response_body_path = http_call.get("resp", {}).get("path")
-
-            if request_body_path:
-                request_body_path = request_body_path[request_body_path.index("network/"):]
-            if response_body_path:
-                response_body_path = response_body_path[response_body_path.index("network/"):]
-
+            request_body_path, response_body_path = _massage_body_paths(http_call)
             request_headers = _handle_http_headers(request)
             response_headers = _handle_http_headers(http_call.get("response"))
 
+            # This flag will be used to determine if we should add the NetworkHTTP
+            # object to the OntologyResults
             nh_to_add = False
+
+            # Check if a NetworkHTTP object exists in the OntologyResults yet
             nh = ontres.get_network_http_by_details(
                 request_uri=uri,
                 request_method=http_call["method"],
                 request_headers=request_headers,
             )
-            # so no NetworkHTTP exists?
+
             if not nh:
-                source_ip = http_call.get("src")
-                source_port = http_call.get("sport")
-                if http_call.get("dst") and http_call["dst"] not in dns_servers:
-                    destination_ip = http_call["dst"]
-                else:
-                    destination_ip = ontres.get_destination_ip_by_domain(host)
+                # When creating a new NetworkHTTP object, we are destination_ip or bust!
+                destination_ip = _get_destination_ip(http_call, dns_servers, host, ontres)
                 if not destination_ip:
                     continue
+
+                # We can now create a NetworkHTTP object
+                nh = _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres)
+
                 destination_port = port
+                nc = _get_network_connection_by_details(destination_ip, destination_port, ontres)
 
-                nh = ontres.create_network_http(
-                    request_uri=uri,
-                    response_status_code=http_call.get("status"),
-                    request_method=http_call["method"],
-                    request_headers=request_headers,
-                    response_headers=response_headers,
-                    request_body_path=request_body_path,
-                    response_body_path=response_body_path,
-                )
-
-                nc = ontres.get_network_connection_by_details(
-                    destination_ip=destination_ip,
-                    destination_port=destination_port,
-                    direction=NetworkConnection.OUTBOUND,
-                    transport_layer_protocol=NetworkConnection.TCP,
-                )
-                # Ah, but a NetworkConnection already exists?
+                # Check if a NetworkConnection object exists
+                # A NetworkConnection already exists?!
                 if nc:
+                    # Update!
                     nc.update(http_details=nh, connection_type=NetworkConnection.HTTP)
                 # A NetworkConnection does not??
                 else:
+                    # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
+                    source_ip = http_call.get("src")
+                    source_port = http_call.get("sport")
                     nc_oid = NetworkConnectionModel.get_oid(
                         {
                             "source_ip": source_ip,
