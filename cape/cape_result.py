@@ -1198,12 +1198,25 @@ def _get_low_level_flows(
 
 
 def _massage_host_data(host: str) -> str:
+    """
+    This method tries to get the actual host out of the parsed "host" value
+    :param host: The parsed "host" value
+    :return: The actual host
+    """
     if ":" in host:  # split on port if port exists
         host = host.split(":")[0]
     return host
 
 
 def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, str, str, Dict[str, Any]]:
+    """
+    This method extracts key details from the parsed <http(s)>_ex protocol data
+    :param host: The actual host
+    :param dns_servers: A list of DNS servers
+    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param http_call: The parsed HTTP call data
+    :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
+    """
     path = http_call["uri"]
     if host in path:
         path = path.split(host)[1]
@@ -1227,17 +1240,33 @@ def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[
 
 
 def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, int, str, Dict[str, Any]]:
-        # <protocol>_ex data is weird and requires special parsing
-        if "ex" in protocol:
-            request, port, uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
-        else:
-            request = http_call["data"]
-            port = http_call["port"]
-            uri = http_call["uri"]
-        return request, port, uri, http_call
+    """
+    This method extracts key details from the parsed <http(s)(_ex)> protocol data
+    :param
+    :param host: The actual host
+    :param dns_servers: A list of DNS servers
+    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param http_call: The parsed HTTP call data
+    :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
+    """
+    # <protocol>_ex data is weird and requires special parsing
+    if "ex" in protocol:
+        request, port, uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
+    else:
+        request = http_call["data"]
+        port = http_call["port"]
+        uri = http_call["uri"]
+    return request, port, uri, http_call
 
 
 def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]], uri: str) -> bool:
+    """
+    This method checks to see if the host or uri is safelisted
+    :param host: The actual host
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :param uri: URI reached out to
+    :return: A boolean representing if the parsed HTTP call data contains safelisted values
+    """
     return (
         is_tag_safelisted(
             host, ["network.dynamic.ip", "network.dynamic.domain"], safelist
@@ -1249,6 +1278,11 @@ def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]
 
 
 def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    This method tries to get the body paths for the request and response objects out of the parsed "path" values
+    :param http_call: The parsed HTTP call data
+    :return: A tuple containing the path to the request/reponse body dumps
+    """
     request_body_path = http_call.get("req", {}).get("path")
     response_body_path = http_call.get("resp", {}).get("path")
 
@@ -1261,6 +1295,14 @@ def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optio
 
 
 def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults) -> str:
+    """
+    This method returns the destination IP used for the HTTP call
+    :param http_call: The parsed HTTP call data
+    :param dns_servers: A list of DNS servers
+    :param host: The actual host
+    :param ontres: The Ontology Results class object
+    :return: The destination IP reached out to
+    """
     if http_call.get("dst") and http_call["dst"] not in dns_servers:
         destination_ip = http_call["dst"]
     else:
@@ -1269,6 +1311,17 @@ def _get_destination_ip(http_call: Dict[str, Any], dns_servers: List[str], host:
 
 
 def _create_network_http(uri: str, http_call: Dict[str, Any], request_headers: Dict[str, str], response_headers: Dict[str, str], request_body_path: str, response_body_path: str, ontres: OntologyResults) -> NetworkHTTP:
+    """
+    This method is basically a wrapper for the OntologyResults create_network_http method
+    :param uri: URI reached out to
+    :param http_call: The parsed HTTP call data
+    :param request_headers: A dictionary that represents the HTTP request headers
+    :param response_headers: A dictionary that represents the HTTP response headers
+    :param request_body_path: The path to the request body dump
+    :param response_body_path:The path to the response body dump
+    :param ontres: The Ontology Results class object
+    :return: The NetworkHTTP object
+    """
     return ontres.create_network_http(
         request_uri=uri,
         response_status_code=http_call.get("status"),
@@ -1281,12 +1334,143 @@ def _create_network_http(uri: str, http_call: Dict[str, Any], request_headers: D
 
 
 def _get_network_connection_by_details(destination_ip: str, destination_port: int, ontres: OntologyResults) -> NetworkConnection:
+    """
+    This method is basically a wrapper for the OntologyResults get_network_connection_by_details method
+    :param destination_ip: The destination IP reached out to
+    :param destination_port: The destination port accessed
+    :param ontres: The Ontology Results class object
+    :return: The NetworkConnection object
+    """
     return ontres.get_network_connection_by_details(
         destination_ip=destination_ip,
         destination_port=destination_port,
         direction=NetworkConnection.OUTBOUND,
         transport_layer_protocol=NetworkConnection.TCP,
     )
+
+
+def _create_network_connection(http_call: Dict[str, Any], destination_ip: str, destination_port: int, nh: NetworkHTTP, ontres: OntologyResults) -> NetworkConnection:
+    """
+    This method creates a NetworkConnection
+    :param http_call: The parsed HTTP call data
+    :param destination_ip: The destination IP reached out to
+    :param destination_port: The destination port accessed
+    :param nh: The NetworkHTTP object
+    :param ontres: The Ontology Results class object
+    :return: The new NetworkConnection object
+    """
+    session = ontres.sandboxes[-1].objectid.session
+    source_ip = http_call.get("src")
+    source_port = http_call.get("sport")
+    nc_oid = NetworkConnectionModel.get_oid(
+        {
+            "source_ip": source_ip,
+            "source_port": source_port,
+            "destination_ip": destination_ip,
+            "destination_port": destination_port,
+            "transport_layer_protocol": NetworkConnection.TCP,
+            "connection_type": NetworkConnection.HTTP,
+        }
+    )
+    objectid = ontres.create_objectid(
+        tag=NetworkConnectionModel.get_tag(
+            {
+                "destination_ip": destination_ip,
+                "destination_port": destination_port,
+            }
+        ),
+        ontology_id=nc_oid,
+        session=session,
+    )
+    nc = ontres.create_network_connection(
+        objectid=objectid,
+        destination_ip=destination_ip,
+        destination_port=destination_port,
+        transport_layer_protocol=NetworkConnection.TCP,
+        direction=NetworkConnection.OUTBOUND,
+        http_details=nh,
+        connection_type=NetworkConnection.HTTP,
+    )
+    ontres.add_network_connection(nc)
+    return nc
+
+
+def _setup_network_connection_with_network_http(uri: str, http_call: Dict[str, Any], request_headers: Dict[str, str], response_headers: Dict[str, str], request_body_path: str, response_body_path: str, port: int, destination_ip: str, ontres: OntologyResults) -> Tuple[NetworkConnection, NetworkHTTP]:
+    """
+    This method sets up the linking of a NetworkConnection object with a new NetworkHTTP object
+    :param uri: URI reached out to
+    :param http_call: The parsed HTTP call data
+    :param request_headers: A dictionary that represents the HTTP request headers
+    :param response_headers: A dictionary that represents the HTTP response headers
+    :param request_body_path: The path to the request body dump
+    :param response_body_path:The path to the response body dump
+    :param port: The destination port accessed
+    :param destination_ip: The destination IP reached out to
+    :param ontres: The Ontology Results class object
+    :return: A tuple of the linked NetworkConnection object and the new NetworkHTTP object
+    """
+    # We can now create a NetworkHTTP object
+    nh = _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres)
+
+    destination_port = port
+    nc = _get_network_connection_by_details(destination_ip, destination_port, ontres)
+
+    # Check if a NetworkConnection object exists
+    # A NetworkConnection already exists?!
+    if nc:
+        # Update!
+        nc.update(http_details=nh, connection_type=NetworkConnection.HTTP)
+    # A NetworkConnection does not??
+    else:
+        # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
+        nc = _create_network_connection(http_call, destination_ip, destination_port, nh, ontres)
+
+    return nc, nh
+
+
+def _link_process_to_http_call(process_map: Dict[int, Dict[str, Any]], request: str, uri: str, nc: NetworkConnection, ontres: OntologyResults) -> None:
+    """
+    This method links a process to an HTTP call
+    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
+    :param request: The HTTP call data
+    :param uri: URI reached out to
+    :param nc: The NetworkConnection object
+    :param ontres: The Ontology Results class object
+    :return: None
+    """
+    if not nc:
+        return
+    match = False
+    for process, process_details in process_map.items():
+        for network_call in process_details["network_calls"]:
+            send = next(
+                (
+                    network_call[api_call]
+                    for api_call in HTTP_API_CALLS
+                    if api_call in network_call
+                ),
+                {},
+            )
+            if (
+                send != {}
+                and (
+                    (
+                        send.get("service", 0) == 3
+                        or send.get("buffer", "") == request
+                    )
+                    or _uris_are_equal_despite_discrepancies(send.get("url"), uri)
+                )
+            ):
+                if not nc.process:
+                    p = ontres.get_process_by_pid(process)
+                    nc.set_process(p)
+                else:
+                    nc.update_process(image=process_details["name"], pid=process)
+                match = True
+                break
+        if match:
+            break
+
 
 def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
@@ -1306,7 +1490,6 @@ def _process_http_calls(
     :param ontres: The Ontology Results class object
     :return: None
     """
-    session = ontres.sandboxes[-1].objectid.session
     # Http level flows consist of http, http_ex, https and https_ex
     for protocol, http_calls in http_level_flows.items():
         # Let's go
@@ -1350,88 +1533,13 @@ def _process_http_calls(
                 if not destination_ip:
                     continue
 
-                # We can now create a NetworkHTTP object
-                nh = _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres)
-
-                destination_port = port
-                nc = _get_network_connection_by_details(destination_ip, destination_port, ontres)
-
-                # Check if a NetworkConnection object exists
-                # A NetworkConnection already exists?!
-                if nc:
-                    # Update!
-                    nc.update(http_details=nh, connection_type=NetworkConnection.HTTP)
-                # A NetworkConnection does not??
-                else:
-                    # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
-                    source_ip = http_call.get("src")
-                    source_port = http_call.get("sport")
-                    nc_oid = NetworkConnectionModel.get_oid(
-                        {
-                            "source_ip": source_ip,
-                            "source_port": source_port,
-                            "destination_ip": destination_ip,
-                            "destination_port": destination_port,
-                            "transport_layer_protocol": NetworkConnection.TCP,
-                            "connection_type": NetworkConnection.HTTP,
-                        }
-                    )
-                    objectid = ontres.create_objectid(
-                        tag=NetworkConnectionModel.get_tag(
-                            {
-                                "destination_ip": destination_ip,
-                                "destination_port": destination_port,
-                            }
-                        ),
-                        ontology_id=nc_oid,
-                        session=session,
-                    )
-                    nc = ontres.create_network_connection(
-                        objectid=objectid,
-                        destination_ip=destination_ip,
-                        destination_port=destination_port,
-                        transport_layer_protocol=NetworkConnection.TCP,
-                        direction=NetworkConnection.OUTBOUND,
-                        http_details=nh,
-                        connection_type=NetworkConnection.HTTP,
-                    )
-                    ontres.add_network_connection(nc)
+                nc, nh = _setup_network_connection_with_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, port, destination_ip, ontres)
 
                 nh_to_add = True
             else:
                 nc = ontres.get_network_connection_by_network_http(nh)
 
-            match = False
-            if nc:
-                for process, process_details in process_map.items():
-                    for network_call in process_details["network_calls"]:
-                        send = next(
-                            (
-                                network_call[api_call]
-                                for api_call in HTTP_API_CALLS
-                                if api_call in network_call
-                            ),
-                            {},
-                        )
-                        if (
-                            send != {}
-                            and (
-                                (
-                                    send.get("service", 0) == 3
-                                    or send.get("buffer", "") == request
-                                )
-                                or _uris_are_equal_despite_discrepancies(send.get("url"), uri)
-                            )
-                        ):
-                            if not nc.process:
-                                p = ontres.get_process_by_pid(process)
-                                nc.set_process(p)
-                            else:
-                                nc.update_process(image=process_details["name"], pid=process)
-                            match = True
-                            break
-                    if match:
-                        break
+            _link_process_to_http_call(process_map, request, uri, nc, ontres)
 
             if nh_to_add:
                 ontres.add_network_http(nh)
@@ -1468,7 +1576,7 @@ def _handle_http_headers(header_string: str) -> Dict[str, str]:
     """
     This method parses an HTTP header string and returns the parsed string in a nice dictionary
     :param header_string: The HTTP header string to be parsed
-    :return: The parsed string as a nice dictionary
+    :return: A dictionary that represents the HTTP headers
     """
     request_headers = {}
     if not header_string or "\r\n" not in header_string:
