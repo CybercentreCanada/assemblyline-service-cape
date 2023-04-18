@@ -1457,7 +1457,7 @@ def _link_process_to_http_call(process_map: Dict[int, Dict[str, Any]], request: 
                 send != {}
                 and (
                     (
-                        send.get("service", 0) == 3
+                        int(send.get("service", 0)) == 3
                         or send.get("buffer", "") == request
                     )
                     or _uris_are_equal_despite_discrepancies(send.get("url"), uri)
