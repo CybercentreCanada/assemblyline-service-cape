@@ -1180,6 +1180,29 @@ class TestCapeResult:
                 'ppid': None,
                 'start_time': '1970-01-01 00:00:01',
             }),
+            # Process map with network call of service = "3"
+            ({1: {"network_calls": [{"InternetConnectA": {"service": "3"}}]}}, "", "", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
         ]
     )
     def test_link_process_to_http_call(process_map, request_data, uri, expected_nc_process):
