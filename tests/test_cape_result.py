@@ -875,6 +875,16 @@ class TestCapeResult:
                 'response_headers': {},
                 'response_status_code': None
             }),
+            # Body paths
+            ("http://blah.com/blah", {"method": "GET"}, {}, {}, "blah", "blah", {
+                'request_body': None,
+                'request_headers': {},
+                'request_method': 'GET',
+                'request_uri': 'http://blah.com/blah',
+                'response_body': None,
+                'response_headers': {},
+                'response_status_code': None
+            }),
         ]
     )
     def test_create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, expected_nh):
@@ -883,6 +893,314 @@ class TestCapeResult:
         from cape.cape_result import _create_network_http
         ontres = OntologyResults(service_name="blah")
         assert _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres).as_primitives() == expected_nh
+
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "destination_ip, destination_port, expected_nc",
+        [
+            # No network connection with details
+            ("127.0.0.1", 123, None),
+            # Network connection with details
+            ("1.1.1.1", 123,
+                {
+                    'connection_type': None,
+                    'destination_ip': '1.1.1.1',
+                    'destination_port': 123,
+                    'direction': 'outbound',
+                    'dns_details': None,
+                    'http_details': None,
+                    'objectid': {'guid': None,
+                                    'ontology_id': 'blah',
+                                    'processtree': None,
+                                    'service_name': 'CAPE',
+                                    'session': None,
+                                    'tag': 'blah',
+                                    'time_observed': None,
+                                    'treeid': None},
+                    'process': None,
+                    'source_ip': None,
+                    'source_port': None,
+                    'transport_layer_protocol': 'tcp',
+                }
+            ),
+        ]
+    )
+    def test_get_network_connection_by_details(destination_ip, destination_port, expected_nc):
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkConnection, OntologyResults)
+        from cape.cape_result import _get_network_connection_by_details
+        ontres = OntologyResults(service_name="blah")
+        nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound")
+        ontres.add_network_connection(nc)
+
+        if destination_ip == "127.0.0.1":
+            assert _get_network_connection_by_details(destination_ip, destination_port, ontres) == expected_nc
+        elif destination_ip == "1.1.1.1":
+            assert _get_network_connection_by_details(destination_ip, destination_port, ontres).as_primitives() == expected_nc
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "http_call, destination_ip, destination_port, expected_nc",
+        [
+            # The bare minimum
+            ({}, "127.0.0.1", 123, {
+                'connection_type': 'http',
+                'destination_ip': '127.0.0.1',
+                'destination_port': 123,
+                'direction': 'outbound',
+                'dns_details': None,
+                'http_details': {'request_body': None,
+                                'request_headers': {},
+                                'request_method': 'GET',
+                                'request_uri': 'http://blah.com/blah',
+                                'response_body': None,
+                                'response_headers': {},
+                                'response_status_code': None},
+                'objectid': {'guid': None,
+                            'ontology_id': 'network_6aD7OJbTRyh0nd8yeckFeS',
+                            'processtree': None,
+                            'service_name': 'blah',
+                            'session': None,
+                            'tag': '127.0.0.1:123',
+                            'time_observed': None,
+                            'treeid': None},
+                'process': None,
+                'source_ip': None,
+                'source_port': None,
+                'transport_layer_protocol': 'tcp',
+            }),
+            # The bare minimum with source_ip and source_port
+            ({"src": "1.1.1.1", "sport": 321}, "127.0.0.1", 123, {
+                'connection_type': 'http',
+                'destination_ip': '127.0.0.1',
+                'destination_port': 123,
+                'direction': 'outbound',
+                'dns_details': None,
+                'http_details': {'request_body': None,
+                                'request_headers': {},
+                                'request_method': 'GET',
+                                'request_uri': 'http://blah.com/blah',
+                                'response_body': None,
+                                'response_headers': {},
+                                'response_status_code': None},
+                'objectid': {'guid': None,
+                            'ontology_id': 'network_4bcLl8bsAoN7PGatc9qwFC',
+                            'processtree': None,
+                            'service_name': 'blah',
+                            'session': None,
+                            'tag': '127.0.0.1:123',
+                            'time_observed': None,
+                            'treeid': None},
+                'process': None,
+                'source_ip': "1.1.1.1",
+                'source_port': 321,
+                'transport_layer_protocol': 'tcp',
+            }),
+
+        ]
+    )
+    def test_create_network_connection(http_call, destination_ip, destination_port, expected_nc):
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkHTTP, OntologyResults)
+        from cape.cape_result import _create_network_connection
+        ontres = OntologyResults(service_name="blah")
+        sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
+        ontres.add_sandbox(sandbox)
+        nh = NetworkHTTP("http://blah.com/blah", "GET")
+        assert _create_network_connection(http_call, destination_ip, destination_port, nh, ontres).as_primitives() == expected_nc
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "uri, http_call, request_headers, response_headers, request_body_path, response_body_path, port, destination_ip, expected_nc, expected_nh",
+        [
+            # NetworkConnection does not exist
+            ("http://blah.com/blah", {"method": "GET"}, {}, {}, None, None, 123, "127.0.0.1", {
+                'connection_type': 'http',
+                'destination_ip': '127.0.0.1',
+                'destination_port': 123,
+                'direction': 'outbound',
+                'dns_details': None,
+                'http_details': {'request_body': None,
+                                 'request_headers': {},
+                                 'request_method': 'GET',
+                                 'request_uri': 'http://blah.com/blah',
+                                 'response_body': None,
+                                 'response_headers': {},
+                                 'response_status_code': None},
+                'objectid': {'guid': None,
+                             'ontology_id': 'network_6aD7OJbTRyh0nd8yeckFeS',
+                             'processtree': None,
+                             'service_name': 'blah',
+                             'session': None,
+                             'tag': '127.0.0.1:123',
+                             'time_observed': None,
+                             'treeid': None},
+                'process': None,
+                'source_ip': None,
+                'source_port': None,
+                'transport_layer_protocol': 'tcp'
+            }, {
+                'request_body': None,
+                'request_headers': {},
+                'request_method': 'GET',
+                'request_uri': 'http://blah.com/blah',
+                'response_body': None,
+                'response_headers': {},
+                'response_status_code': None
+            }),
+            # NetworkConnection does exist
+            ("http://blah.com/blah", {"method": "GET"}, {}, {}, "blah", "blah", 123, "1.1.1.1", {
+                'connection_type': 'http',
+                'destination_ip': '1.1.1.1',
+                'destination_port': 123,
+                'direction': 'outbound',
+                'dns_details': None,
+                'http_details': {'request_body': None,
+                                 'request_headers': {},
+                                 'request_method': 'GET',
+                                 'request_uri': 'http://blah.com/blah',
+                                 'response_body': None,
+                                 'response_headers': {},
+                                 'response_status_code': None},
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': None,
+                             'treeid': None},
+                'process': None,
+                'source_ip': None,
+                'source_port': None,
+                'transport_layer_protocol': 'tcp'
+            }, {
+                'request_body': None,
+                'request_headers': {},
+                'request_method': 'GET',
+                'request_uri': 'http://blah.com/blah',
+                'response_body': None,
+                'response_headers': {},
+                'response_status_code': None
+            }),
+        ]
+    )
+    def test_setup_network_connection_with_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, port, destination_ip, expected_nc, expected_nh):
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkConnection, OntologyResults)
+        from cape.cape_result import \
+            _setup_network_connection_with_network_http
+
+        ontres = OntologyResults(service_name="blah")
+
+        sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
+        ontres.add_sandbox(sandbox)
+
+        nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound")
+        ontres.add_network_connection(nc)
+
+        actual_nc, actual_nh = _setup_network_connection_with_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, port, destination_ip, ontres)
+
+        assert actual_nc.as_primitives() == expected_nc
+        assert actual_nh.as_primitives() == expected_nh
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "process_map, request_data, uri, expected_nc_process",
+        [
+            # Nothing to do
+            ({}, "", "", None),
+            # Process map with network call of service = 3
+            ({1: {"network_calls": [{"send": {"service": 3}}]}}, "", "", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
+            # Process map with network call of buffer = request_data
+            ({1: {"network_calls": [{"InternetConnectW": {"buffer": "check me"}}]}}, "check me", "", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
+            # Process map with network call of equal uris despite discrepancies
+            ({1: {"network_calls": [{"InternetCrackUrlA": {"url": "https://blah.com/"}}]}}, "", "http://blah.com", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
+        ]
+    )
+    def test_link_process_to_http_call(process_map, request_data, uri, expected_nc_process):
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkConnection, OntologyResults, Process)
+        from cape.cape_result import _link_process_to_http_call
+
+        ontres = OntologyResults(service_name="blah")
+
+        nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound")
+        ontres.add_network_connection(nc)
+
+        p = Process(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), image="blah", start_time="1970-01-01 00:00:01", pid=1)
+        ontres.add_process(p)
+
+        _link_process_to_http_call(process_map, request_data, uri, nc, ontres)
+
+        if expected_nc_process is None:
+            assert nc.process is None
+        else:
+            assert nc.process.as_primitives() == expected_nc_process
 
 
     @staticmethod
@@ -1292,6 +1610,25 @@ class TestCapeResult:
             nh_as_prim = nh.__dict__
             actual_req_table.append(nh_as_prim)
         assert expected_req_table == actual_req_table
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "api_uri, pcap_uri, expected_result",
+        [
+            # These aren't real URIs
+            ("", "", False),
+            # Both uris start with different schemes but are not the same
+            ("https://blah.com/blah", "http://blah.com", False),
+            # Both uris start with different schemes and are the same
+            ("https://blah.com", "http://blah.com", True),
+            # Both uris start with different schemes and are the same with a trailing /
+            ("https://blah.com/blah/", "http://blah.com/blah", True),
+        ],
+    )
+    def test_uris_are_equal_despite_discrepancies(api_uri, pcap_uri, expected_result):
+        from cape.cape_result import _uris_are_equal_despite_discrepancies
+
+        assert _uris_are_equal_despite_discrepancies(api_uri, pcap_uri) == expected_result
 
     @staticmethod
     @pytest.mark.parametrize(

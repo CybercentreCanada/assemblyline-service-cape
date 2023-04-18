@@ -1388,6 +1388,8 @@ def _create_network_connection(http_call: Dict[str, Any], destination_ip: str, d
         destination_port=destination_port,
         transport_layer_protocol=NetworkConnection.TCP,
         direction=NetworkConnection.OUTBOUND,
+        source_ip=source_ip,
+        source_port=source_port,
         http_details=nh,
         connection_type=NetworkConnection.HTTP,
     )
@@ -1565,7 +1567,7 @@ def _uris_are_equal_despite_discrepancies(api_uri: Optional[str], pcap_uri: str)
                 return True
 
             # If no jackpot yet, here is another discrepancy
-            elif api_domain_and_path.endswith("/") and not pcap_domain_and_path.endswith("/") and api_domain_and_path.rstrip("/") == pcap_domain_and_path.rstrip("/"):
+            elif api_domain_and_path.endswith("/") and not pcap_domain_and_path.endswith("/") and api_domain_and_path.rstrip("/") == pcap_domain_and_path:
                 # Bingo bongo!
                 return True
 
