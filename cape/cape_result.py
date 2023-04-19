@@ -965,6 +965,14 @@ def process_network(
             nc = ontres.get_network_connection_by_network_http(http_call)
             if nc:
                 process = nc.process
+
+            # If no network connection exists, it could be due to a network connection being associated
+            # with another http call already that uses the same connection specs, so
+            # let's make an educated guess. If there is only one process that has network calls, then
+            # odds are the process is the one that made this call.
+            elif len([proc for proc, details in process_map.items() if len(details["network_calls"]) > 0]) == 1:
+                pid = [proc for proc, details in process_map.items() if len(details["network_calls"]) > 0][0]
+                process = ontres.get_process_by_pid(pid)
             else:
                 process = None
             http_sec.add_row(
