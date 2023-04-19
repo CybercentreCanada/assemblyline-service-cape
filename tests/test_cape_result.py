@@ -414,7 +414,7 @@ class TestCapeResult:
         resolved_ips = {}
         safelist = []
         assert _get_dns_sec(resolved_ips, safelist) is None
-        resolved_ips = {"1.1.1.1": {"domain": "blah.com"}}
+        resolved_ips = {"1.1.1.1": [{"domain": "blah.com"}]}
         expected_res_sec = ResultSection(
             "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=dumps([{"domain": "blah.com", "ip": "1.1.1.1"}])
         )
@@ -425,7 +425,7 @@ class TestCapeResult:
         actual_res_sec = _get_dns_sec(resolved_ips, safelist)
         assert check_section_equality(actual_res_sec, expected_res_sec)
 
-        resolved_ips = {"0": {"domain": "blah.com"}}
+        resolved_ips = {"0": [{"domain": "blah.com"}]}
         expected_res_sec = ResultSection(
             "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=dumps([{"domain": "blah.com"}])
         )
@@ -450,14 +450,14 @@ class TestCapeResult:
                 {},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "guid": None,
                         "process_id": None,
                         "process_name": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -465,14 +465,14 @@ class TestCapeResult:
                 {},
                 "INetSim",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "guid": None,
                         "process_id": None,
                         "process_name": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             ([{"answers": [{"data": "answer"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
@@ -480,7 +480,7 @@ class TestCapeResult:
                 [{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
                 {},
                 "Internet",
-                {"10.10.10.10": {"domain": "answer"}},
+                {"10.10.10.10": [{"domain": "answer"}]},
             ),
             (
                 [
@@ -490,14 +490,14 @@ class TestCapeResult:
                 {},
                 "Internet",
                 {
-                    "10.10.10.10": {
+                    "10.10.10.10": [{
                         "domain": "answer",
                         "guid": None,
                         "process_id": None,
                         "process_name": None,
                         "time": None,
                         "type": "A",
-                    }
+                    }]
                 },
             ),
             ([{"answers": [{"data": "answer"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}], {}, "Internet", {}),
@@ -506,14 +506,14 @@ class TestCapeResult:
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "guid": None,
                         "process_id": None,
                         "process_name": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -521,14 +521,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"blah": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "guid": None,
                         "process_id": None,
                         "process_name": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -536,14 +536,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "process_id": 1,
                         "process_name": "blah",
                         "guid": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -551,14 +551,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"InternetConnectW": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "process_id": 1,
                         "process_name": "blah",
                         "guid": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -566,14 +566,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"InternetConnectA": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "process_id": 1,
                         "process_name": "blah",
                         "guid": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -581,14 +581,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"GetAddrInfoW": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "process_id": 1,
                         "process_name": "blah",
                         "guid": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             (
@@ -596,14 +596,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}},
                 "",
                 {
-                    "answer": {
+                    "answer": [{
                         "domain": "request",
                         "process_id": 1,
                         "process_name": "blah",
                         "guid": None,
                         "time": None,
                         "type": "dns_type",
-                    }
+                    }]
                 },
             ),
             ([{"answers": []}], {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}}, "", {}),
@@ -618,14 +618,14 @@ class TestCapeResult:
                 {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
                 "",
                 {
-                    '0': {
+                    '0': [{
                         'domain': 'request',
                         'guid': None,
                         'process_id': 1,
                         'process_name': 'blah',
                         'time': None,
                         'type': 'dns_type'
-                    }
+                    }]
                 },
             ),
         ],
@@ -683,7 +683,7 @@ class TestCapeResult:
                 ),
             ),
             (
-                {"blah": {"domain": "blah"}},
+                {"blah": [{"domain": "blah"}]},
                 {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": 123}]},
                 (
                     [
@@ -703,7 +703,7 @@ class TestCapeResult:
                 ),
             ),
             (
-                {"blah": {"domain": "blah", "process_name": "blah", "process_id": "blah"}},
+                {"blah": [{"domain": "blah", "process_name": "blah", "process_id": "blah"}]},
                 {"udp": [{"dst": "blah", "src": "blah", "sport": "blah", "time": "blah", "dport": 123}]},
                 (
                     [
@@ -780,7 +780,7 @@ class TestCapeResult:
             # http_call[dst] is in dns_servers, but no resolved_ips, normal http_call
             ("blah.com", ["127.0.0.1"], {}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}),
             # http_call[dst] is in dns_servers, with resolved_ips, normal http_call
-            ("blah.com", ["127.0.0.1"], {"1.1.1.1": {"domain": "blah.com"}, "1": {"domain": "blah"}}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"}),
+            ("blah.com", ["127.0.0.1"], {"1.1.1.1": [{"domain": "blah.com"}], "1": [{"domain": "blah"}]}, {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"}, "http://blah.com/blah", {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"}),
         ]
     )
     def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
@@ -1112,7 +1112,9 @@ class TestCapeResult:
             # Nothing to do
             ({}, "", "", None),
             # Process map with network call of service = 3
-            ({1: {"network_calls": [{"send": {"service": 3}}]}}, "", "", {
+            ({1: {"network_calls": [{"send": {"service": 3}}]}}, "", "", None),
+            # Process map with network call of service = 3 and servername in uri
+            ({1: {"network_calls": [{"send": {"service": "3", "servername": "blah.com"}}]}}, "", "http://blah.com/blah", {
                 'command_line': None,
                 'end_time': None,
                 'image': 'blah',
@@ -1180,8 +1182,31 @@ class TestCapeResult:
                 'ppid': None,
                 'start_time': '1970-01-01 00:00:01',
             }),
-            # Process map with network call of service = "3"
-            ({1: {"network_calls": [{"InternetConnectA": {"service": "3"}}]}}, "", "", {
+            # Process map with network call of service = "3" as a string and servername in uri
+            ({1: {"network_calls": [{"InternetConnectA": {"service": "3", "servername": "blah.com"}}]}}, "", "http://blah.com/blah", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
+            # Process map with network call with servername in uri, with port
+            ({1: {"network_calls": [{"InternetConnectA": {"service": "3", "servername": "blah.com"}}]}}, "", "http://blah.com:8080/blah", {
                 'command_line': None,
                 'end_time': None,
                 'image': 'blah',
@@ -1207,12 +1232,12 @@ class TestCapeResult:
     )
     def test_link_process_to_http_call(process_map, request_data, uri, expected_nc_process):
         from assemblyline_v4_service.common.dynamic_service_helper import (
-            NetworkConnection, OntologyResults, Process)
+            NetworkConnection, NetworkHTTP, OntologyResults, Process)
         from cape.cape_result import _link_process_to_http_call
 
         ontres = OntologyResults(service_name="blah")
 
-        nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound")
+        nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound", http_details=NetworkHTTP(request_uri="http://blah.com", request_method="GET"), connection_type="http")
         ontres.add_network_connection(nc)
 
         p = Process(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), image="blah", start_time="1970-01-01 00:00:01", pid=1)
@@ -1626,7 +1651,7 @@ class TestCapeResult:
             }
         }
         dns_servers = ["2.2.2.2"]
-        resolved_ips = {"1.1.1.1": {"domain": "nope.com"}}
+        resolved_ips = {"1.1.1.1": [{"domain": "nope.com"}]}
         _process_http_calls(http_level_flows, process_map, dns_servers, resolved_ips, safelist, default_so)
         actual_req_table = []
         for nh in default_so.get_network_http():
