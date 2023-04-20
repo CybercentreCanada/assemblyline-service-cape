@@ -1,13 +1,14 @@
+from collections import defaultdict
 from datetime import datetime
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
 from json import dumps
 from logging import getLogger
 from re import compile as re_compile
-from re import findall
 from re import match as re_match
 from re import search, sub
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
@@ -676,7 +677,7 @@ def process_network(
         dns_servers = []
 
     dns_calls: List[Dict[str, Any]] = network.get("dns", [])
-    resolved_ips: Dict[str, Dict[str, Any]] = _get_dns_map(
+    resolved_ips: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
         dns_calls, process_map, routing, dns_servers
     )
     dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(resolved_ips, safelist)
@@ -822,52 +823,53 @@ def process_network(
             # We want all key values for all network flows except for timestamps and event_type
             del network_flow["timestamp"]
 
-    for answer, request in resolved_ips.items():
-        if answer.isdigit():
-            continue
-        nd = ontres.create_network_dns(
-            domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"]
-        )
+    for answer, requests in resolved_ips.items():
+        for request in requests:
+            if answer.isdigit():
+                continue
+            nd = ontres.create_network_dns(
+                domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"]
+            )
 
-        destination_ip = dns_servers[0] if dns_servers else None
-        destination_port = 53
-        transport_layer_protocol = NetworkConnection.UDP
+            destination_ip = dns_servers[0] if dns_servers else None
+            destination_port = 53
+            transport_layer_protocol = NetworkConnection.UDP
 
-        nc_oid = NetworkConnectionModel.get_oid(
-            {
-                "destination_ip": destination_ip,
-                "destination_port": destination_port,
-                "transport_layer_protocol": transport_layer_protocol,
-                "connection_type": NetworkConnection.DNS,
-            }
-        )
-        objectid = ontres.create_objectid(
-            tag=NetworkConnectionModel.get_tag(
+            nc_oid = NetworkConnectionModel.get_oid(
                 {
                     "destination_ip": destination_ip,
                     "destination_port": destination_port,
+                    "transport_layer_protocol": transport_layer_protocol,
+                    "connection_type": NetworkConnection.DNS,
                 }
-            ),
-            ontology_id=nc_oid,
-            session=session,
-        )
-        objectid.assign_guid()
-        nc = ontres.create_network_connection(
-            objectid=objectid,
-            destination_ip=destination_ip,
-            destination_port=destination_port,
-            transport_layer_protocol=transport_layer_protocol,
-            direction=NetworkConnection.OUTBOUND,
-            dns_details=nd,
-            connection_type=NetworkConnection.DNS,
-        )
-        nc.update_process(
-            pid=request["process_id"],
-            image=request["process_name"],
-            guid=request["guid"],
-        )
-        ontres.add_network_connection(nc)
-        ontres.add_network_dns(nd)
+            )
+            objectid = ontres.create_objectid(
+                tag=NetworkConnectionModel.get_tag(
+                    {
+                        "destination_ip": destination_ip,
+                        "destination_port": destination_port,
+                    }
+                ),
+                ontology_id=nc_oid,
+                session=session,
+            )
+            objectid.assign_guid()
+            nc = ontres.create_network_connection(
+                objectid=objectid,
+                destination_ip=destination_ip,
+                destination_port=destination_port,
+                transport_layer_protocol=transport_layer_protocol,
+                direction=NetworkConnection.OUTBOUND,
+                dns_details=nd,
+                connection_type=NetworkConnection.DNS,
+            )
+            nc.update_process(
+                pid=request["process_id"],
+                image=request["process_name"],
+                guid=request["guid"],
+            )
+            ontres.add_network_connection(nc)
+            ontres.add_network_dns(nd)
 
     if dns_res_sec and len(dns_res_sec.tags.get("network.dynamic.domain", [])) > 0:
         network_res.add_subsection(dns_res_sec)
@@ -960,9 +962,17 @@ def process_network(
                         suspicious_user_agent_sec.add_line(f"\t{sus_user_agent_used}")
                         sus_user_agents_used.append(sus_user_agent_used)
 
-            nh = ontres.get_network_connection_by_network_http(http_call)
-            if nh:
-                process = nh.process
+            nc = ontres.get_network_connection_by_network_http(http_call)
+            if nc:
+                process = nc.process
+
+            # If no network connection exists, it could be due to a network connection being associated
+            # with another http call already that uses the same connection specs, so
+            # let's make an educated guess. If there is only one process that has network calls, then
+            # odds are the process is the one that made this call.
+            elif len([proc for proc, details in process_map.items() if len(details["network_calls"]) > 0]) == 1:
+                pid = [proc for proc, details in process_map.items() if len(details["network_calls"]) > 0][0]
+                process = ontres.get_process_by_pid(pid)
             else:
                 process = None
             http_sec.add_row(
@@ -991,7 +1001,7 @@ def process_network(
 
 
 def _get_dns_sec(
-    resolved_ips: Dict[str, Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]
+    resolved_ips: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
 ) -> ResultTableSection:
     """
     This method creates the result section for DNS traffic
@@ -1006,22 +1016,23 @@ def _get_dns_sec(
     dns_res_sec.set_heuristic(1000)
     dns_body: List[Dict[str, str]] = []
     _ = add_tag(dns_res_sec, "network.protocol", "dns")
-    for answer, request_dict in resolved_ips.items():
-        request = request_dict["domain"]
-        _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
-        if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
-            if answer.isdigit():
-                dns_request = {
-                    "domain": request,
-                }
-            else:
-                # If there is only UDP and no TCP traffic, then we need to tag the domains here:
-                dns_request = {
-                    "domain": request,
-                    "ip": answer,
-                }
-                answer_exists = True
-            dns_body.append(dns_request)
+    for answer, request_dicts in resolved_ips.items():
+        for request_dict in request_dicts:
+            request = request_dict["domain"]
+            _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
+            if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
+                if answer.isdigit():
+                    dns_request = {
+                        "domain": request,
+                    }
+                else:
+                    # If there is only UDP and no TCP traffic, then we need to tag the domains here:
+                    dns_request = {
+                        "domain": request,
+                        "ip": answer,
+                    }
+                    answer_exists = True
+                dns_body.append(dns_request)
     [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
 
     if not answer_exists:
@@ -1038,7 +1049,7 @@ def _get_dns_map(
     process_map: Dict[int, Dict[str, Any]],
     routing: str,
     dns_servers: List[str],
-) -> Dict[str, Dict[str, Any]]:
+) -> Dict[str, List[Dict[str, Any]]]:
     """
     This method creates a map between domain calls and IPs returned
     :param dns_calls: DNS details that were captured by CAPE
@@ -1047,7 +1058,7 @@ def _get_dns_map(
     :param dns_servers: A list of DNS servers
     :return: the mapping of resolved IPs and their corresponding domains
     """
-    resolved_ips: Dict[str, Dict[str, Any]] = {}
+    resolved_ips: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
         if len(dns_call["answers"]) > 0:
@@ -1079,23 +1090,25 @@ def _get_dns_map(
             if request in resolved_ips:
                 continue
 
-            resolved_ips[request] = {"domain": answer}
+            resolved_ips[request].append({"domain": answer})
         elif dns_type == "PTR" and "ip6.arpa" in request:
             # Drop it
             continue
         # Some Windows nonsense
         elif answer in dns_servers:
             continue
+
         # An 'A' record provides the IP address associated with a domain name.
         else:
-            resolved_ips[answer] = {
+            resolved_ips[answer].append({
                 "domain": request,
                 "process_id": dns_call.get("pid"),
                 "process_name": dns_call.get("image"),
                 "time": dns_call.get("time"),
                 "guid": dns_call.get("guid"),
                 "type": dns_type,
-            }
+            })
+
     # now map process_name to the dns_call
     for process, process_details in process_map.items():
         for network_call in process_details["network_calls"]:
@@ -1108,28 +1121,31 @@ def _get_dns_map(
                 {},
             )
             if dns != {} and (dns.get("hostname") or dns.get("servername")):
-                ip_mapped_to_host = next(
+                ip_mapped_to_host, index = next(
                     (
-                        ip
+                        (ip, index)
                         for ip, details in resolved_ips.items()
-                        if details["domain"] and not ip.isdigit()
+                        for index, detail in enumerate(details)
+                        if detail["domain"] and not ip.isdigit()
                         in [dns.get("hostname"), dns.get("servername")]
                     ),
-                    None,
+                    (None, None),
                 )
                 if not ip_mapped_to_host:
                     continue
-                if not resolved_ips[ip_mapped_to_host].get("process_name"):
-                    resolved_ips[ip_mapped_to_host]["process_name"] = process_details[
+
+                if not resolved_ips[ip_mapped_to_host][index].get("process_name"):
+                    resolved_ips[ip_mapped_to_host][index]["process_name"] = process_details[
                         "name"
                     ]
-                if not resolved_ips[ip_mapped_to_host].get("process_id"):
-                    resolved_ips[ip_mapped_to_host]["process_id"] = process
+
+                if not resolved_ips[ip_mapped_to_host][index].get("process_id"):
+                    resolved_ips[ip_mapped_to_host][index]["process_id"] = process
     return resolved_ips
 
 
 def _get_low_level_flows(
-    resolved_ips: Dict[str, Dict[str, Any]],
+    resolved_ips: Dict[str, List[Dict[str, Any]]],
     flows: Dict[str, List[Dict[str, Any]]],
 ) -> Tuple[List[Dict[str, Any]], ResultTableSection]:
     """
@@ -1188,11 +1204,12 @@ def _get_low_level_flows(
             if dst in resolved_ips.keys():
                 if dst.isdigit():
                     continue
-                network_flow["domain"] = resolved_ips[dst]["domain"]
+                # We have no way of knowing which domain the underlying connection was made to, so just go with the first one
+                network_flow["domain"] = resolved_ips[dst][0]["domain"]
                 if not network_flow["image"]:
-                    network_flow["image"] = resolved_ips[dst].get("process_name")
+                    network_flow["image"] = resolved_ips[dst][0].get("process_name")
                 if network_flow["image"] and not network_flow["pid"]:
-                    network_flow["pid"] = resolved_ips[dst]["process_id"]
+                    network_flow["pid"] = resolved_ips[dst][0]["process_id"]
             network_flows_table.append(network_flow)
     return network_flows_table, netflows_sec
 
@@ -1208,7 +1225,7 @@ def _massage_host_data(host: str) -> str:
     return host
 
 
-def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, str, str, Dict[str, Any]]:
+def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]) -> Tuple[str, str, str, Dict[str, Any]]:
     """
     This method extracts key details from the parsed <http(s)>_ex protocol data
     :param host: The actual host
@@ -1225,19 +1242,20 @@ def _massage_http_ex_data(host: str, dns_servers: List[str], resolved_ips: Dict[
 
     # The dst could be the nest IP, so we want to replace this
     if http_call["dst"] in dns_servers and any(
-        host == item["domain"] for item in resolved_ips.values()
+        host == item["domain"] for items in resolved_ips.values() for item in items
     ):
         for ip, details in resolved_ips.items():
-            if ip.isdigit():
-                continue
-            if details["domain"] == host:
-                http_call["dst"] = ip
-                break
+            for detail in details:
+                if ip.isdigit():
+                    continue
+                if detail["domain"] == host:
+                    http_call["dst"] = ip
+                    break
 
     return uri, http_call
 
 
-def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: List[str], resolved_ips: Dict[str, Dict[str, Any]], http_call: Dict[str, Any]) -> Tuple[str, int, str, Dict[str, Any]]:
+def _get_important_fields_from_http_call(protocol: str, host: str, dns_servers: List[str], resolved_ips: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]) -> Tuple[str, int, str, Dict[str, Any]]:
     """
     This method extracts key details from the parsed <http(s)(_ex)> protocol data
     :param
@@ -1440,34 +1458,54 @@ def _link_process_to_http_call(process_map: Dict[int, Dict[str, Any]], request: 
     :param ontres: The Ontology Results class object
     :return: None
     """
-    if not nc:
+    # We should always have a NetworkConnection object with http_details at this point
+    if not nc or not nc.http_details:
         return
+
+    # We are going to use this domain for validation
+    uri_pieces = urlparse(uri)
+    domain = _massage_host_data(uri_pieces.netloc)
+
+    # We need to confirm whether any network call in the process map
+    # can be REASONABLY linked to the NetworkConnection object
+
     match = False
-    for process, process_details in process_map.items():
+    for pid, process_details in process_map.items():
         for network_call in process_details["network_calls"]:
-            send = next(
-                (
-                    network_call[api_call]
-                    for api_call in HTTP_API_CALLS
-                    if api_call in network_call
-                ),
-                {},
-            )
+
+            # If the network_call is a known HTTP call hook, set and break
+            http_call = {}
+            for api_call in HTTP_API_CALLS:
+                if api_call in network_call:
+                    http_call = network_call[api_call]
+                    break
+
+            if http_call == {}:
+                continue
+
+            # Reasons why we should reject this network call
+
+            # The fact that a network call only contains the "service" key is not enough to link anything
+            if len(http_call.keys()) == 1 and "service" in http_call:
+                continue
+            # According to https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetconnecta, service = 3 stands for "INTERNET_SERVICE_HTTP"
+            elif http_call.get("service") and int(http_call["service"]) != 3:
+                continue
+
+            # Reasons why we should keep processing this network call
             if (
-                send != {}
-                and (
-                    (
-                        int(send.get("service", 0)) == 3
-                        or send.get("buffer", "") == request
-                    )
-                    or _uris_are_equal_despite_discrepancies(send.get("url"), uri)
-                )
+                _uris_are_equal_despite_discrepancies(http_call.get("url"), uri)
+                or
+                http_call.get("servername") == domain
+                or
+                http_call.get("buffer", "") == request
             ):
                 if not nc.process:
-                    p = ontres.get_process_by_pid(process)
+                    # A OntologyResults process should exist for every pid in the process map
+                    p = ontres.get_process_by_pid(pid)
                     nc.set_process(p)
                 else:
-                    nc.update_process(image=process_details["name"], pid=process)
+                    nc.update_process(image=process_details["name"], pid=pid)
                 match = True
                 break
         if match:
@@ -1478,7 +1516,7 @@ def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
     process_map: Dict[int, Dict[str, Any]],
     dns_servers: List[str],
-    resolved_ips: Dict[str, Dict[str, Any]],
+    resolved_ips: Dict[str, List[Dict[str, Any]]],
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
 ) -> None:
