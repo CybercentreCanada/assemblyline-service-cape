@@ -18,27 +18,19 @@ from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.odm.base import FULL_URI
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
-from assemblyline.odm.models.ontology.results import \
-    Signature as SignatureModel
-from assemblyline.odm.models.ontology.results.network import \
-    NetworkConnection as NetworkConnectionModel
-from assemblyline_v4_service.common.dynamic_service_helper import (
-    MAX_TIME, MIN_DOMAIN_CHARS, MIN_TIME, Attribute, NetworkConnection,
-    NetworkHTTP, OntologyResults, Process, Sandbox, Signature,
-    attach_dynamic_ontology, convert_sysmon_network, convert_sysmon_processes,
-    extract_iocs_from_text_blob)
-from assemblyline_v4_service.common.result import (KVSectionBody,
-                                                   ResultKeyValueSection,
-                                                   ResultMultiSection,
-                                                   ResultSection,
-                                                   ResultTableSection,
-                                                   ResultTextSection, TableRow,
+from assemblyline.odm.models.ontology.results import Signature as SignatureModel
+from assemblyline.odm.models.ontology.results.network import NetworkConnection as NetworkConnectionModel
+from assemblyline_v4_service.common.dynamic_service_helper import (MAX_TIME, MIN_DOMAIN_CHARS, MIN_TIME, Attribute,
+                                                                   NetworkConnection, NetworkHTTP, OntologyResults,
+                                                                   Process, Sandbox, Signature, attach_dynamic_ontology,
+                                                                   convert_sysmon_network, convert_sysmon_processes,
+                                                                   extract_iocs_from_text_blob)
+from assemblyline_v4_service.common.result import (KVSectionBody, ResultKeyValueSection, ResultMultiSection,
+                                                   ResultSection, ResultTableSection, ResultTextSection, TableRow,
                                                    TextSectionBody)
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
 from assemblyline_v4_service.common.tag_helper import add_tag
-from cape.signatures import (CAPE_DROPPED_SIGNATURES,
-                             SIGNATURE_TO_ATTRIBUTE_ACTION_MAP,
-                             get_category_id)
+from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 
 al_log.init_logging("service.cape.cape_result")
 log = getLogger("assemblyline.service.cape.cape_result")
@@ -1141,7 +1133,7 @@ def _get_dns_map(
 
                 if not resolved_ips[ip_mapped_to_host][index].get("process_id"):
                     resolved_ips[ip_mapped_to_host][index]["process_id"] = process
-    return resolved_ips
+    return dict(resolved_ips)
 
 
 def _get_low_level_flows(
@@ -2466,8 +2458,7 @@ if __name__ == "__main__":
     # pip install PyYAML
     import yaml
     from assemblyline_v4_service.common.base import ServiceBase
-    from cape.safe_process_tree_leaf_hashes import \
-        SAFE_PROCESS_TREE_LEAF_HASHES
+    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
     report_path = argv[1]
     file_ext = argv[2]
