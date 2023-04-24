@@ -66,6 +66,14 @@ SILENT_PROCESS_NAMES = [
 ]
 
 INETSIM = "INetSim"
+CONNECT_API_CALLS = [
+    "connect",
+    "InternetConnectW",
+    "InternetConnectA",
+    "WSAConnect",
+    "InternetOpenUrlA",
+    "WinHttpConnect",
+]
 DNS_API_CALLS = [
     "getaddrinfo",
     "InternetConnectW",
@@ -627,6 +635,170 @@ def process_signatures(
     return is_process_martian
 
 
+def _determine_dns_servers(network: Dict[str, Any]) -> List[str]:
+    # An assumption is being made here that the first UDP flow to port 53 is
+    # for DNS.
+    if len(network.get("udp", [])) > 0:
+        dst = next(
+            (udp_flow["dst"] for udp_flow in network["udp"] if udp_flow["dport"] == 53),
+            None,
+        )
+        if dst:
+            dns_servers = [dst]
+        else:
+            dns_servers = []
+    else:
+        dns_servers = []
+
+    return dns_servers
+
+
+def _remove_network_call(dom: str, dest_ip: str, dns_servers: List[str], resolved_ips: Dict[str, List[Dict[str, Any]]], inetsim_network: IPv4Network, safelist: Dict[str, Dict[str, List[str]]]) -> bool:
+    # if domain is safe-listed
+    if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
+        return True
+    # if no domain and destination ip is safe-listed or is the dns server
+    elif (
+        not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)
+    ) or dest_ip in dns_servers:
+        return True
+    # if dest ip is noise
+    elif dest_ip not in resolved_ips and ip_address(dest_ip) in inetsim_network:
+        return True
+
+    return False
+
+
+def _is_network_flow_a_connect_match(network_flow: Dict[str, Any], connect: Dict[str, Any]) -> bool:
+    # We either have an IP+port match
+    ip_match = any(network_flow["dest_ip"] == connect.get(item, "") for item in ["ip_address", "hostname"])
+    ip_and_port_match = ip_match and connect["port"] == network_flow["dest_port"]
+
+    # Or we have a domain match, either directly or via URL
+    if network_flow.get("domain"):
+        domain_match = network_flow["domain"] == connect.get("servername", "") or network_flow["domain"] == _massage_host_data(urlparse(connect.get("url", "")).netloc)
+    else:
+        domain_match = False
+
+    return ip_and_port_match or domain_match
+
+
+def _link_flow_with_process(network_flow: Dict[str, Any], process_map: Dict[int, Dict[str, Any]]) -> Dict[str, Any]:
+    # if process name does not exist from DNS, then find processes that made connection calls
+    if network_flow["image"] is None:
+        for process, process_details in process_map.items():
+            for network_call in process_details["network_calls"]:
+
+                # If the network_call is a known CONNECT call hook, set and break
+                connect = {}
+                for api_call in CONNECT_API_CALLS:
+                    if api_call in network_call:
+                        connect = network_call[api_call]
+                        break
+
+                # We are connect or bust
+                if not connect:
+                    continue
+
+                if _is_network_flow_a_connect_match(network_flow, connect):
+                    network_flow["image"] = (
+                        process_details["name"]
+                    )
+                    network_flow["pid"] = process
+                    break
+            if network_flow["image"]:
+                break
+
+    return network_flow
+
+
+def _tag_network_flow(netflows_sec: ResultTableSection, dom: str, network_flow: Dict[str, Any], dest_ip: str, safelist: Dict[str, Dict[str, List[str]]]) -> None:
+    # If the record has not been removed then it should be tagged for protocol, domain, ip, and port
+    _ = add_tag(netflows_sec, "network.dynamic.domain", dom)
+    _ = add_tag(netflows_sec, "network.protocol", network_flow["protocol"])
+    _ = add_tag(netflows_sec, "network.dynamic.ip", dest_ip, safelist)
+    _ = add_tag(
+        netflows_sec, "network.dynamic.ip", network_flow["src_ip"], safelist
+    )
+    _ = add_tag(netflows_sec, "network.port", network_flow["dest_port"])
+    _ = add_tag(netflows_sec, "network.port", network_flow["src_port"])
+
+
+def _create_network_connection_for_network_flow(network_flow: Dict[str, Any], session: str, ontres: OntologyResults) -> bool:
+    nc_oid = NetworkConnectionModel.get_oid(
+        {
+            "source_ip": network_flow["src_ip"],
+            "source_port": network_flow["src_port"],
+            "destination_ip": network_flow["dest_ip"],
+            "destination_port": network_flow["dest_port"],
+            "transport_layer_protocol": network_flow["protocol"],
+            "connection_type": None,  # TODO: HTTP or DNS
+        }
+    )
+    objectid = ontres.create_objectid(
+        tag=NetworkConnectionModel.get_tag(
+            {
+                "destination_ip": network_flow["dest_ip"],
+                "destination_port": network_flow["dest_port"],
+            }
+        ),
+        ontology_id=nc_oid,
+        session=session,
+        time_observed=datetime.fromtimestamp(
+            int(network_flow["timestamp"])
+        ).strftime(LOCAL_FMT)
+        if not isinstance(network_flow["timestamp"], str)
+        else network_flow["timestamp"],
+    )
+    objectid.assign_guid()
+    try:
+        nc = ontres.create_network_connection(
+            objectid=objectid,
+            source_ip=network_flow["src_ip"],
+            source_port=network_flow["src_port"],
+            destination_ip=network_flow["dest_ip"],
+            destination_port=network_flow["dest_port"],
+            transport_layer_protocol=network_flow["protocol"],
+            direction=NetworkConnection.OUTBOUND,
+        )
+    except ValueError as e:
+        log.warning(
+            f"{e}. The required values passed were:\n"
+            f"objectid={objectid}\n"
+            f"destination_ip={network_flow['dest_ip']}\n"
+            f"destination_port={network_flow['dest_port']}\n"
+            f"transport_layer_protocol={network_flow['protocol']}"
+        )
+        return False
+    p_oid = ProcessModel.get_oid(
+        {
+            "pid": network_flow["pid"],
+            "image": network_flow.get("image"),
+        }
+    )
+    if network_flow.get("image"):
+        nc.update_process(
+            objectid=ontres.create_objectid(
+                tag=Process.create_objectid_tag(network_flow.get("image")),
+                ontology_id=p_oid,
+                guid=network_flow.get("guid"),
+                session=session,
+            ),
+            pid=network_flow["pid"],
+            image=network_flow.get("image"),
+            start_time=datetime.fromtimestamp(
+                int(network_flow["timestamp"])
+            ).strftime(LOCAL_FMT)
+            if not isinstance(network_flow["timestamp"], str)
+            else network_flow["timestamp"]
+        )
+    ontres.add_network_connection(nc)
+
+    # We want all key values for all network flows except for timestamps and event_type
+    del network_flow["timestamp"]
+    return True
+
+
 # TODO: break this up into methods
 def process_network(
     network: Dict[str, Any],
@@ -654,26 +826,13 @@ def process_network(
     network_res = ResultSection("Network Activity")
 
     # DNS
-    # An assumption is being made here that the first UDP flow to port 53 is
-    # for DNS.
-    if len(network.get("udp", [])) > 0:
-        dst = next(
-            (udp_flow["dst"] for udp_flow in network["udp"] if udp_flow["dport"] == 53),
-            None,
-        )
-        if dst:
-            dns_servers = [dst]
-        else:
-            dns_servers = []
-    else:
-        dns_servers = []
-
-    dns_calls: List[Dict[str, Any]] = network.get("dns", [])
+    dns_servers: List[str] = _determine_dns_servers(network)
     resolved_ips: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
-        dns_calls, process_map, routing, dns_servers
+        network.get("dns", []), process_map, routing, dns_servers
     )
     dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(resolved_ips, safelist)
 
+    # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
     network_flows_table, netflows_sec = _get_low_level_flows(
         resolved_ips, low_level_flows
@@ -681,139 +840,18 @@ def process_network(
 
     # We have to copy the network table so that we can iterate through the copy
     # and remove items from the real one at the same time
-    copy_of_network_table = network_flows_table[:]
-    for network_flow in copy_of_network_table:
+    for network_flow in network_flows_table[:]:
         dom = network_flow["domain"]
         dest_ip = network_flow["dest_ip"]
-        # if domain is safe-listed
-        if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
-            network_flows_table.remove(network_flow)
-        # if no domain and destination ip is safe-listed or is the dns server
-        elif (
-            not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)
-        ) or dest_ip in dns_servers:
-            network_flows_table.remove(network_flow)
-        # if dest ip is noise
-        elif dest_ip not in resolved_ips and ip_address(dest_ip) in inetsim_network:
+
+        if _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist):
             network_flows_table.remove(network_flow)
         else:
-            # if process name does not exist from DNS, then find processes that made connection calls
-            process_details = {}
-            if network_flow["image"] is None:
-                for process in process_map:
-                    process_details = process_map[process]
-                    for network_call in process_details["network_calls"]:
-                        connect = (
-                            network_call.get("connect", {})
-                            or network_call.get("InternetConnectW", {})
-                            or network_call.get("InternetConnectA", {})
-                            or network_call.get("WSAConnect", {})
-                            or network_call.get("InternetOpenUrlA", {})
-                            or network_call.get("WinHttpConnect", {})
-                        )
-                        if (
-                            connect != {}
-                            and (
-                                connect.get("ip_address", "") == network_flow["dest_ip"]
-                                or connect.get("hostname", "")
-                                == network_flow["dest_ip"]
-                            )
-                            and connect["port"] == network_flow["dest_port"]
-                            or (
-                                network_flow["domain"]
-                                and network_flow["domain"] in connect.get("url", "")
-                                or network_flow["domain"] == connect.get("servername", "")
-                            )
-                        ):
-                            network_flow["image"] = (
-                                process_details["name"]
-                            )
-                            network_flow["pid"] = process
-                            break
-                    if network_flow["image"]:
-                        break
+            network_flow = _link_flow_with_process(network_flow, process_map)
+            _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
 
-            # If the record has not been removed then it should be tagged for protocol, domain, ip, and port
-            _ = add_tag(netflows_sec, "network.dynamic.domain", dom)
-            _ = add_tag(netflows_sec, "network.protocol", network_flow["protocol"])
-            _ = add_tag(netflows_sec, "network.dynamic.ip", dest_ip, safelist)
-            _ = add_tag(
-                netflows_sec, "network.dynamic.ip", network_flow["src_ip"], safelist
-            )
-            _ = add_tag(netflows_sec, "network.port", network_flow["dest_port"])
-            _ = add_tag(netflows_sec, "network.port", network_flow["src_port"])
-
-            nc_oid = NetworkConnectionModel.get_oid(
-                {
-                    "source_ip": network_flow["src_ip"],
-                    "source_port": network_flow["src_port"],
-                    "destination_ip": network_flow["dest_ip"],
-                    "destination_port": network_flow["dest_port"],
-                    "transport_layer_protocol": network_flow["protocol"],
-                    "connection_type": None,  # TODO: HTTP or DNS
-                }
-            )
-            objectid = ontres.create_objectid(
-                tag=NetworkConnectionModel.get_tag(
-                    {
-                        "destination_ip": network_flow["dest_ip"],
-                        "destination_port": network_flow["dest_port"],
-                    }
-                ),
-                ontology_id=nc_oid,
-                session=session,
-                time_observed=datetime.fromtimestamp(
-                    int(network_flow["timestamp"])
-                ).strftime(LOCAL_FMT)
-                if not isinstance(network_flow["timestamp"], str)
-                else network_flow["timestamp"],
-            )
-            objectid.assign_guid()
-            try:
-                nc = ontres.create_network_connection(
-                    objectid=objectid,
-                    source_ip=network_flow["src_ip"],
-                    source_port=network_flow["src_port"],
-                    destination_ip=network_flow["dest_ip"],
-                    destination_port=network_flow["dest_port"],
-                    transport_layer_protocol=network_flow["protocol"],
-                    direction=NetworkConnection.OUTBOUND,
-                )
-            except ValueError as e:
-                log.warning(
-                    f"{e}. The required values passed were:\n"
-                    f"objectid={objectid}\n"
-                    f"destination_ip={network_flow['dest_ip']}\n"
-                    f"destination_port={network_flow['dest_port']}\n"
-                    f"transport_layer_protocol={network_flow['protocol']}"
-                )
+            if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
-            p_oid = ProcessModel.get_oid(
-                {
-                    "pid": network_flow["pid"],
-                    "image": network_flow.get("image"),
-                }
-            )
-            if network_flow.get("image"):
-                nc.update_process(
-                    objectid=ontres.create_objectid(
-                        tag=Process.create_objectid_tag(network_flow.get("image")),
-                        ontology_id=p_oid,
-                        guid=network_flow.get("guid"),
-                        session=session,
-                    ),
-                    pid=network_flow["pid"],
-                    image=network_flow.get("image"),
-                    start_time=datetime.fromtimestamp(
-                        int(network_flow["timestamp"])
-                    ).strftime(LOCAL_FMT)
-                    if not isinstance(network_flow["timestamp"], str)
-                    else network_flow["timestamp"]
-                )
-            ontres.add_network_connection(nc)
-
-            # We want all key values for all network flows except for timestamps and event_type
-            del network_flow["timestamp"]
 
     for answer, requests in resolved_ips.items():
         for request in requests:
@@ -1359,7 +1397,7 @@ def _get_network_connection_by_details(destination_ip: str, destination_port: in
     )
 
 
-def _create_network_connection(http_call: Dict[str, Any], destination_ip: str, destination_port: int, nh: NetworkHTTP, ontres: OntologyResults) -> NetworkConnection:
+def _create_network_connection_for_http_call(http_call: Dict[str, Any], destination_ip: str, destination_port: int, nh: NetworkHTTP, ontres: OntologyResults) -> NetworkConnection:
     """
     This method creates a NetworkConnection
     :param http_call: The parsed HTTP call data
@@ -1435,7 +1473,7 @@ def _setup_network_connection_with_network_http(uri: str, http_call: Dict[str, A
     # A NetworkConnection does not??
     else:
         # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
-        nc = _create_network_connection(http_call, destination_ip, destination_port, nh, ontres)
+        nc = _create_network_connection_for_http_call(http_call, destination_ip, destination_port, nh, ontres)
 
     return nc, nh
 

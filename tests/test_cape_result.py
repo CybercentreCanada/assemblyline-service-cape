@@ -395,6 +395,188 @@ class TestCapeResult:
         pass
 
     @staticmethod
+    @pytest.mark.parametrize("network, expected_result", [
+        # Nothing
+        ({}, []),
+        # UDP with no 53 entries
+        ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, []),
+        # UDP with a 53 entry
+        ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["127.0.0.1"]),
+    ])
+    def test_determine_dns_servers(network, expected_result):
+        from cape.cape_result import _determine_dns_servers
+        assert _determine_dns_servers(network) == expected_result
+
+    @staticmethod
+    @pytest.mark.parametrize("dom, dest_ip, dns_servers, resolved_ips, expected_result", [
+        # No domain, IP should not be removed
+        ("", "1.1.1.1", [], {}, False),
+        # Domain is not safelisted
+        ("blah.com", "1.1.1.1", [], {}, False),
+        # Domain is safelisted
+        ("blah.ca", "1.1.1.1", [], {}, True),
+        # No domain and IP is safelisted
+        ("", "127.0.0.1", [], {}, True),
+        # No domain and IP is not safelisted but is in the dns servers list
+        ("", "8.8.8.8", ["8.8.8.8"], {}, True),
+        # Domain is not safelisted but dest_ip is part of the resolved IPs and IP is in the INetSim network
+        ("blah.com", "192.0.2.123", [], {"192.0.2.123": []}, False),
+        # Domain is not safelisted but dest_ip is not part of the resolved IPs and IP is in the INetSim network
+        ("blah.com", "192.0.2.123", [], {}, True),
+    ])
+    def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
+        from ipaddress import IPv4Network
+
+        from cape.cape_result import _remove_network_call
+        inetsim_network = IPv4Network("192.0.2.0/24")
+        safelist = {"match": {"network.dynamic.domain": ["blah.ca"]}, "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]}}
+        assert _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
+
+    @staticmethod
+    @pytest.mark.parametrize("network_flow, connect, expected_result", [
+        # No image, connect exists with matching ip via ip_address, port
+        ({"image": None, "dest_ip": "127.0.0.1", "dest_port": 999, "domain": None}, {"ip_address": "127.0.0.1", "port": 999}, True),
+        # No image, connect exists with matching ip via hostname, port
+        ({"image": None, "dest_ip": "127.0.0.1", "dest_port": 999, "domain": None}, {"hostname": "127.0.0.1", "port": 999}, True),
+        # No image, connect exists with matching domain via url
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {"url": "http://blah.com/blah", "port": 999}, True),
+        # No image, connect exists with matching domain via url with port
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {"url": "http://blah.com:999/blah", "port": 999}, True),
+        # No image, connect exists with domain in url but should not run because domain is not the domain in the url
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {"url": "http://blah.org/blah.com", "port": 999}, False),
+        # No image, connect exists with matching domain via servername
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {"servername": "blah.com", "port": 999}, True),
+
+    ])
+    def test_is_network_flow_a_connect_match(network_flow, connect, expected_result):
+        from cape.cape_result import _is_network_flow_a_connect_match
+        assert _is_network_flow_a_connect_match(network_flow, connect) is expected_result
+
+    @staticmethod
+    @pytest.mark.parametrize("network_flow, process_map, expected_result", [
+        # No image
+        ({"image": None}, {}, {"image": None}),
+        # Network flow image already is set
+        ({"image": "blah"}, {}, {"image": "blah"}),
+        # No image, connect exists but it's useless
+        ({"image": None}, {123: {"network_calls": [{"connect": {}}]}}, {"image": None}),
+        # No image, connect exists with matching ip via ip_address, port
+        ({"image": None, "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"ip_address": "127.0.0.1", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
+        # No image, connect exists with matching ip via hostname, port
+        ({"image": None, "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"hostname": "127.0.0.1", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
+        # No image, connect exists with matching domain via url
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"url": "http://blah.com/blah", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
+        # No image, connect exists with matching domain via url with port
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"url": "http://blah.com:999/blah", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
+        # No image, connect exists with domain in url but should not run because domain is not the domain in the url
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"url": "http://blah.org/blah.com", "port": 999}}], "name": "blah.exe"}}, {"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}),
+        # No image, connect exists with matching domain via servername
+        ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"servername": "blah.com", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
+
+    ])
+    def test_link_flow_with_process(network_flow, process_map, expected_result):
+        from cape.cape_result import _link_flow_with_process
+        assert _link_flow_with_process(network_flow, process_map) == expected_result
+
+    @staticmethod
+    @pytest.mark.parametrize("dom, network_flow, dest_ip, expected_tags", [
+        # Nothing interest, just tagging some things
+        ("", {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321}, "", {'network.protocol': ['tcp'], 'network.dynamic.ip': ['127.0.0.1'], 'network.port': [123, 321]}),
+        # Domain
+        ("blah.com", {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321}, "", {'network.dynamic.domain': ['blah.com'], 'network.protocol': ['tcp'], 'network.dynamic.ip': ['127.0.0.1'], 'network.port': [123, 321]}),
+        # Safelisted dest IP and src IP
+        ("", {"protocol": "tcp", "src_ip": "192.168.0.123", "dest_port": 123, "src_port": 321}, "192.168.0.321", {'network.protocol': ['tcp'], 'network.port': [123, 321]}),
+        # Non-safelisted dest IP and src IP
+        ("", {"protocol": "tcp", "src_ip": "192.168.1.123", "dest_port": 123, "src_port": 321}, "192.168.1.231", {'network.protocol': ['tcp'], 'network.dynamic.ip': ['192.168.1.231', '192.168.1.123'], 'network.port': [123, 321]}),
+    ])
+    def test_tag_network_flow(dom, network_flow, dest_ip, expected_tags):
+        from assemblyline_v4_service.common.result import ResultTableSection
+        from cape.cape_result import _tag_network_flow
+
+        netflows_sec = ResultTableSection("blah")
+        safelist = {"regex": {"network.dynamic.ip": ["192\.168\.0\..*"]}}
+        _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
+        assert netflows_sec.tags == expected_tags
+
+    @staticmethod
+    @pytest.mark.parametrize("network_flow, expected_netflow", [
+        # No image, timestamp is not string
+        ({"src_ip": "127.0.0.1", "src_port": 123, "dest_ip": "1.1.1.1", "dest_port": 321, "protocol": "tcp", "timestamp": 1, "pid": None}, {
+            'connection_type': None,
+            'destination_ip': '1.1.1.1',
+            'destination_port': 321,
+            'direction': 'outbound',
+            'dns_details': None,
+            'http_details': None,
+            'objectid': {'ontology_id': 'network_7hKNdOVlLWYVZUUVUNbDgs',
+                         'processtree': None,
+                         'service_name': 'CAPE',
+                         'session': 'blah',
+                         'tag': '1.1.1.1:321',
+                         'time_observed': '1970-01-01 00:00:01',
+                         'treeid': None},
+            'process': None,
+            'source_ip': '127.0.0.1',
+            'source_port': 123,
+            'transport_layer_protocol': 'tcp',
+        }),
+        # No image, timestamp is string
+        ({"src_ip": "127.0.0.1", "src_port": 123, "dest_ip": "1.1.1.1", "dest_port": 321, "protocol": "tcp", "timestamp": '1970-01-01 00:00:01', "pid": None}, {
+            'connection_type': None,
+            'destination_ip': '1.1.1.1',
+            'destination_port': 321,
+            'direction': 'outbound',
+            'dns_details': None,
+            'http_details': None,
+            'objectid': {'ontology_id': 'network_7hKNdOVlLWYVZUUVUNbDgs',
+                         'processtree': None,
+                         'service_name': 'CAPE',
+                         'session': 'blah',
+                         'tag': '1.1.1.1:321',
+                         'time_observed': '1970-01-01 00:00:01',
+                         'treeid': None},
+            'process': None,
+            'source_ip': '127.0.0.1',
+            'source_port': 123,
+            'transport_layer_protocol': 'tcp',
+        }),
+        # Image
+        ({"src_ip": "127.0.0.1", "src_port": 123, "dest_ip": "1.1.1.1", "dest_port": 321, "protocol": "tcp", "timestamp": '1970-01-01 00:00:01', "pid": 123, "image": "blah.exe"}, {
+            'connection_type': None,
+            'destination_ip': '1.1.1.1',
+            'destination_port': 321,
+            'direction': 'outbound',
+            'dns_details': None,
+            'http_details': None,
+            'objectid': {'ontology_id': 'network_7hKNdOVlLWYVZUUVUNbDgs',
+                         'processtree': None,
+                         'service_name': 'CAPE',
+                         'session': 'blah',
+                         'tag': '1.1.1.1:321',
+                         'time_observed': '1970-01-01 00:00:01',
+                         'treeid': None},
+            'process': None,
+            'source_ip': '127.0.0.1',
+            'source_port': 123,
+            'transport_layer_protocol': 'tcp',
+        }),
+    ])
+    def test_create_network_connection_for_network_flow(network_flow, expected_netflow):
+        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults, Process
+        from cape.cape_result import _create_network_connection_for_network_flow
+
+        session = "blah"
+        ontres = OntologyResults(service_name="CAPE")
+        p = Process(objectid=OntologyResults.create_objectid(tag="blah.exe", ontology_id="blah", service_name="CAPE"), image="blah.exe", start_time="1970-01-01 00:00:01", pid=123)
+        ontres.add_process(p)
+        print(ontres.processes[0].as_primitives())
+
+        _create_network_connection_for_network_flow(network_flow, session, ontres)
+        prims = ontres.netflows[0].as_primitives()
+        prims["objectid"].pop("guid")
+        assert prims == expected_netflow
+
+    @staticmethod
     def test_process_network():
         from ipaddress import IPv4Network
 
@@ -2555,14 +2737,14 @@ class TestCapeResult:
 
         ]
     )
-    def test_create_network_connection(http_call, destination_ip, destination_port, expected_nc):
+    def test_create_network_connection_for_http_call(http_call, destination_ip, destination_port, expected_nc):
         from assemblyline_v4_service.common.dynamic_service_helper import NetworkHTTP, OntologyResults
-        from cape.cape_result import _create_network_connection
+        from cape.cape_result import _create_network_connection_for_http_call
         ontres = OntologyResults(service_name="blah")
         sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
         ontres.add_sandbox(sandbox)
         nh = NetworkHTTP("http://blah.com/blah", "GET")
-        assert _create_network_connection(http_call, destination_ip, destination_port, nh, ontres).as_primitives() == expected_nc
+        assert _create_network_connection_for_http_call(http_call, destination_ip, destination_port, nh, ontres).as_primitives() == expected_nc
 
     @staticmethod
     @pytest.mark.parametrize(
