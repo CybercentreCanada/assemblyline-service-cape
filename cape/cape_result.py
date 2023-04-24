@@ -846,15 +846,25 @@ def process_network(
                 session=session,
             )
             objectid.assign_guid()
-            nc = ontres.create_network_connection(
-                objectid=objectid,
-                destination_ip=destination_ip,
-                destination_port=destination_port,
-                transport_layer_protocol=transport_layer_protocol,
-                direction=NetworkConnection.OUTBOUND,
-                dns_details=nd,
-                connection_type=NetworkConnection.DNS,
-            )
+            try:
+                nc = ontres.create_network_connection(
+                    objectid=objectid,
+                    destination_ip=destination_ip,
+                    destination_port=destination_port,
+                    transport_layer_protocol=transport_layer_protocol,
+                    direction=NetworkConnection.OUTBOUND,
+                    dns_details=nd,
+                    connection_type=NetworkConnection.DNS,
+                )
+            except ValueError as e:
+                log.warning(
+                    f"{e}. The required values passed were:\n"
+                    f"objectid={objectid}\n"
+                    f"destination_ip={destination_ip}\n"
+                    f"destination_port={destination_port}\n"
+                    f"transport_layer_protocol={transport_layer_protocol}"
+                )
+                continue
             nc.update_process(
                 pid=request["process_id"],
                 image=request["process_name"],
