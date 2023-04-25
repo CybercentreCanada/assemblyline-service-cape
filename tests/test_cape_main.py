@@ -11,12 +11,9 @@ from assemblyline.common.exceptions import RecoverableError
 from assemblyline.common.identify_defaults import type_to_extension
 from assemblyline.common.str_utils import safe_str
 from assemblyline.odm.messages.task import Task as ServiceTask
-from assemblyline_v4_service.common.dynamic_service_helper import \
-    OntologyResults
+from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import (BODY_FORMAT,
-                                                   ResultImageSection,
-                                                   ResultSection)
+from assemblyline_v4_service.common.result import BODY_FORMAT, ResultImageSection, ResultSection
 from assemblyline_v4_service.common.task import Task
 from cape.cape_main import *
 from requests import ConnectionError, Session, exceptions
@@ -571,7 +568,7 @@ class TestCapeMain:
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
         from assemblyline.common.exceptions import RecoverableError
-        from cape.cape_main import CAPE, AnalysisTimeoutExceeded
+        from cape.cape_main import CAPE
 
         ontres = OntologyResults(service_name="blah")
         ontres.add_sandbox(
