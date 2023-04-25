@@ -14,27 +14,18 @@ from zipfile import ZipFile
 import requests
 from assemblyline.common.exceptions import RecoverableError
 from assemblyline.common.forge import get_identify
-from assemblyline.common.identify_defaults import (magic_patterns,
-                                                   trusted_mimes,
-                                                   type_to_extension)
+from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
 from assemblyline.common.str_utils import safe_str
 from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
-from assemblyline_v4_service.common.dynamic_service_helper import (
-    OntologyResults, attach_dynamic_ontology)
+from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults, attach_dynamic_ontology
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import (Result, ResultImageSection,
-                                                   ResultKeyValueSection,
-                                                   ResultSection,
+from assemblyline_v4_service.common.result import (Result, ResultImageSection, ResultKeyValueSection, ResultSection,
                                                    ResultTextSection)
 from assemblyline_v4_service.common.tag_helper import add_tag
-from cape.cape_result import (ANALYSIS_ERRORS, GUEST_CANNOT_REACH_HOST,
-                              LINUX_IMAGE_PREFIX, MACHINE_NAME_REGEX,
-                              SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS,
-                              WINDOWS_IMAGE_PREFIX,
-                              convert_processtree_id_to_tree_id,
-                              generate_al_result, x64_IMAGE_SUFFIX,
-                              x86_IMAGE_SUFFIX)
+from cape.cape_result import (ANALYSIS_ERRORS, GUEST_CANNOT_REACH_HOST, LINUX_IMAGE_PREFIX, MACHINE_NAME_REGEX,
+                              SIGNATURES_SECTION_TITLE, SUPPORTED_EXTENSIONS, WINDOWS_IMAGE_PREFIX,
+                              convert_processtree_id_to_tree_id, generate_al_result, x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX)
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 from pefile import PE, PEFormatError
 from retrying import RetryError, retry
@@ -145,12 +136,6 @@ class CapeVMBusyException(Exception):
 
 class InvalidCapeRequest(Exception):
     """Exception class for when every CAPE host's REST API returns a 200 status code with errors"""
-
-    pass
-
-
-class AnalysisTimeoutExceeded(Exception):
-    """Exception class for when CAPE is not able to complete analysis before the service times out"""
 
     pass
 
