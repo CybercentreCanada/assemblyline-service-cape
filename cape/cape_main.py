@@ -148,11 +148,6 @@ class InvalidCapeRequest(Exception):
 
     pass
 
-class CapeHostsUnavailable(Exception):
-    """Exception class for when the service cannot reach the hosts"""
-
-    pass
-
 
 class AnalysisTimeoutExceeded(Exception):
     """Exception class for when CAPE is not able to complete analysis before the service times out"""
