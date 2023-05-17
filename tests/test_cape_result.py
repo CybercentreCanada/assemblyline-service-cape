@@ -2869,7 +2869,7 @@ class TestCapeResult:
                 'ppid': None,
                 'start_time': '1970-01-01 00:00:01',
             }),
-            # Process map with network call of buffer = request_data
+            # Process map with network call of buffer = request_data, InternetConnectW
             ({1: {"network_calls": [{"InternetConnectW": {"buffer": "check me"}}]}}, "check me", "", {
                 'command_line': None,
                 'end_time': None,
@@ -2940,6 +2940,29 @@ class TestCapeResult:
             }),
             # Process map with network call with servername in uri, with port
             ({1: {"network_calls": [{"InternetConnectA": {"service": "3", "servername": "blah.com"}}]}}, "", "http://blah.com:8080/blah", {
+                'command_line': None,
+                'end_time': None,
+                'image': 'blah',
+                'image_hash': None,
+                'integrity_level': None,
+                'objectid': {'guid': None,
+                             'ontology_id': 'blah',
+                             'processtree': None,
+                             'service_name': 'CAPE',
+                             'session': None,
+                             'tag': 'blah',
+                             'time_observed': '1970-01-01 00:00:01',
+                             'treeid': None},
+                'original_file_name': None,
+                'pcommand_line': None,
+                'pid': 1,
+                'pimage': None,
+                'pobjectid': None,
+                'ppid': None,
+                'start_time': '1970-01-01 00:00:01',
+            }),
+            # Process map with network call of buffer = request_data, WSASend
+            ({1: {"network_calls": [{"WSASend": {"buffer": "check me"}}]}}, "check me", "", {
                 'command_line': None,
                 'end_time': None,
                 'image': 'blah',

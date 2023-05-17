@@ -90,6 +90,7 @@ HTTP_API_CALLS = [
     "InternetCrackUrlW",
     "InternetOpenUrlA",
     "WinHttpConnect",
+    "WSASend",
 ]
 BUFFER_API_CALLS = ["send", "WSASend"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
