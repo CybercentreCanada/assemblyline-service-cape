@@ -392,6 +392,7 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     errors_to_ignore = [
         'Failed to open terminate event for pid',
         "Could not open file",
+        "Not enough memory",
     ]
     for error in debug["errors"]:
         err_str = str(error)
@@ -532,6 +533,7 @@ def convert_cape_processes(
                 ontology_id=p_oid,
                 guid=guid,
                 session=session,
+                time_observed=first_seen,
             ),
             pid=item["process_id"],
             ppid=item["parent_id"],
