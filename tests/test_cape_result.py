@@ -569,7 +569,6 @@ class TestCapeResult:
         ontres = OntologyResults(service_name="CAPE")
         p = Process(objectid=OntologyResults.create_objectid(tag="blah.exe", ontology_id="blah", service_name="CAPE"), image="blah.exe", start_time="1970-01-01 00:00:01", end_time="1970-01-01 00:00:10", pid=123)
         ontres.add_process(p)
-        print(ontres.processes[0].as_primitives())
 
         _create_network_connection_for_network_flow(network_flow, session, ontres)
         prims = ontres.netflows[0].as_primitives()
