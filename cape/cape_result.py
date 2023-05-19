@@ -20,14 +20,32 @@ from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
 from assemblyline.odm.models.ontology.results.network import NetworkConnection as NetworkConnectionModel
-from assemblyline_v4_service.common.dynamic_service_helper import (MAX_TIME, MIN_DOMAIN_CHARS, MIN_TIME, Attribute,
-                                                                   NetworkConnection, NetworkHTTP, OntologyResults,
-                                                                   Process, Sandbox, Signature, attach_dynamic_ontology,
-                                                                   convert_sysmon_network, convert_sysmon_processes,
-                                                                   extract_iocs_from_text_blob)
-from assemblyline_v4_service.common.result import (KVSectionBody, ResultKeyValueSection, ResultMultiSection,
-                                                   ResultSection, ResultTableSection, ResultTextSection, TableRow,
-                                                   TextSectionBody)
+from assemblyline_v4_service.common.dynamic_service_helper import (
+    MAX_TIME,
+    MIN_DOMAIN_CHARS,
+    MIN_TIME,
+    Attribute,
+    NetworkConnection,
+    NetworkHTTP,
+    OntologyResults,
+    Process,
+    Sandbox,
+    Signature,
+    attach_dynamic_ontology,
+    convert_sysmon_network,
+    convert_sysmon_processes,
+    extract_iocs_from_text_blob,
+)
+from assemblyline_v4_service.common.result import (
+    KVSectionBody,
+    ResultKeyValueSection,
+    ResultMultiSection,
+    ResultSection,
+    ResultTableSection,
+    ResultTextSection,
+    TableRow,
+    TextSectionBody,
+)
 from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
 from assemblyline_v4_service.common.tag_helper import add_tag
 from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
@@ -498,7 +516,6 @@ def convert_cape_processes(
         if (
             not process_path
             or not command_line
-            or is_tag_safelisted(process_path, ["dynamic.process.file_name"], safelist)
             or is_tag_safelisted(
                 command_line, ["dynamic.process.command_line"], safelist
             )
@@ -1996,8 +2013,6 @@ def get_process_map(
             if process.get("module_path")
             else process["process_name"]
         )
-        if is_tag_safelisted(process_name, ["dynamic.process.file_name"], safelist):
-            continue
         network_calls = []
         decrypted_buffers = []
         calls = process["calls"]
