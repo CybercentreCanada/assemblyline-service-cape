@@ -2987,8 +2987,12 @@ class TestCapeResult:
         ]
     )
     def test_link_process_to_http_call(process_map, request_data, uri, expected_nc_process):
-        from assemblyline_v4_service.common.dynamic_service_helper import (NetworkConnection, NetworkHTTP,
-                                                                           OntologyResults, Process)
+        from assemblyline_v4_service.common.dynamic_service_helper import (
+            NetworkConnection,
+            NetworkHTTP,
+            OntologyResults,
+            Process,
+        )
         from cape.cape_result import _link_process_to_http_call
 
         ontres = OntologyResults(service_name="blah")
@@ -3703,7 +3707,8 @@ class TestCapeResult:
         "processes, correct_process_map",
         [
             ([], {}),
-            ([{"module_path": "C:\\windows\\System32\\lsass.exe", "calls": [], "process_id": 1}], {}),
+            # We are no longer safelisting by dynamic.process.name tag values. So lsass should be included in the process map
+            ([{"module_path": "C:\\windows\\System32\\lsass.exe", "calls": [], "process_id": 1}], {1: {'name': 'C:\\windows\\System32\\lsass.exe', 'network_calls': [], 'decrypted_buffers': []}}),
             (
                 [{"module_path": "blah.exe", "calls": [], "process_id": 1}],
                 {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
