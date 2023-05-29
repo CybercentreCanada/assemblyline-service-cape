@@ -1,7 +1,80 @@
 import json
+from ipaddress import IPv4Network, ip_network
+from json import dumps, loads
 
 import pytest
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+from assemblyline_service_utilities.common.dynamic_service_helper import (
+    NetworkConnection,
+    NetworkDNS,
+    NetworkHTTP,
+    ObjectID,
+    OntologyResults,
+    Process,
+    Signature,
+)
+from assemblyline_v4_service.common.result import (
+    BODY_FORMAT,
+    KVSectionBody,
+    ProcessItem,
+    ResultMultiSection,
+    ResultProcessTreeSection,
+    ResultSection,
+    ResultTableSection,
+    TableRow,
+    TextSectionBody,
+)
+from cape.cape_result import (
+    ANALYSIS_ERRORS,
+    _create_network_connection_for_http_call,
+    _create_network_connection_for_network_flow,
+    _create_network_http,
+    _create_signature_result_section,
+    _determine_dns_servers,
+    _get_destination_ip,
+    _get_dns_map,
+    _get_dns_sec,
+    _get_important_fields_from_http_call,
+    _get_low_level_flows,
+    _get_network_connection_by_details,
+    _handle_http_headers,
+    _handle_mark_call,
+    _handle_mark_data,
+    _is_http_call_safelisted,
+    _is_mark_call,
+    _is_network_flow_a_connect_match,
+    _link_flow_with_process,
+    _link_process_to_http_call,
+    _massage_body_paths,
+    _massage_host_data,
+    _massage_http_ex_data,
+    _process_http_calls,
+    _process_non_http_traffic_over_http,
+    _remove_bytes_from_buffer,
+    _remove_network_call,
+    _remove_network_http_noise,
+    _set_attack_ids,
+    _set_families,
+    _set_heuristic_signature,
+    _setup_network_connection_with_network_http,
+    _tag_mark_values,
+    _tag_network_flow,
+    _update_process_map,
+    _uris_are_equal_despite_discrepancies,
+    build_process_tree,
+    convert_cape_processes,
+    generate_al_result,
+    get_process_api_sums,
+    get_process_map,
+    process_all_events,
+    process_behaviour,
+    process_buffers,
+    process_cape,
+    process_curtain,
+    process_debug,
+    process_hollowshunter,
+    process_info,
+    process_network,
+)
 from test_cape_main import check_section_equality, create_tmp_manifest, remove_tmp_manifest
 
 
@@ -50,11 +123,6 @@ class TestCapeResult:
         ],
     )
     def test_generate_al_result(api_report, mocker):
-        from ipaddress import ip_network
-
-        from assemblyline_v4_service.common.result import ResultSection
-        from cape.cape_result import ANALYSIS_ERRORS, generate_al_result
-
         correct_process_map = {"blah": "blah"}
         mocker.patch("cape.cape_result.process_info")
         mocker.patch("cape.cape_result.process_machine_info")
@@ -133,9 +201,6 @@ class TestCapeResult:
         ],
     )
     def test_process_info(info, correct_body, expected_am):
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cape.cape_result import process_info
-
         al_result = ResultSection("blah")
         so = OntologyResults(service_name="CAPE")
         # default_am = so.analysis_metadata.as_primitives()
@@ -163,9 +228,6 @@ class TestCapeResult:
         ],
     )
     def test_process_debug(debug, correct_body):
-        from assemblyline_v4_service.common.result import ResultSection
-        from cape.cape_result import process_debug
-
         al_result = ResultSection("blah")
         process_debug(debug, al_result)
 
@@ -202,8 +264,6 @@ class TestCapeResult:
         [(321, 'iexplore.exe'), (999, 'iexplore.exe')]),
     ])
     def test_process_behaviour(behaviour, expected, mocker):
-        from cape.cape_result import process_behaviour
-
         mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
@@ -220,8 +280,6 @@ class TestCapeResult:
         ],
     )
     def test_get_process_api_sums(apistats, correct_api_sums):
-        from cape.cape_result import get_process_api_sums
-
         assert get_process_api_sums(apistats) == correct_api_sums
 
     @staticmethod
@@ -281,8 +339,6 @@ class TestCapeResult:
         ],
     )
     def test_convert_cape_processes(processes, correct_event, mocker):
-        from cape.cape_result import convert_cape_processes
-
         safelist = {}
         so = OntologyResults(service_name="CAPE")
         mocker.patch.object(so, "sandboxes", return_value="blah")
@@ -368,9 +424,6 @@ class TestCapeResult:
         ],
     )
     def test_build_process_tree(events, is_process_martian, correct_body):
-        from assemblyline_v4_service.common.result import ProcessItem, ResultProcessTreeSection, ResultSection
-        from cape.cape_result import build_process_tree
-
         default_so = OntologyResults()
         for event in events:
             p = default_so.create_process(**event)
@@ -404,7 +457,6 @@ class TestCapeResult:
         ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["127.0.0.1"]),
     ])
     def test_determine_dns_servers(network, expected_result):
-        from cape.cape_result import _determine_dns_servers
         assert _determine_dns_servers(network) == expected_result
 
     @staticmethod
@@ -425,9 +477,6 @@ class TestCapeResult:
         ("blah.com", "192.0.2.123", [], {}, True),
     ])
     def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
-        from ipaddress import IPv4Network
-
-        from cape.cape_result import _remove_network_call
         inetsim_network = IPv4Network("192.0.2.0/24")
         safelist = {"match": {"network.dynamic.domain": ["blah.ca"]}, "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]}}
         assert _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
@@ -449,7 +498,6 @@ class TestCapeResult:
 
     ])
     def test_is_network_flow_a_connect_match(network_flow, connect, expected_result):
-        from cape.cape_result import _is_network_flow_a_connect_match
         assert _is_network_flow_a_connect_match(network_flow, connect) is expected_result
 
     @staticmethod
@@ -475,7 +523,6 @@ class TestCapeResult:
 
     ])
     def test_link_flow_with_process(network_flow, process_map, expected_result):
-        from cape.cape_result import _link_flow_with_process
         assert _link_flow_with_process(network_flow, process_map) == expected_result
 
     @staticmethod
@@ -490,9 +537,6 @@ class TestCapeResult:
         ("", {"protocol": "tcp", "src_ip": "192.168.1.123", "dest_port": 123, "src_port": 321}, "192.168.1.231", {'network.protocol': ['tcp'], 'network.dynamic.ip': ['192.168.1.231', '192.168.1.123'], 'network.port': [123, 321]}),
     ])
     def test_tag_network_flow(dom, network_flow, dest_ip, expected_tags):
-        from assemblyline_v4_service.common.result import ResultTableSection
-        from cape.cape_result import _tag_network_flow
-
         netflows_sec = ResultTableSection("blah")
         safelist = {"regex": {"network.dynamic.ip": ["192\.168\.0\..*"]}}
         _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
@@ -562,9 +606,6 @@ class TestCapeResult:
         }),
     ])
     def test_create_network_connection_for_network_flow(network_flow, expected_netflow):
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults, Process
-        from cape.cape_result import _create_network_connection_for_network_flow
-
         session = "blah"
         ontres = OntologyResults(service_name="CAPE")
         p = Process(objectid=OntologyResults.create_objectid(tag="blah.exe", ontology_id="blah", service_name="CAPE"), image="blah.exe", start_time="1970-01-01 00:00:01", end_time="1970-01-01 00:00:10", pid=123)
@@ -577,12 +618,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_process_network():
-        from ipaddress import IPv4Network
-
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import process_network
-
         inetsim_network = IPv4Network("192.0.2.0/24")
         routing = "inetsim"
         safelist =  {
@@ -2146,11 +2181,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_get_dns_sec():
-        from json import dumps
-
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cape.cape_result import _get_dns_sec
-
         resolved_ips = {}
         safelist = []
         assert _get_dns_sec(resolved_ips, safelist) is None
@@ -2371,8 +2401,6 @@ class TestCapeResult:
         ],
     )
     def test_get_dns_map(dns_calls, process_map, routing, expected_return):
-        from cape.cape_result import _get_dns_map
-
         dns_servers = ["1.1.1.1"]
         assert _get_dns_map(dns_calls, process_map, routing, dns_servers) == expected_return
 
@@ -2466,9 +2494,6 @@ class TestCapeResult:
         ],
     )
     def test_get_low_level_flows(resolved_ips, flows, expected_return):
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection
-        from cape.cape_result import _get_low_level_flows
-
         expected_network_flows_table, expected_netflows_sec_body = expected_return
         correct_netflows_sec = ResultTableSection(title_text="TCP/UDP Network Traffic")
         if expected_netflows_sec_body == "flag":
@@ -2504,7 +2529,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_massage_host_data():
-        from cape.cape_result import _massage_host_data
         assert _massage_host_data("blah.blah") == "blah.blah"
         assert _massage_host_data("blah.blah:80") == "blah.blah"
 
@@ -2523,7 +2547,6 @@ class TestCapeResult:
         ]
     )
     def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
-        from cape.cape_result import _massage_http_ex_data
         assert _massage_http_ex_data(host, dns_servers, resolved_ips, http_call) == (expected_uri, expected_http_call)
 
     @staticmethod
@@ -2539,7 +2562,6 @@ class TestCapeResult:
         ]
     )
     def test_get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call):
-        from cape.cape_result import _get_important_fields_from_http_call
         assert _get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call) == (expected_request, expected_port, expected_uri, expected_http_call)
 
     @staticmethod
@@ -2559,7 +2581,6 @@ class TestCapeResult:
         ]
     )
     def test_is_http_call_safelisted(host, safelist, uri, is_http_call_safelisted):
-        from cape.cape_result import _is_http_call_safelisted
         assert _is_http_call_safelisted(host, safelist, uri) == is_http_call_safelisted
 
     @staticmethod
@@ -2573,7 +2594,6 @@ class TestCapeResult:
         ]
     )
     def test_massage_body_paths(http_call, expected_request_body_path, expected_response_body_path):
-        from cape.cape_result import _massage_body_paths
         assert _massage_body_paths(http_call) == (expected_request_body_path, expected_response_body_path)
 
     @staticmethod
@@ -2591,8 +2611,6 @@ class TestCapeResult:
         ]
     )
     def test_get_destination_ip(http_call, dns_servers, host, expected_destination_ip):
-        from assemblyline_v4_service.common.dynamic_service_helper import NetworkDNS, OntologyResults
-        from cape.cape_result import _get_destination_ip
         ontres = OntologyResults(service_name="blah")
         dns = NetworkDNS("blah.ca", ["1.1.1.1"], "A")
         ontres.add_network_dns(dns)
@@ -2626,8 +2644,6 @@ class TestCapeResult:
         ]
     )
     def test_create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, expected_nh):
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
-        from cape.cape_result import _create_network_http
         ontres = OntologyResults(service_name="blah")
         assert _create_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres).as_primitives() == expected_nh
 
@@ -2664,8 +2680,6 @@ class TestCapeResult:
         ]
     )
     def test_get_network_connection_by_details(destination_ip, destination_port, expected_nc):
-        from assemblyline_v4_service.common.dynamic_service_helper import NetworkConnection, OntologyResults
-        from cape.cape_result import _get_network_connection_by_details
         ontres = OntologyResults(service_name="blah")
         nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound")
         ontres.add_network_connection(nc)
@@ -2737,8 +2751,6 @@ class TestCapeResult:
         ]
     )
     def test_create_network_connection_for_http_call(http_call, destination_ip, destination_port, expected_nc):
-        from assemblyline_v4_service.common.dynamic_service_helper import NetworkHTTP, OntologyResults
-        from cape.cape_result import _create_network_connection_for_http_call
         ontres = OntologyResults(service_name="blah")
         sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
         ontres.add_sandbox(sandbox)
@@ -2822,9 +2834,6 @@ class TestCapeResult:
         ]
     )
     def test_setup_network_connection_with_network_http(uri, http_call, request_headers, response_headers, request_body_path, response_body_path, port, destination_ip, expected_nc, expected_nh):
-        from assemblyline_v4_service.common.dynamic_service_helper import NetworkConnection, OntologyResults
-        from cape.cape_result import _setup_network_connection_with_network_http
-
         ontres = OntologyResults(service_name="blah")
 
         sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
@@ -2987,14 +2996,6 @@ class TestCapeResult:
         ]
     )
     def test_link_process_to_http_call(process_map, request_data, uri, expected_nc_process):
-        from assemblyline_v4_service.common.dynamic_service_helper import (
-            NetworkConnection,
-            NetworkHTTP,
-            OntologyResults,
-            Process,
-        )
-        from cape.cape_result import _link_process_to_http_call
-
         ontres = OntologyResults(service_name="blah")
 
         nc = NetworkConnection(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), destination_ip="1.1.1.1", destination_port=123, transport_layer_protocol="tcp", direction="outbound", http_details=NetworkHTTP(request_uri="http://blah.com", request_method="GET"), connection_type="http")
@@ -3400,7 +3401,6 @@ class TestCapeResult:
         ],
     )
     def test_process_http_calls(process_map, http_level_flows, expected_req_table, mocker):
-        from cape.cape_result import _process_http_calls
         default_so = OntologyResults(service_name="CAPE")
         mocker.patch.object(default_so, "sandboxes", return_value="blah")
         safelist = {
@@ -3434,8 +3434,6 @@ class TestCapeResult:
         ],
     )
     def test_uris_are_equal_despite_discrepancies(api_uri, pcap_uri, expected_result):
-        from cape.cape_result import _uris_are_equal_despite_discrepancies
-
         assert _uris_are_equal_despite_discrepancies(api_uri, pcap_uri) == expected_result
 
     @staticmethod
@@ -3461,17 +3459,10 @@ class TestCapeResult:
         ],
     )
     def test_handle_http_headers(header_string, expected_header_dict):
-        from cape.cape_result import _handle_http_headers
-
         assert _handle_http_headers(header_string) == expected_header_dict
 
     @staticmethod
     def test_process_non_http_traffic_over_http():
-        from json import dumps
-
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cape.cape_result import _process_non_http_traffic_over_http
-
         test_parent_section = ResultSection("blah")
         network_flows = [
             {"dest_port": 80, "dest_ip": "127.0.0.1", "domain": "blah.com"},
@@ -3491,9 +3482,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_process_all_events():
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import process_all_events
-
         default_so = OntologyResults()
         al_result = ResultSection("blah")
         p = default_so.create_process(
@@ -3576,9 +3564,6 @@ class TestCapeResult:
         ],
     )
     def test_process_curtain(curtain, process_map):
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
-        from cape.cape_result import process_curtain
-
         al_result = ResultSection("blah")
 
         curtain_body = []
@@ -3604,9 +3589,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_process_hollowshunter():
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import process_hollowshunter
-
         hollowshunter = {}
         process_map = {123: {"name": "blah"}}
         al_result = ResultSection("blah")
@@ -3665,9 +3647,6 @@ class TestCapeResult:
         ],
     )
     def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
-        from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import process_buffers
-
         safelist = {}
         parent_section = ResultSection("blah")
         process_buffers(process_map, safelist, parent_section)
@@ -3699,7 +3678,6 @@ class TestCapeResult:
         ]
     )
     def test_process_cape(input, output):
-        from cape.cape_result import process_cape
         assert process_cape(input) == output
 
     @staticmethod
@@ -3936,16 +3914,11 @@ class TestCapeResult:
         ],
     )
     def test_get_process_map(processes, correct_process_map):
-        from cape.cape_result import get_process_map
-
         safelist = {"regex": {"dynamic.process.file_name": [r"C:\\Windows\\System32\\lsass\.exe"]}}
         assert get_process_map(processes, safelist) == correct_process_map
 
     @staticmethod
     def test_create_signature_result_section():
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, OntologyResults, Signature
-        from cape.cape_result import _create_signature_result_section
-
         # Case 1: Bare minimum
         name = "blah"
         signature = {"data": []}
@@ -4055,9 +4028,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_heuristic_signature():
-        from assemblyline_v4_service.common.result import ResultMultiSection
-        from cape.cape_result import _set_heuristic_signature
-
         # Case 1: Unknown signature with 0 score
         name = "blah"
         signature = {"a": "b"}
@@ -4080,10 +4050,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_attack_ids():
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
-        from assemblyline_v4_service.common.result import ResultMultiSection
-        from cape.cape_result import _set_attack_ids
-
         # Case 1: No Attack IDs
         attack_ids = {}
         sig_res = ResultMultiSection("blah")
@@ -4107,10 +4073,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_set_families():
-        from assemblyline_v4_service.common.dynamic_service_helper import ObjectID, Signature
-        from assemblyline_v4_service.common.result import ResultMultiSection
-        from cape.cape_result import _set_families
-
         # Case 1: No families
         families = []
         sig_res = ResultMultiSection("blah")
@@ -4135,15 +4097,11 @@ class TestCapeResult:
 
     @staticmethod
     def test_is_mark_call():
-        from cape.cape_result import _is_mark_call
         assert _is_mark_call(["blah"]) is False
         assert _is_mark_call(["type", "pid", "cid", "call"]) is True
 
     @staticmethod
     def test_handle_mark_call():
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
-        from cape.cape_result import _handle_mark_call
-
         # Case 1: pid is None
         pid = None
         action = "blah"
@@ -4213,12 +4171,6 @@ class TestCapeResult:
 
     @staticmethod
     def test_handle_mark_data():
-        from json import loads
-
-        from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
-        from assemblyline_v4_service.common.result import KVSectionBody, ResultMultiSection, TextSectionBody
-        from cape.cape_result import _handle_mark_data
-
         # Case 1: Bare minimum
         mark_items = {}
         sig_res = ResultMultiSection("blah")
@@ -4299,14 +4251,10 @@ class TestCapeResult:
         ],
     )
     def test_remove_network_http_noise(sigs, correct_sigs):
-        from cape.cape_result import _remove_network_http_noise
-
         assert _remove_network_http_noise(sigs) == correct_sigs
 
     @staticmethod
     def test_update_process_map():
-        from cape.cape_result import _update_process_map
-
         process_map = {}
         _update_process_map(process_map, [])
         assert process_map == {}
@@ -4361,8 +4309,6 @@ class TestCapeResult:
         ]
     )
     def test_tag_mark_values(key, value, expected_tags):
-        from assemblyline_v4_service.common.result import ResultSection, ResultTableSection, TableRow
-        from cape.cape_result import _tag_mark_values
         ontres = OntologyResults("CAPE")
         actual_res_sec = ResultSection("blah")
         iocs_res = _tag_mark_values(actual_res_sec, key, value, [], {}, ontres)
@@ -4389,5 +4335,4 @@ class TestCapeResult:
         ]
     )
     def test_remove_bytes_from_buffer(buffer, expected_output):
-        from cape.cape_result import _remove_bytes_from_buffer
         assert _remove_bytes_from_buffer(buffer) == expected_output

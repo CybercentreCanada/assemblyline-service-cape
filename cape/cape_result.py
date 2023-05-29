@@ -20,7 +20,7 @@ from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
 from assemblyline.odm.models.ontology.results.network import NetworkConnection as NetworkConnectionModel
-from assemblyline_v4_service.common.dynamic_service_helper import (
+from assemblyline_service_utilities.common.dynamic_service_helper import (
     MAX_TIME,
     MIN_DOMAIN_CHARS,
     MIN_TIME,
@@ -36,6 +36,8 @@ from assemblyline_v4_service.common.dynamic_service_helper import (
     convert_sysmon_processes,
     extract_iocs_from_text_blob,
 )
+from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
+from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.result import (
     KVSectionBody,
     ResultKeyValueSection,
@@ -46,8 +48,6 @@ from assemblyline_v4_service.common.result import (
     TableRow,
     TextSectionBody,
 )
-from assemblyline_v4_service.common.safelist_helper import is_tag_safelisted
-from assemblyline_v4_service.common.tag_helper import add_tag
 from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 
 al_log.init_logging("service.cape.cape_result")
