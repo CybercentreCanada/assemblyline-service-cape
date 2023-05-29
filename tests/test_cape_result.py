@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults
 from test_cape_main import check_section_equality, create_tmp_manifest, remove_tmp_manifest
 
 

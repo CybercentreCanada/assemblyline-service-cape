@@ -11,7 +11,7 @@ from assemblyline.common.exceptions import RecoverableError
 from assemblyline.common.identify_defaults import type_to_extension
 from assemblyline.common.str_utils import safe_str
 from assemblyline.odm.messages.task import Task as ServiceTask
-from assemblyline_v4_service.common.dynamic_service_helper import OntologyResults
+from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import BODY_FORMAT, ResultImageSection, ResultSection
 from assemblyline_v4_service.common.task import Task
