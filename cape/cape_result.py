@@ -941,6 +941,7 @@ def process_network(
             if item not in unique_netflows:  # Remove duplicates
                 unique_netflows.append(item)
                 netflows_sec.add_row(TableRow(**item))
+        netflows_sec.set_heuristic(1004)
         network_res.add_subsection(netflows_sec)
 
     # HTTP/HTTPS section
