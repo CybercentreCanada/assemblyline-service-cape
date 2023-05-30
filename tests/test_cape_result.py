@@ -3938,7 +3938,7 @@ class TestCapeResult:
         )
 
         assert actual_res_sec.title_text == "Signature: blah"
-        assert actual_res_sec.body == '[["TEXT", "No description for signature."]]'
+        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
         assert actual_res_sec.heuristic.heur_id == 9999
         assert ontres_sig.as_primitives() == {
             'actors': [],
@@ -3962,7 +3962,7 @@ class TestCapeResult:
         # Case 2: More than 10 marks
         signature = {"data": [{"a": "b"}, {"b": "b"}, {"c": "b"}, {"d": "b"}, {"e": "b"}, {"f": "b"}, {"g": "b"}, {"h": "b"}, {"i": "b"}, {"j": "b"}, {"k": "b"}, {"l": "b"}]}
         actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
-        assert actual_res_sec.body == '[["TEXT", "No description for signature."], ["KEY_VALUE", {"a": "b"}], ["KEY_VALUE", {"b": "b"}], ["KEY_VALUE", {"c": "b"}], ["KEY_VALUE", {"d": "b"}], ["KEY_VALUE", {"e": "b"}], ["KEY_VALUE", {"f": "b"}], ["KEY_VALUE", {"g": "b"}], ["KEY_VALUE", {"h": "b"}], ["KEY_VALUE", {"i": "b"}], ["KEY_VALUE", {"j": "b"}], ["TEXT", "There were 2 more marks that were not displayed."]]'
+        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}], ["KEY_VALUE", {"a": "b"}, {}], ["KEY_VALUE", {"b": "b"}, {}], ["KEY_VALUE", {"c": "b"}, {}], ["KEY_VALUE", {"d": "b"}, {}], ["KEY_VALUE", {"e": "b"}, {}], ["KEY_VALUE", {"f": "b"}, {}], ["KEY_VALUE", {"g": "b"}, {}], ["KEY_VALUE", {"h": "b"}, {}], ["KEY_VALUE", {"i": "b"}, {}], ["KEY_VALUE", {"j": "b"}, {}], ["TEXT", "There were 2 more marks that were not displayed.", {}]]'
         assert ontres_sig.as_primitives() == {
             'actors': [],
             'attacks': [],
@@ -3992,7 +3992,7 @@ class TestCapeResult:
         ontres.add_process(p)
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}]}
         actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
-        assert actual_res_sec.body == '[["TEXT", "No description for signature."]]'
+        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
         attr_as_primitives = ontres_sig.attributes[0].as_primitives()
         attr_as_primitives["source"].pop("guid")
         assert attr_as_primitives == {
@@ -4024,7 +4024,7 @@ class TestCapeResult:
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}, {"domain": "google.ru"}]}
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(name, signature, translated_score, ontres_sig, ontres, process_map, safelist)
-        assert actual_res_sec.body == '[["TEXT", "No description for signature."], ["KEY_VALUE", {"domain": "google.ru"}]]'
+        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}], ["KEY_VALUE", {"domain": "google.ru"}, {}]]'
 
     @staticmethod
     def test_set_heuristic_signature():
@@ -4084,7 +4084,7 @@ class TestCapeResult:
         # Case 2: Multiple families
         families = ["blah", "blahblah", "blahblahblah"]
         _set_families(families, sig_res, ontres_sig)
-        assert sig_res.body == '[["TEXT", "\\tFamilies: blah,blahblah,blahblahblah"]]'
+        assert sig_res.body == '[["TEXT", "\\tFamilies: blah,blahblah,blahblahblah", {}]]'
         assert ontres_sig.malware_families == ['blah', 'blahblah', 'blahblahblah']
 
         # Case 3: Families in SKIPPED_FAMILIES
@@ -4092,7 +4092,7 @@ class TestCapeResult:
         sig_res = ResultMultiSection("blah")
         ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
         _set_families(families, sig_res, ontres_sig)
-        assert sig_res.body == '[["TEXT", "\\tFamilies: wow"]]'
+        assert sig_res.body == '[["TEXT", "\\tFamilies: wow", {}]]'
         assert ontres_sig.malware_families == ["wow"]
 
     @staticmethod
