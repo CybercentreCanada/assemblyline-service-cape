@@ -1,11 +1,18 @@
 # These are the stock default process tree ids that are safelist in CAPE
 # Of the format <processtree_id>: <tree_id_hash>
 SAFE_PROCESS_TREE_LEAF_HASHES = {
+    "/opt/microsoft/omsagent/ruby/bin/ruby": "efbb6ee6d739f6fa409b15920ac221ad99798bee806b45c39c796a250146392d",
+    "/usr/bin/dash|/opt/omi/bin/omicli": "86129e5a947758e7b49cb839d7e5a23a5fe57a9d69d2cc8e81c7163577d1f74c",
+    "/usr/bin/dash|/usr/bin/grep": "d79b03312b88795c8d09fdc0d01c9c8700a04a73e71704f8608cfb3191514ca6",
+    "/usr/bin/dash|/usr/bin/sudo|/opt/microsoft/omsagent/ruby/bin/ruby": "1aab034f0907b4d29ceae8d8b40d23acf6316705c7df0251ea1b72d0034a58bf",
+    "/usr/bin/df": "b3eb40f639bf7e4e63c16a216aadb486f00ab3cb5a6e7c9de19ed9b411d0766e",
+    "/usr/bin/pgrep": "e6dbe312ef0f83b6abe0e064e47102e61a96c134c0d83fed9fc35992741c0bc1",
+    "<unknown process>": "4eda24bcfaeff701f29cb02ab4630f81d8831ebadd777aaf663841e7facd3c76",
     "?c\\python27\\pythonw.exe": "49a2ab6c73a10ee6bd97a0ba200c6f6dc0dc2977059b8029579e780748f19c72",
     "?pf86\\common files\\microsoft shared\\officesoftwareprotectionplatform\\osppsvc.exe": "f405c23c52c0dd0cd7ac31f92df0e76f9c6702b155ca5be6afbc076bb81d82a6",
     "?pf86\\microsoft\\edge\\application\\106.0.1370.47\\bho\\ie_to_edge_stub.exe": "7a569f652c1711967a935feedac0a2bf196c3bd5a7e8f75f85f02c65fe48e188",
-    "?pf86\\microsoft\\edge\\application\\111.0.1661.62\\bho\\ie_to_edge_stub.exe": "803ad39e1d0684a5f9ea5735405459055f5b811c030e71c24d13be9afe38ec69",
     "?pf86\\microsoft\\edge\\application\\106.0.1370.47\\identity_helper.exe": "524241b8a3e1a062d8edf4058545fbd5c7300068c9c3cdffd4ea81c008553c99",
+    "?pf86\\microsoft\\edge\\application\\111.0.1661.62\\bho\\ie_to_edge_stub.exe": "803ad39e1d0684a5f9ea5735405459055f5b811c030e71c24d13be9afe38ec69",
     "?pf86\\microsoft\\edge\\application\\111.0.1661.62\\identity_helper.exe": "938e63d8cf31fbae53d4c71670d24b35a422befc7243fed8338e056514b459f5",
     "?pf86\\microsoft\\edge\\application\\msedge.exe": "666cb65f44287de82e3b77628abd670990c78732e42ef209b4baaf6e5fe8bace",
     "?pf86\\microsoft\\edge\\application\\msedge.exe|?pf86\\microsoft\\edge\\application\\msedge.exe": "c7e4b5c4b3a1ae3fefaf965b87233e02beeb961c43e3844165979c69f199980d",
@@ -127,6 +134,5 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
     "?win\\systemapps\\microsoft.windows.search_cw5n1h2txyewy\\searchapp.exe": "44dcdb8d08f7fdcfe0843d73a652ddbe1e1729fdfdcb66e8f009d3f82a3103ea",
     "?win\\systemapps\\microsoft.windows.startmenuexperiencehost_cw5n1h2txyewy\\startmenuexperiencehost.exe": "aa5dd26518bf22e0d6ca76b67a2295934aa52858ec19b47affadf99cbd328a2e",
     "?win\\systemapps\\microsoftwindows.client.cbs_cw5n1h2txyewy\\inputapp\\textinputhost.exe": "e7a3087aba99f3aa0dd4aa5a44d0be58256b4ef41be49da617026838f5204f5c",
-    "<unknown process>": "4eda24bcfaeff701f29cb02ab4630f81d8831ebadd777aaf663841e7facd3c76",
     "system": "bbc5e661e106c6dcd8dc6dd186454c2fcba3c710fb4d8e71a60c93eaf077f073"
 }
