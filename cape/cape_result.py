@@ -902,6 +902,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
+                time_observed=request["time"],
             )
             objectid.assign_guid()
             try:
@@ -923,11 +924,11 @@ def process_network(
                     f"transport_layer_protocol={transport_layer_protocol}"
                 )
                 continue
-            nc.update_process(
-                pid=request["process_id"],
-                image=request["process_name"],
-                guid=request["guid"],
-            )
+            p = ontres.get_process_by_guid(request["guid"])
+            if not p:
+                p = ontres.get_process_by_pid_and_time(request["process_id"], nc.objectid.time_observed)
+            if p:
+                nc.set_process(p)
             ontres.add_network_connection(nc)
             ontres.add_network_dns(nd)
 
@@ -1162,11 +1163,15 @@ def _get_dns_map(
 
         # An 'A' record provides the IP address associated with a domain name.
         else:
+            first_seen = dns_call.get("first_seen")
+            if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
+                first_seen = datetime.fromtimestamp(first_seen).strftime(LOCAL_FMT)
+
             resolved_ips[answer].append({
                 "domain": request,
                 "process_id": dns_call.get("pid"),
                 "process_name": dns_call.get("image"),
-                "time": dns_call.get("time"),
+                "time": first_seen,
                 "guid": dns_call.get("guid"),
                 "type": dns_type,
             })
@@ -1718,20 +1723,47 @@ def process_all_events(
         if isinstance(event, NetworkConnection):
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
-            events_section.add_row(
-                TableRow(
-                    time_observed=event.objectid.time_observed,
-                    process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
-                    details={
-                        "protocol": event.transport_layer_protocol,
-                        "domain": ontres.get_domain_by_destination_ip(
-                            event.destination_ip
-                        ),
-                        "dest_ip": event.destination_ip,
-                        "dest_port": event.destination_port,
-                    },
+            if event.dns_details:
+                events_section.add_row(
+                    TableRow(
+                        time_observed=event.objectid.time_observed,
+                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
+                        details={
+                            "protocol": event.connection_type,
+                            "domain": event.dns_details.domain,
+                            "lookup_type": event.dns_details.lookup_type,
+                            "resolved_ips": event.dns_details.resolved_ips,
+                        },
+                    )
                 )
-            )
+            elif event.http_details:
+                events_section.add_row(
+                    TableRow(
+                        time_observed=event.objectid.time_observed,
+                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
+                        details={
+                            "protocol": event.connection_type,
+                            "method": event.http_details.request_method,
+                            "uri": event.http_details.request_uri,
+                            "status_code": event.http_details.response_status_code,
+                        },
+                    )
+                )
+            else:
+                events_section.add_row(
+                    TableRow(
+                        time_observed=event.objectid.time_observed,
+                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
+                        details={
+                            "protocol": event.transport_layer_protocol,
+                            "domain": ontres.get_domain_by_destination_ip(
+                                event.destination_ip
+                            ),
+                            "dest_ip": event.destination_ip,
+                            "dest_port": event.destination_port,
+                        },
+                    )
+                )
         elif isinstance(event, Process):
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
