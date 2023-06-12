@@ -456,7 +456,7 @@ class TestCapeResult:
         ({}, [], []),
         # UDP with no 53 entries
         ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, [], []),
-        # UDP with a 53 entry and different INetSim DNS server configured
+        # UDP with no 53 entries and INetSim DNS server configured
         ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, ["10.10.10.10"], ["10.10.10.10"]),
         # UDP with a 53 entry
         ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, [], ["127.0.0.1"]),
