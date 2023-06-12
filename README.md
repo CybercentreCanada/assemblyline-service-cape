@@ -111,6 +111,7 @@ The method for interpretting this structure is that files are divided between Li
 #### INetSim specifications
 * **random_ip_range** - [default: 192.0.2.0/24] This is the IP range that INetSim (if configured) will pick from in order to return a random IP for any DNS request that the victims make (note that this requires a patch to INetSim). This option is mainly for safelisting.
 **NB** : this functionality relies on the "INetSim - Random DNS Resolution" section below.
+* **inetsim_dns_servers** - [default: []] This is a list of INetSim DNS server IPs
 
 #### API Token Configurations
 * **token_key** - [default: Token] This the default keyword for the Django Rest Framework.

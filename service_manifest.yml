@@ -57,6 +57,8 @@ config:
 
   # INetSim specifications
   random_ip_range: 192.0.2.0/24
+  # This is a list of IPs that represent the locations where INetSim is serving DNS services
+  inetsim_dns_servers: []
 
   # This is the value of the token key to be used in authorization for API requests
   token_key: Token

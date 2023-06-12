@@ -200,6 +200,7 @@ def generate_al_result(
     machine_info: Dict[str, Any],
     ontres: OntologyResults,
     processtree_id_safelist: List[str],
+    inetsim_dns_servers: List[str],
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -213,6 +214,7 @@ def generate_al_result(
     :param machine_info: The details about the machine that analyzed the file
     :param ontres: The Ontology Results class object
     :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
+    :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
     :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
              the initial process and the process name
     """
@@ -283,6 +285,7 @@ def generate_al_result(
             process_map,
             safelist,
             ontres,
+            inetsim_dns_servers,
         )
 
     if sigs:
@@ -656,7 +659,7 @@ def process_signatures(
     return is_process_martian
 
 
-def _determine_dns_servers(network: Dict[str, Any]) -> List[str]:
+def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[str]) -> List[str]:
     # An assumption is being made here that the first UDP flow to port 53 is
     # for DNS.
     if len(network.get("udp", [])) > 0:
@@ -670,6 +673,10 @@ def _determine_dns_servers(network: Dict[str, Any]) -> List[str]:
             dns_servers = []
     else:
         dns_servers = []
+
+    for item in inetsim_dns_servers:
+        if item not in dns_servers:
+            dns_servers.append(item)
 
     return dns_servers
 
@@ -829,6 +836,7 @@ def process_network(
     process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
+    inetsim_dns_servers: List[str],
 ) -> None:
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
@@ -841,18 +849,21 @@ def process_network(
     :param task_id: The ID of the CAPE Task
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
+    :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
     :return: None
     """
     session = ontres.sandboxes[-1].objectid.session
     network_res = ResultSection("Network Activity")
 
     # DNS
-    dns_servers: List[str] = _determine_dns_servers(network)
+    dns_servers: List[str] = _determine_dns_servers(network, inetsim_dns_servers)
     dns_server_heur = Heuristic(1008)
     dns_server_sec = ResultTextSection(dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description)
     dns_server_hit = False
     for dns_server in dns_servers:
-        if add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist) and not ip_address(dns_server) in inetsim_network:
+        if add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist) and \
+            not ip_address(dns_server) in inetsim_network and \
+                (routing == INETSIM.lower() and dns_server not in inetsim_dns_servers):
             dns_server_sec.add_line(f"\t-\t{dns_server}")
             dns_server_hit = True
     if dns_server_hit:
@@ -2594,6 +2605,7 @@ if __name__ == "__main__":
     routing = argv[4]
     safelist_path = argv[5]
     custom_processtree_id_safelist = loads(argv[6])
+    inetsim_dns_servers = loads(argv[7])
 
     with open(safelist_path, "r") as f:
         safelist = yaml.safe_load(f)
@@ -2634,6 +2646,7 @@ if __name__ == "__main__":
         machine_info,
         ontres,
         custom_tree_id_safelist,
+        inetsim_dns_servers,
     )
 
     service = ServiceBase()
