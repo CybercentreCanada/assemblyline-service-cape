@@ -571,5 +571,5 @@ heuristics:
 docker_config:
   allow_internet_access: true
   image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
-  cpu_cores: 0.5
+  cpu_cores: 1
   ram_mb: 2000
