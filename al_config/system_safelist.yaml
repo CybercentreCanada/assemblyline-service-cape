@@ -131,6 +131,9 @@ regex:
   # CAPE
   - C:\\WINDOWS\\system32\\cmd\.exe /c "C:\\.*\\bin\\procmon\.exe /Terminate"
   - C:\\WINDOWS\\system32\\cmd\.exe /c "C:\\.*\\bin\\procmon\.exe /OpenLog C:\\.*\\bin\\procmon\.PML /LoadConfig C:\\.*\\bin\\procmon\.pmc /SaveAs C:\\.*\\bin\\procmon\.xml /SaveApplyFilter"
+  # Linux
+  - sh -c systemctl status himdsd 1>/dev/null 2>&1
+  - systemctl status himdsd
   network.dynamic.domain:
   # Adobe
   - .+\.adobe\.com$
