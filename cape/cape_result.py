@@ -7,7 +7,7 @@ from logging import getLogger
 from re import compile as re_compile
 from re import match as re_match
 from re import search, sub
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 from assemblyline.common import log as al_log
@@ -39,6 +39,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.result import (
+    Heuristic,
     KVSectionBody,
     ResultKeyValueSection,
     ResultMultiSection,
@@ -847,6 +848,16 @@ def process_network(
 
     # DNS
     dns_servers: List[str] = _determine_dns_servers(network)
+    dns_server_heur = Heuristic(1008)
+    dns_server_sec = ResultTextSection(dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description)
+    dns_server_hit = False
+    for dns_server in dns_servers:
+        if add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist) and not ip_address(dns_server) in inetsim_network:
+            dns_server_sec.add_line(f"\t-\t{dns_server}")
+            dns_server_hit = True
+    if dns_server_hit:
+        network_res.add_subsection(dns_server_sec)
+
     resolved_ips: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
         network.get("dns", []), process_map, routing, dns_servers
     )
@@ -1072,6 +1083,7 @@ def _get_dns_sec(
     :return: the result section containing details that we care about
     """
     answer_exists = False
+    non_standard_dns_query_types: Set[str] = set()
     if len(resolved_ips.keys()) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
@@ -1083,16 +1095,21 @@ def _get_dns_sec(
         for request_dict in request_dicts:
             request = request_dict["domain"]
             _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
+            request_type = request_dict.get("type")
+            if request_type and request_type not in ["PTR", "A", "AAAA"]:
+                non_standard_dns_query_types.add(request_type)
             if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
                 if answer.isdigit():
                     dns_request = {
                         "domain": request,
+                        "type": request_type,
                     }
                 else:
                     # If there is only UDP and no TCP traffic, then we need to tag the domains here:
                     dns_request = {
                         "domain": request,
-                        "ip": answer,
+                        "answer": answer,
+                        "type": request_type,
                     }
                     answer_exists = True
                 dns_body.append(dns_request)
@@ -1104,6 +1121,13 @@ def _get_dns_sec(
             body="Contact the CAPE administrator for details.",
             parent=dns_res_sec
         )
+
+    if non_standard_dns_query_types:
+        dns_query_heur = Heuristic(1009)
+        dns_query_res = ResultTextSection(dns_query_heur.name, heuristic=dns_query_heur, body=dns_query_heur.description, parent=dns_res_sec)
+        for dns_query_type in sorted(non_standard_dns_query_types):
+            dns_query_res.add_line(f"\t-\t{dns_query_type}")
+
     return dns_res_sec
 
 

@@ -548,6 +548,18 @@ heuristics:
     filetype: '*'
     description: CAPE detected a suspicious user agent used for HTTP calls
 
+  - heur_id: 1008
+    name: Non-Standard DNS Server Used
+    score: 1
+    filetype: "*"
+    description: CAPE detected a non-standard DNS server being used
+
+  - heur_id: 1009
+    name: Non-Standard DNS Query Used
+    score: 1
+    filetype: "*"
+    description: CAPE detected a non-standard DNS query being used
+
   - heur_id: 9999
     name: Unknown
     score: 0
