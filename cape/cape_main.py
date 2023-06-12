@@ -1850,6 +1850,7 @@ class CAPE(ServiceBase):
                 machine_info,
                 ontres,
                 custom_tree_id_safelist,
+                self.config.get("inetsim_dns_servers", []),
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:

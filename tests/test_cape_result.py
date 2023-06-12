@@ -147,10 +147,11 @@ class TestCapeResult:
         safelist = {}
         machine_info = {"blah": "blah"}
         custom_tree_id_safelist = list()
+        inetsim_dns_servers = list()
 
         output = generate_al_result(
             api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, machine_info,
-            so, custom_tree_id_safelist
+            so, custom_tree_id_safelist, inetsim_dns_servers
         )
 
         assert output == ({}, [])
@@ -450,16 +451,22 @@ class TestCapeResult:
         pass
 
     @staticmethod
-    @pytest.mark.parametrize("network, expected_result", [
+    @pytest.mark.parametrize("network, inetsim_dns_servers, expected_result", [
         # Nothing
-        ({}, []),
+        ({}, [], []),
         # UDP with no 53 entries
-        ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, []),
+        ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, [], []),
+        # UDP with a 53 entry and different INetSim DNS server configured
+        ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, ["10.10.10.10"], ["10.10.10.10"]),
         # UDP with a 53 entry
-        ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["127.0.0.1"]),
+        ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, [], ["127.0.0.1"]),
+        # UDP with a 53 entry and different INetSim DNS server configured
+        ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["10.10.10.10"], ["127.0.0.1", "10.10.10.10"]),
+        # UDP with a 53 entry and same INetSim DNS server configured
+        ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["127.0.0.1"], ["127.0.0.1"]),
     ])
-    def test_determine_dns_servers(network, expected_result):
-        assert _determine_dns_servers(network) == expected_result
+    def test_determine_dns_servers(network, inetsim_dns_servers, expected_result):
+        assert _determine_dns_servers(network, inetsim_dns_servers) == expected_result
 
     @staticmethod
     @pytest.mark.parametrize("dom, dest_ip, dns_servers, resolved_ips, expected_result", [
@@ -621,6 +628,7 @@ class TestCapeResult:
     @staticmethod
     def test_process_network():
         inetsim_network = IPv4Network("192.0.2.0/24")
+        inetsim_dns_servers = []
         routing = "inetsim"
         safelist =  {
             'match': {
@@ -643,7 +651,7 @@ class TestCapeResult:
 
         correct_result_section = ResultSection("blah")
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
         assert check_section_equality(parent_result_section, correct_result_section)
         assert ontres.netflows == []
 
@@ -804,7 +812,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.168.0.4:53', 'ontology_id': 'network_gDS744W2fiKNBFkc7fWIw', 'service_name': 'blah', 'guid': '{E3F55ED1-FC55-40B0-8C0C-CA55A74FACCD}', 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.168.0.4', 'destination_port': 53, 'transport_layer_protocol': 'udp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': None, 'dns_details': {'domain': 't.me', 'resolved_ips': ['192.0.2.164'], 'lookup_type': 'A'}, 'connection_type': 'dns'},
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -984,7 +992,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.0.2.137:8080', 'ontology_id': 'network_7B56MgYJTkA9OI4Axf8Skp', 'service_name': 'blah', 'guid': None, 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.0.2.137', 'destination_port': 8080, 'transport_layer_protocol': 'tcp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': {'request_uri': 'http://cisco.com:443', 'request_method': 'CONNECT', 'request_headers': {'UserAgent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)', 'Host': 'cisco.com:443', 'ContentLength': '0', 'ProxyConnection': 'Keep-Alive', 'Pragma': 'no-cache'}, 'response_headers': {}, 'request_body': None, 'response_status_code': None, 'response_body': None}, 'dns_details': None, 'connection_type': 'http'},
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -2356,7 +2364,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.168.0.4:53', 'ontology_id': 'network_gDS744W2fiKNBFkc7fWIw', 'service_name': 'blah', 'guid': '{98378EE0-60C3-4EAE-8E32-C08640DDCF41}', 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.168.0.4', 'destination_port': 53, 'transport_layer_protocol': 'udp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': None, 'dns_details': {'domain': 'lysyfyj.com', 'resolved_ips': ['192.0.2.84'], 'lookup_type': 'A'}, 'connection_type': 'dns'}
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -2380,7 +2388,20 @@ class TestCapeResult:
         dns_server_sec = ResultTextSection(dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description, parent=correct_network_result_section)
         dns_server_sec.add_line("\t-\t1.2.3.4")
         dns_server_sec.add_tag("network.dynamic.ip", "1.2.3.4")
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Example 6: DNS Server that matches INetSim DNS server and routing is INETSIM
+        inetsim_dns_servers = ["1.2.3.4"]
+        network = {"udp": [{"dst": "1.2.3.4", "dport": 53, "src": "1.1.1.1", "time": 1681841026.165553}]}
+        parent_result_section = ResultSection("blah")
+        ontres = OntologyResults(service_name="blah")
+        sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
+        ontres.add_sandbox(sandbox)
+        process_map = {}
+
+        correct_result_section = ResultSection("blah")
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
         assert check_section_equality(parent_result_section, correct_result_section)
 
     @staticmethod
