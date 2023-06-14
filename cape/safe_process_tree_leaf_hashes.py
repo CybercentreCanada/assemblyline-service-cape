@@ -1,7 +1,9 @@
 # These are the stock default process tree ids that are safelist in CAPE
 # Of the format <processtree_id>: <tree_id_hash>
 SAFE_PROCESS_TREE_LEAF_HASHES = {
+    "-": "3973e022e93220f9212c18d0d0c543ae7c309e46640da93a4a0314de999f5112",
     "/opt/microsoft/omsagent/ruby/bin/ruby": "efbb6ee6d739f6fa409b15920ac221ad99798bee806b45c39c796a250146392d",
+    "/opt/sysmon/sysmon": "d098cab10a58f19f65662ff02d5292b6cff701c714138124d997fff0841f13d5",
     "/usr/bin/dash|/opt/omi/bin/omicli": "86129e5a947758e7b49cb839d7e5a23a5fe57a9d69d2cc8e81c7163577d1f74c",
     "/usr/bin/dash|/usr/bin/grep": "d79b03312b88795c8d09fdc0d01c9c8700a04a73e71704f8608cfb3191514ca6",
     "/usr/bin/dash|/usr/bin/sudo|/opt/microsoft/omsagent/ruby/bin/ruby": "1aab034f0907b4d29ceae8d8b40d23acf6316705c7df0251ea1b72d0034a58bf",
