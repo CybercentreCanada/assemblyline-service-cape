@@ -1098,7 +1098,7 @@ def _get_dns_sec(
     if len(resolved_ips.keys()) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
-    dns_res_sec.set_column_order(["domain", "ip"])
+    dns_res_sec.set_column_order(["domain", "answer", "type"])
     dns_res_sec.set_heuristic(1000)
     dns_body: List[Dict[str, str]] = []
     _ = add_tag(dns_res_sec, "network.protocol", "dns")
