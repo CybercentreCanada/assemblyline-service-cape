@@ -136,5 +136,6 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
     "?win\\systemapps\\microsoft.windows.search_cw5n1h2txyewy\\searchapp.exe": "44dcdb8d08f7fdcfe0843d73a652ddbe1e1729fdfdcb66e8f009d3f82a3103ea",
     "?win\\systemapps\\microsoft.windows.startmenuexperiencehost_cw5n1h2txyewy\\startmenuexperiencehost.exe": "aa5dd26518bf22e0d6ca76b67a2295934aa52858ec19b47affadf99cbd328a2e",
     "?win\\systemapps\\microsoftwindows.client.cbs_cw5n1h2txyewy\\inputapp\\textinputhost.exe": "e7a3087aba99f3aa0dd4aa5a44d0be58256b4ef41be49da617026838f5204f5c",
+    "<unknown process>": "4eda24bcfaeff701f29cb02ab4630f81d8831ebadd777aaf663841e7facd3c76",
     "system": "bbc5e661e106c6dcd8dc6dd186454c2fcba3c710fb4d8e71a60c93eaf077f073"
 }

@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
-from assemblyline.common.isotime import LOCAL_FMT
+from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms
 from assemblyline.common.net import is_valid_ip
 from assemblyline.common.str_utils import safe_str, truncate
 from assemblyline.odm.base import FULL_URI
@@ -321,12 +321,12 @@ def process_info(
     :param ontres: The Ontology Results class object
     :return: None
     """
-    start_time = info["started"]
-    end_time = info["ended"]
+    start_time = local_to_local_with_ms(info["started"])
+    end_time = local_to_local_with_ms(info["ended"])
     duration = info["duration"]
     analysis_time = -1  # Default error time
     try:
-        duration_str = datetime.fromtimestamp(int(duration)).strftime("%Hh %Mm %Ss")
+        duration_str = format_time(datetime.fromtimestamp(int(duration)), "%Hh %Mm %Ss")
         analysis_time = duration_str + "\t(" + start_time + " to " + end_time + ")"
     except Exception:
         pass
@@ -527,8 +527,6 @@ def convert_cape_processes(
             continue
 
         first_seen = item["first_seen"].replace(",", ".")
-        if "." in first_seen:
-            first_seen = first_seen[:first_seen.index(".")]
 
         if not item.get("guid"):
             guid = ontres.get_guid_by_pid_and_time(item["process_id"], first_seen)
@@ -772,9 +770,7 @@ def _create_network_connection_for_network_flow(network_flow: Dict[str, Any], se
         ),
         ontology_id=nc_oid,
         session=session,
-        time_observed=datetime.fromtimestamp(
-            int(network_flow["timestamp"])
-        ).strftime(LOCAL_FMT)
+        time_observed=epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
         if not isinstance(network_flow["timestamp"], str)
         else network_flow["timestamp"],
     )
@@ -814,9 +810,7 @@ def _create_network_connection_for_network_flow(network_flow: Dict[str, Any], se
             ),
             pid=network_flow["pid"],
             image=network_flow.get("image"),
-            start_time=datetime.fromtimestamp(
-                int(network_flow["timestamp"])
-            ).strftime(LOCAL_FMT)
+            start_time=epoch_to_local_with_ms(network_flow["timestamp"])
             if not isinstance(network_flow["timestamp"], str)
             else network_flow["timestamp"]
         )
@@ -1200,7 +1194,7 @@ def _get_dns_map(
         else:
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
-                first_seen = datetime.fromtimestamp(first_seen).strftime(LOCAL_FMT)
+                first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
 
             resolved_ips[answer].append({
                 "domain": request,
@@ -1302,6 +1296,7 @@ def _get_low_level_flows(
                 "dest_port": network_call["dport"],
                 "image": network_call.get("image"),
                 "pid": network_call.get("pid"),
+                "guid": network_call.get("guid"),
             }
             if dst in resolved_ips.keys():
                 if dst.isdigit():
@@ -1808,9 +1803,7 @@ def process_all_events(
             extract_iocs_from_text_blob(event.command_line, event_ioc_table)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
-                time_observed = datetime.fromtimestamp(event.objectid.time_observed).strftime(
-                    LOCAL_FMT
-                )
+                time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
             else:
                 time_observed = event.objectid.time_observed
             events_section.add_row(
