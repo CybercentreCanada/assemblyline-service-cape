@@ -1194,7 +1194,7 @@ def _get_dns_map(
         else:
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
-                first_seen = datetime.fromtimestamp(first_seen).strftime(LOCAL_FMT)
+                first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
 
             resolved_ips[answer].append({
                 "domain": request,
