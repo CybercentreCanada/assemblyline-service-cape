@@ -1238,8 +1238,8 @@ class TestCapeMain:
 
         cape_class_instance.check_powershell(task_id, parent_section)
         assert cape_class_instance.artifact_list[0]["name"] == "1_powershell_logging.ps1"
-        assert cape_class_instance.artifact_list[0]["description"] == 'Deobfuscated PowerShell script from CAPE analysis'
-        assert cape_class_instance.artifact_list[0]["to_be_extracted"] == True
+        assert cape_class_instance.artifact_list[0]["description"] == 'Deobfuscated PowerShell log from CAPE analysis'
+        assert cape_class_instance.artifact_list[0]["to_be_extracted"] == False
 
     @staticmethod
     @pytest.mark.parametrize(
