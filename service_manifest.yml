@@ -562,6 +562,18 @@ heuristics:
     filetype: "*"
     description: CAPE detected a non-standard DNS query being used
 
+  - heur_id: 1010
+    name: TCP Detected
+    score: 10
+    filetype: '*'
+    description: CAPE detected traffic made over TCP
+
+  - heur_id: 1011
+    name: UDP Detected
+    score: 10
+    filetype: '*'
+    description: CAPE detected traffic made over UDP
+
   - heur_id: 9999
     name: Unknown
     score: 0
