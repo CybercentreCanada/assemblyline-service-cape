@@ -952,12 +952,24 @@ def process_network(
         network_res.add_subsection(dns_res_sec)
     unique_netflows: List[Dict[str, Any]] = []
     if len(network_flows_table) > 0:
+        tcp_seen = False
+        udp_seen = False
         # Need to convert each dictionary to a string in order to get the set of network_flows_table, since
         # dictionaries are not hashable
         for item in network_flows_table:
             if item not in unique_netflows:  # Remove duplicates
                 unique_netflows.append(item)
                 netflows_sec.add_row(TableRow(**item))
+                if item["protocol"] == "tcp":
+                    tcp_seen = True
+                elif item["protocol"] == "udp":
+                    udp_seen = True
+
+        if tcp_seen:
+            netflows_sec.add_subsection(ResultSection("TCP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1010)))
+        if udp_seen:
+            netflows_sec.add_subsection(ResultSection("UDP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1011)))
+
         netflows_sec.set_heuristic(1004)
         network_res.add_subsection(netflows_sec)
 
