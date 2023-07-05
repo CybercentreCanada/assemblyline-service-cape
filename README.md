@@ -161,6 +161,7 @@ than this if the process being monitored exits. If the value is 0, then the anal
   * This has the second-highest precedence for victim selection when submitting a file.
 * **routing** - [default: "none"] Specify the type of routing to be used on a per-analysis basis.
 * **ignore_cape_cache** - [default: false] If there is currently a task for the same file with the exact same task options being analyzed in CAPE, this setting will ignore that task and submit a new task. Otherwise this setting will cause the service to follow the task that is currently being analyzed.
+* **password** - [default: ""] The password for the password-protected file that you are submitting to CAPE.
 
 ### Deployment of CAPE Nest
 
