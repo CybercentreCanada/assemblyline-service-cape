@@ -161,6 +161,7 @@ SUPPORTED_EXTENSIONS = [
     "xlsm",
     "xlsx",
     "zip",
+    "7z",
 ]
 ANALYSIS_ERRORS = "Analysis Errors"
 # Substring of Warning Message from
