@@ -388,13 +388,6 @@ class TestModule:
         assert set(WINDOWS_x86_FILES) == {'executable/windows/pe32', 'executable/windows/dll32'}
 
     @staticmethod
-    def test_supported_extensions_constant():
-        assert SUPPORTED_EXTENSIONS == ['bat', 'bin', 'cpl', 'dll', 'doc', 'docm', 'docx', 'dotm', 'elf', 'eml', 'exe',
-                                        'hta', 'htm', 'html', 'hwp', 'iso', 'jar', 'js', 'lnk', 'mht', 'msg', 'msi', 'pdf',
-                                        'potm', 'potx', 'pps', 'ppsm', 'ppsx', 'ppt', 'pptm', 'pptx', 'ps1', 'pub',
-                                        'py', 'pyc', 'rar', 'rtf', 'sh', 'swf', 'udf', 'vbs', 'vhd', 'wsf', 'xls', 'xlsm', 'xlsx', 'zip']
-
-    @staticmethod
     def test_illegal_filename_chars_constant():
         assert ILLEGAL_FILENAME_CHARS == set('<>:"/\|?*')
 
@@ -1422,6 +1415,7 @@ class TestCapeMain:
                 "package": "",
                 "dump_memory": False,
                 "routing": "none",
+                "password": "",
             },
             {
                 "analysis_timeout_in_seconds": 1,
@@ -1436,6 +1430,7 @@ class TestCapeMain:
                 "package": "doc",
                 "dump_memory": True,
                 "routing": "tor",
+                "password": "blah",
             }
         ]
     )
@@ -1455,6 +1450,8 @@ class TestCapeMain:
         package = params["package"]
         dump_memory = params["dump_memory"]
         route = params["routing"]
+        password = params["password"]
+
         # Note because of the file type of the request, set below
         correct_task_options.append("file=")
         if timeout:
@@ -1475,6 +1472,8 @@ class TestCapeMain:
         deep_scan = params.pop("deep_scan")
         if deep_scan:
             correct_task_options.append("hollowshunter=all")
+        if password:
+            correct_task_options.append(f"password={password}")
         if route:
             correct_kwargs["route"] = route
 

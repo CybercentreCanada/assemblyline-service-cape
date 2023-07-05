@@ -1382,13 +1382,14 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
+        password = self.request.get_param("password")
 
         if "dll" in self.request.file_type:
             self._prepare_dll_submission(task_options, parent_section)
 
         # This is a CAPE workaround because otherwise CAPE will extract an archive
         # into extracted files and submit each as a separate task
-        elif self.request.file_type in ["archive/iso", "archive/rar", "archive/vhd", "archive/udf", "archive/zip"]:
+        elif self.request.file_type in ["archive/iso", "archive/rar", "archive/vhd", "archive/udf", "archive/zip", "archive/7-zip"]:
             task_options.append("file=")
 
         # Package-related logic
@@ -1438,6 +1439,9 @@ class CAPE(ServiceBase):
 
         if self.config.get("limit_monitor_apis", False):
             task_options.append("api-cap=1000")
+
+        if password:
+            task_options.append(f"password={password}")
 
         kwargs["options"] = ",".join(task_options)
         if custom_options is not None:
