@@ -50,6 +50,7 @@ from assemblyline_v4_service.common.result import (
     TextSectionBody,
 )
 from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from cape.standard_http_headers import STANDARD_HTTP_HEADERS
 
 al_log.init_logging("service.cape.cape_result")
 log = getLogger("assemblyline.service.cape.cape_result")
@@ -996,6 +997,9 @@ def process_network(
         suspicious_user_agent_sec.add_line(
             "The sample made HTTP calls via the following user agents:"
         )
+        http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
+        http_header_anomaly_sec.set_heuristic(1012)
+
         sus_user_agents_used = []
         http_sec.set_heuristic(1002)
         _ = add_tag(http_sec, "network.protocol", "http")
@@ -1075,6 +1079,12 @@ def process_network(
                     uri=http_call.request_uri,
                 )
             )
+
+            # Flag non-standard request headers
+            for header, header_value in http_call.request_headers.items():
+                if header.upper() not in [header.replace("-", "") for header in STANDARD_HTTP_HEADERS]:
+                    http_header_anomaly_sec.add_row(TableRow(header=header, header_value=header_value))
+
         if remote_file_access_sec.heuristic:
             http_sec.add_subsection(remote_file_access_sec)
         if http_header_sec.body:
@@ -1082,6 +1092,8 @@ def process_network(
         if suspicious_user_agent_sec.heuristic:
             suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
             http_sec.add_subsection(suspicious_user_agent_sec)
+        if http_header_anomaly_sec.body:
+            http_sec.add_subsection(http_header_anomaly_sec)
         if http_sec.body or http_sec.subsections:
             network_res.add_subsection(http_sec)
     else:

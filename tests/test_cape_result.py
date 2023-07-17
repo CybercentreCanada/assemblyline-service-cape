@@ -955,6 +955,17 @@ class TestCapeResult:
         http_subsection.add_row(TableRow({"process_name": "None (None)", "request": {"UserAgent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)", "Host": "cisco.com:443", "ContentLength": "0", "ProxyConnection": "Keep-Alive", "Pragma": "no-cache"}, "uri": "http://cisco.com:443"}))
         http_subsection.set_heuristic(1002)
 
+        http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
+        http_header_anomaly_sec.set_heuristic(1012)
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
+
         http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['microsoft.com', 'xfinity.com', 'linkedin.com', 'broadcom.com', 'yahoo.com', 'irs.gov', 'oracle.com', 'cisco.com']})
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "xfinity.com"}))
@@ -965,6 +976,7 @@ class TestCapeResult:
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "oracle.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "cisco.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
+        http_subsection.add_subsection(http_header_anomaly_sec)
 
         correct_network_result_section.add_subsection(dns_subsection)
         correct_network_result_section.add_subsection(http_subsection)
