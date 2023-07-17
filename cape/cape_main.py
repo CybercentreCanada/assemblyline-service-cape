@@ -413,7 +413,7 @@ class CAPE(ServiceBase):
 
         # Adding sandbox artifacts using the OntologyResults helper class
         artifact_section = OntologyResults.handle_artifacts(
-            self.artifact_list, self.request, collapsed=True, injection_heur_id=32
+            self.artifact_list, self.request, collapsed=True, injection_heur_id=32, parent_relation="DYNAMIC"
         )
         if artifact_section:
             self.file_res.add_section(artifact_section)
