@@ -579,6 +579,12 @@ heuristics:
     filetype: '*'
     description: CAPE detected traffic made over UDP
 
+  - heur_id: 1012
+    name: Non-Standard HTTP Header Used
+    score: 1
+    filetype: "*"
+    description: CAPE detected a non-standard HTTP header being used
+
   - heur_id: 9999
     name: Unknown
     score: 0
