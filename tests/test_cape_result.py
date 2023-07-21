@@ -488,7 +488,7 @@ class TestCapeResult:
         ontres_sig.add_attribute(Attribute(p_objectid))
         sig_res = ResultMultiSection("blah")
         correct_sig_res = ResultMultiSection("blah")
-        correct_sig_res.add_section_part(TextSectionBody("Processes involved: blah"))
+        correct_sig_res.add_section_part(TextSectionBody("Processes involved: blah (1)"))
         _add_process_context(ontres_sig, sig_res, ontres)
         assert check_section_equality(sig_res, correct_sig_res)
 

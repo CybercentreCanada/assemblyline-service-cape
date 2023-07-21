@@ -675,7 +675,7 @@ def _add_process_context(ontres_sig: Signature, sig_res: ResultMultiSection, ont
             if attribute.source:
                 p = ontres.get_process_by_objectid(attribute.source)
                 if p and p.image not in process_sources:
-                    process_sources.append(p.image)
+                    process_sources.append(f"{safe_str(p.image)} ({p.pid})")
         if process_sources:
             sig_res.add_section_part(TextSectionBody(body=f"Processes involved: {','.join(process_sources)}"))
 
