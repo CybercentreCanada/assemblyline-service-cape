@@ -12,6 +12,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     Process,
     Signature,
 )
+from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.result import (
     BODY_FORMAT,
     Heuristic,
@@ -77,7 +78,7 @@ from cape.cape_result import (
     process_info,
     process_network,
 )
-from test_cape_main import check_section_equality, create_tmp_manifest, remove_tmp_manifest
+from test_cape_main import create_tmp_manifest, remove_tmp_manifest
 
 
 class TestCapeResult:
