@@ -1075,6 +1075,7 @@ def process_network(
                     process_name=f"{process.image} ({process.pid})"
                     if process
                     else "None (None)",
+                    method=http_call.request_method,
                     request=http_call.request_headers,
                     uri=http_call.request_uri,
                 )
