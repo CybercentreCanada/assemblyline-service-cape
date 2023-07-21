@@ -4,6 +4,7 @@ from json import dumps, loads
 
 import pytest
 from assemblyline_service_utilities.common.dynamic_service_helper import (
+    Attribute,
     NetworkConnection,
     NetworkDNS,
     NetworkHTTP,
@@ -27,6 +28,7 @@ from assemblyline_v4_service.common.result import (
 )
 from cape.cape_result import (
     ANALYSIS_ERRORS,
+    _add_process_context,
     _create_network_connection_for_http_call,
     _create_network_connection_for_network_flow,
     _create_network_http,
@@ -449,6 +451,46 @@ class TestCapeResult:
     @staticmethod
     def test_process_signatures():
         pass
+
+    @staticmethod
+    def test_add_process_context():
+        ontres = OntologyResults(service_name="CAPE")
+
+        # Nothing happens
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        sig_res = ResultMultiSection("blah")
+        correct_sig_res = ResultMultiSection("blah")
+        _add_process_context(ontres_sig, sig_res, ontres)
+        assert check_section_equality(sig_res, correct_sig_res)
+
+        # Object ID does not exist
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig.add_attribute(Attribute(ObjectID("blah", "blah", "blah")))
+        sig_res = ResultMultiSection("blah")
+        correct_sig_res = ResultMultiSection("blah")
+        _add_process_context(ontres_sig, sig_res, ontres)
+        assert check_section_equality(sig_res, correct_sig_res)
+
+        # Object ID DOES exist
+        p_objectid = OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        p = ontres.create_process(
+            pid=1,
+            ppid=1,
+            guid="{12345678-1234-5678-1234-567812345679}",
+            command_line="blah blah.com",
+            image="blah",
+            start_time="1970-01-01 00:00:01.000",
+            pguid="{12345678-1234-5678-1234-567812345679}",
+            objectid=p_objectid
+        )
+        ontres.add_process(p)
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig.add_attribute(Attribute(p_objectid))
+        sig_res = ResultMultiSection("blah")
+        correct_sig_res = ResultMultiSection("blah")
+        correct_sig_res.add_section_part(TextSectionBody("Processes involved: blah"))
+        _add_process_context(ontres_sig, sig_res, ontres)
+        assert check_section_equality(sig_res, correct_sig_res)
 
     @staticmethod
     @pytest.mark.parametrize("network, inetsim_dns_servers, expected_result", [
