@@ -60,8 +60,8 @@ global_safelist: Optional[Dict[str, Dict[str, List[str]]]] = None
 UNIQUE_IP_LIMIT = 100
 SCORE_TRANSLATION = {
     1: 10,
-    2: 100,
-    3: 250,
+    2: 30,
+    3: 50,
     4: 500,
     5: 750,
     6: 1000,
