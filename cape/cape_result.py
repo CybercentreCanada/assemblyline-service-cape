@@ -652,11 +652,32 @@ def process_signatures(
         )
 
         if sig_res:
-            sigs_res.add_subsection(sig_res)
             ontres.add_signature(ontres_sig)
+            _add_process_context(ontres_sig, sig_res, ontres)
+            sigs_res.add_subsection(sig_res)
+
     if len(sigs_res.subsections) > 0:
         parent_result_section.add_subsection(sigs_res)
     return is_process_martian
+
+
+def _add_process_context(ontres_sig: Signature, sig_res: ResultMultiSection, ontres: OntologyResults) -> None:
+    """
+    This method adds process context to a signature
+    :param ontres_sig: The Signature object
+    :param sig_res: The result section for the signature
+    :param ontres: The Ontology Results class object
+    :return: None
+    """
+    if ontres_sig.attributes:
+        process_sources = []
+        for attribute in ontres_sig.attributes:
+            if attribute.source:
+                p = ontres.get_process_by_objectid(attribute.source)
+                if p and p.image not in process_sources:
+                    process_sources.append(f"{safe_str(p.image)} ({p.pid})")
+        if process_sources:
+            sig_res.add_section_part(TextSectionBody(body=f"Processes involved: {','.join(process_sources)}"))
 
 
 def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[str]) -> List[str]:
