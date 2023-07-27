@@ -1687,20 +1687,22 @@ class TestCapeMain:
         cape_class_instance.request = dummy_request_class()
         cape_class_instance.request.deep_scan = True
         cape_class_instance.config["extract_cape_dumps"] = True
-        correct_image_section = ResultImageSection(
-            dummy_request_class,
+
+        correct_image_section = ResultMultiSection(
             f"Screenshots taken during Task {task_id}",
         )
+        correct_image_section_body = ImageSectionBody(dummy_request_class)
 
-        correct_image_section.add_image(
+        correct_image_section_body.add_image(
             f"{cape_class_instance.working_directory}/{task_id}/shots/0001.jpg", f"{task_id}_shots/0001.jpg", "Screenshot captured during analysis"
         )
-        correct_image_section.add_image(
+        correct_image_section_body.add_image(
             f"{cape_class_instance.working_directory}/{task_id}/shots/0005.jpg", f"{task_id}_shots/0005.jpg", "Screenshot captured during analysis"
         )
-        correct_image_section.add_image(
+        correct_image_section_body.add_image(
             f"{cape_class_instance.working_directory}/{task_id}/shots/0010.jpg", f"{task_id}_shots/0010.jpg", "Screenshot captured during analysis"
         )
+        correct_image_section.add_section_part(correct_image_section_body)
         correct_artifact_list.append({
             "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
             "name": f"{task_id}_3_CAPE/ohmy.exe",
