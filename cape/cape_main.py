@@ -22,11 +22,13 @@ from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import (
+    ImageSectionBody,
     Result,
-    ResultImageSection,
     ResultKeyValueSection,
+    ResultMultiSection,
     ResultSection,
     ResultTextSection,
+    TextSectionBody,
 )
 from cape.cape_result import (
     ANALYSIS_ERRORS,
@@ -1397,7 +1399,7 @@ class CAPE(ServiceBase):
         if package:
             kwargs["package"] = package
         # If the user wants to use antivm packages and the file type makes sense, give it to them
-        elif self.config.get("use_antivm_packages", False) and self.request.file_type in ["code/javascript", "document/office/word"]:
+        elif self.config.get("use_antivm_packages", False) and self.request.file_type in ["code/javascript", "code/jscript", "document/office/word"]:
             # Assign the appropriate package based on file type. As of 2022-11-25, there are only two.
             kwargs["package"] = "doc_antivm" if self.request.file_type == "document/office/word" else "js_antivm"
         # Force the "archive" package instead of the "rar" package since it is more feature-full, and 7zip can extract rar files too.
@@ -1936,9 +1938,11 @@ class CAPE(ServiceBase):
         :param ontres: The sandbox ontology class object
         :return: None
         """
-        image_section = ResultImageSection(
-            self.request, f"Screenshots taken during Task {task_id}"
-        )
+        image_section = ResultMultiSection( f"Screenshots taken during Task {task_id}")
+        image_section_body = ImageSectionBody(self.request)
+        if self.config.get("use_antivm_packages", False) and self.request.file_type in ["code/javascript", "code/jscript", "document/office/word"]:
+            antivm_pkg_note = TextSectionBody("Multiple applications, such as calc.exe, were opened in the sandbox to fight any anti-VM techniques, if applicable.")
+            image_section.add_section_part(antivm_pkg_note)
 
         # Extract buffers, screenshots and anything else
         zip_file_map = {
@@ -2062,7 +2066,7 @@ class CAPE(ServiceBase):
                     # AL generates thumbnails already
                     if "_small" not in f:
                         try:
-                            image_section.add_image(destination_file_path, file_name, value)
+                            image_section_body.add_image(destination_file_path, file_name, value)
                         except OSError as e:
                             self.log.debug(f"Unable to add image due to {e}")
                     continue
@@ -2077,7 +2081,9 @@ class CAPE(ServiceBase):
                 }
                 self.artifact_list.append(artifact)
                 self.log.debug(f"Adding extracted file for task {task_id}: {file_name}")
-        if image_section.body:
+
+        if image_section_body.body:
+            image_section.add_section_part(image_section_body)
             parent_section.add_subsection(image_section)
 
     def _extract_hollowshunter(
