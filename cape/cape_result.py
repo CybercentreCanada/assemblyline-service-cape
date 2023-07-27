@@ -1008,6 +1008,8 @@ def process_network(
     )
     http_calls = ontres.get_network_http()
     if len(http_calls) > 0:
+        normalized_headers = [header.replace("-", "") for header in STANDARD_HTTP_HEADERS]
+
         http_sec = ResultTableSection("Protocol: HTTP/HTTPS")
         http_header_sec = ResultTableSection("IOCs found in HTTP/HTTPS Headers")
         remote_file_access_sec = ResultTextSection("Access Remote File")
@@ -1104,7 +1106,7 @@ def process_network(
 
             # Flag non-standard request headers
             for header, header_value in http_call.request_headers.items():
-                if header.upper() not in [header.replace("-", "") for header in STANDARD_HTTP_HEADERS]:
+                if header.upper() not in normalized_headers:
                     http_header_anomaly_sec.add_row(TableRow(header=header, header_value=header_value))
 
         if remote_file_access_sec.heuristic:
