@@ -36,6 +36,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     convert_sysmon_processes,
     extract_iocs_from_text_blob,
 )
+from assemblyline_service_utilities.common.network_helper import convert_url_to_https
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.result import (
@@ -203,6 +204,7 @@ def generate_al_result(
     ontres: OntologyResults,
     processtree_id_safelist: List[str],
     inetsim_dns_servers: List[str],
+    uses_https_proxy_in_sandbox: bool,
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -217,6 +219,8 @@ def generate_al_result(
     :param ontres: The Ontology Results class object
     :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
     :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
              the initial process and the process name
     """
@@ -288,6 +292,7 @@ def generate_al_result(
             safelist,
             ontres,
             inetsim_dns_servers,
+            uses_https_proxy_in_sandbox,
         )
 
     if sigs:
@@ -854,6 +859,7 @@ def process_network(
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
     inetsim_dns_servers: List[str],
+    uses_https_proxy_in_sandbox: bool,
 ) -> None:
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
@@ -867,7 +873,7 @@ def process_network(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
     :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
-    :return: None
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that    :return: None
     """
     session = ontres.sandboxes[-1].objectid.session
     network_res = ResultSection("Network Activity")
@@ -1028,8 +1034,13 @@ def process_network(
         _ = add_tag(http_sec, "network.protocol", "http")
 
         for http_call in http_calls:
+            request_uri: str
+            if uses_https_proxy_in_sandbox:
+                request_uri = convert_url_to_https(method=http_call.request_method, url=http_call.request_uri)
+            else:
+                request_uri = http_call.request_uri
             _ = add_tag(
-                http_sec, "network.dynamic.uri", http_call.request_uri, safelist
+                http_sec, "network.dynamic.uri", request_uri, safelist
             )
 
             for _, value in http_call.request_headers.items():
@@ -1037,20 +1048,20 @@ def process_network(
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
-                split_path = http_call.request_uri.rsplit("/", 1)
+                split_path = request_uri.rsplit("/", 1)
                 if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
                     if not remote_file_access_sec.body:
-                        remote_file_access_sec.add_line(f"\t{http_call.request_uri}")
+                        remote_file_access_sec.add_line(f"\t{request_uri}")
                     elif (
-                        f"\t{http_call.request_uri}" not in remote_file_access_sec.body
+                        f"\t{request_uri}" not in remote_file_access_sec.body
                     ):
-                        remote_file_access_sec.add_line(f"\t{http_call.request_uri}")
+                        remote_file_access_sec.add_line(f"\t{request_uri}")
                     if not remote_file_access_sec.heuristic:
                         remote_file_access_sec.set_heuristic(1003)
                     _ = add_tag(
                         remote_file_access_sec,
                         "network.dynamic.uri",
-                        http_call.request_uri,
+                        request_uri,
                         safelist,
                     )
 
@@ -1100,7 +1111,7 @@ def process_network(
                     else "None (None)",
                     method=http_call.request_method,
                     request=http_call.request_headers,
-                    uri=http_call.request_uri,
+                    uri=request_uri,
                 )
             )
 
@@ -2648,6 +2659,7 @@ if __name__ == "__main__":
     safelist_path = argv[5]
     custom_processtree_id_safelist = loads(argv[6])
     inetsim_dns_servers = loads(argv[7])
+    uses_https_proxy_in_sandbox = True if argv[8] == "True" else False
 
     with open(safelist_path, "r") as f:
         safelist = yaml.safe_load(f)
@@ -2689,6 +2701,7 @@ if __name__ == "__main__":
         ontres,
         custom_tree_id_safelist,
         inetsim_dns_servers,
+        uses_https_proxy_in_sandbox,
     )
 
     service = ServiceBase()
