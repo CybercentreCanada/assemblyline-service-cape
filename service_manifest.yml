@@ -51,6 +51,7 @@ config:
   machinery_supports_memory_dumps: false
   reboot_supported: false
   extract_cape_dumps: false
+  uses_https_proxy_in_sandbox: false
 
   # CAPE reporting configurations
   recursion_limit: 10000

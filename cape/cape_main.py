@@ -1857,6 +1857,7 @@ class CAPE(ServiceBase):
                 ontres,
                 custom_tree_id_safelist,
                 self.config.get("inetsim_dns_servers", []),
+                self.config.get("uses_https_proxy_in_sandbox", False),
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:

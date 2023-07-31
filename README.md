@@ -105,6 +105,7 @@ The method for interpretting this structure is that files are divided between Li
 * **machinery_supports_memory_dumps** - [default: False] A boolean flag indicating if the CAPE machinery supports dumping memory.
 * **reboot_supported** - [default: False] A boolean flag indicating if the CAPE machinery supports reboot submissions. *NB*: Reboot support is not available out of the box for CAPE.
 * **extract_cape_dumps** - [default: False] CAPE extracts a lot of stuff. Some may say "TOO MUCH". Enable this setting if you want files that are uploaded to the `CAPE`, `procdump` and `macros` directories per analysis to be extracted by Assemblyline.
+* **uses_https_proxy_in_sandbox** - [default: False] A boolean flag indicating if the sandbox architecture uses an HTTPS proxy to decrypt and forward traffic.
 
 #### Reporting Configurations
 * **recursion_limit** - [default: 10000] The recursion limit of the Python environment where the service is being run. This is used to traverse large JSONs generated from analysis.
