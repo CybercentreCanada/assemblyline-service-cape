@@ -137,4 +137,6 @@ STANDARD_HTTP_HEADERS = [
     "X-PINGBACK",
     "X-REQUESTED-WITH",
     "X-ROBOTS-TAG",
+    # We see these too frequently for them to be "non-standard"
+    "PROXY-CONNECTION",
 ]

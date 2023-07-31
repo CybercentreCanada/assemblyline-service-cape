@@ -154,7 +154,7 @@ class TestCapeResult:
 
         output = generate_al_result(
             api_report, al_result, file_ext, ip_network("192.0.2.0/24"), "blah", safelist, machine_info,
-            so, custom_tree_id_safelist, inetsim_dns_servers
+            so, custom_tree_id_safelist, inetsim_dns_servers, False
         )
 
         assert output == ({}, [])
@@ -694,7 +694,7 @@ class TestCapeResult:
 
         correct_result_section = ResultSection("blah")
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
         assert check_section_equality(parent_result_section, correct_result_section)
         assert ontres.netflows == []
 
@@ -830,11 +830,11 @@ class TestCapeResult:
         tcp_udp_subsection.add_row(TableRow({"protocol": "tcp", "src_ip": "192.168.0.23", "src_port": 49756, "domain": "t.me", "dest_ip": "192.0.2.164", "dest_port": 443, "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\a7fa12546adfdcd0601c.exe", "pid": 1008, "guid": "{0b406823-22fc-6440-2401-000000002200}"}))
         tcp_udp_subsection.add_subsection(ResultSection("TCP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1010)))
         correct_network_result_section.add_subsection(tcp_udp_subsection)
-        http_subsection = ResultTableSection("Protocol: HTTP/HTTPS", tags={'network.protocol': ['http'], 'network.dynamic.ip': ['95.216.164.28'], 'network.dynamic.uri': ['http://95.216.164.28/897', 'http://95.216.164.28/package.zip']})
+        http_subsection = ResultTableSection("Protocol: HTTP/HTTPS", tags={'network.protocol': ['http'], 'network.dynamic.ip': ['95.216.164.28'], 'network.dynamic.uri': ['http://95.216.164.28/897', 'http://95.216.164.28/package.zip'], 'network.dynamic.uri_path': ['/897', '/package.zip']})
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36", "Host": "95.216.164.28"}, "uri": "http://95.216.164.28/897"}))
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36", "Host": "95.216.164.28", "CacheControl": "no-cache"}, "uri": "http://95.216.164.28/package.zip"}))
         http_subsection.set_heuristic(1002)
-        access_remote_subsection = ResultSection("Access Remote File", body="The sample attempted to download the following files:\n\thttp://95.216.164.28/package.zip", tags={'network.dynamic.ip': ['95.216.164.28'], 'network.dynamic.uri': ['http://95.216.164.28/package.zip']})
+        access_remote_subsection = ResultSection("Access Remote File", body="The sample attempted to download the following files:\n\thttp://95.216.164.28/package.zip", tags={'network.dynamic.ip': ['95.216.164.28'], 'network.dynamic.uri': ['http://95.216.164.28/package.zip'], 'network.dynamic.uri_path': ['/package.zip']})
         access_remote_subsection.set_heuristic(1003)
         http_subsection.add_subsection(access_remote_subsection)
         http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.ip': ['95.216.164.28']})
@@ -856,7 +856,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.168.0.4:53', 'ontology_id': 'network_gDS744W2fiKNBFkc7fWIw', 'service_name': 'blah', 'guid': '{E3F55ED1-FC55-40B0-8C0C-CA55A74FACCD}', 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.168.0.4', 'destination_port': 53, 'transport_layer_protocol': 'udp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': None, 'dns_details': {'domain': 't.me', 'resolved_ips': ['192.0.2.164'], 'lookup_type': 'A'}, 'connection_type': 'dns'},
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -998,28 +998,16 @@ class TestCapeResult:
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "CONNECT", "request": {"UserAgent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)", "Host": "cisco.com:443", "ContentLength": "0", "ProxyConnection": "Keep-Alive", "Pragma": "no-cache"}, "uri": "http://cisco.com:443"}))
         http_subsection.set_heuristic(1002)
 
-        http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
-        http_header_anomaly_sec.set_heuristic(1012)
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-        http_header_anomaly_sec.add_row(TableRow({"header": "ProxyConnection", "header_value": "Keep-Alive"}))
-
-        http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['microsoft.com', 'xfinity.com', 'linkedin.com', 'broadcom.com', 'yahoo.com', 'irs.gov', 'oracle.com', 'cisco.com']})
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "xfinity.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "linkedin.com"}))
+        http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['broadcom.com', 'cisco.com', 'irs.gov', 'linkedin.com', 'microsoft.com', 'oracle.com', 'xfinity.com', 'yahoo.com']})
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "broadcom.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "yahoo.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "irs.gov"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "oracle.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "cisco.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "irs.gov"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "linkedin.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "oracle.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "xfinity.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "yahoo.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
-        http_subsection.add_subsection(http_header_anomaly_sec)
 
         correct_network_result_section.add_subsection(dns_subsection)
         correct_network_result_section.add_subsection(http_subsection)
@@ -1048,7 +1036,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.0.2.137:8080', 'ontology_id': 'network_7B56MgYJTkA9OI4Axf8Skp', 'service_name': 'blah', 'guid': None, 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.0.2.137', 'destination_port': 8080, 'transport_layer_protocol': 'tcp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': {'request_uri': 'http://cisco.com:443', 'request_method': 'CONNECT', 'request_headers': {'UserAgent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)', 'Host': 'cisco.com:443', 'ContentLength': '0', 'ProxyConnection': 'Keep-Alive', 'Pragma': 'no-cache'}, 'response_headers': {}, 'request_body': None, 'response_status_code': None, 'response_body': None}, 'dns_details': None, 'connection_type': 'http'},
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -2149,7 +2137,7 @@ class TestCapeResult:
         tcp_udp_subsection.add_row(TableRow({"protocol": "tcp", "src_ip": "192.168.0.9", "src_port": 50002, "domain": "lysyfyj.com", "dest_ip": "192.0.2.84", "dest_port": 80, "image": "C:\\Windows\\apppatch\\svchost.exe", "pid": 4820, "guid": "{61a591c8-db51-643e-df02-000000002200}"}))
         tcp_udp_subsection.add_subsection(ResultSection("TCP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1010)))
         correct_network_result_section.add_subsection(tcp_udp_subsection)
-        http_subsection = ResultTableSection("Protocol: HTTP/HTTPS", tags={'network.protocol': ['http'], 'network.dynamic.domain': ['pumyxiv.com', 'lysyfyj.com', 'galyqaz.com', 'vonyzuf.com', 'qedyfyq.com', 'qekyqop.com', 'lymyxid.com', 'lyryvex.com', 'gadyfuh.com', 'vopybyt.com', 'puvytuq.com', 'volyqat.com', 'vofygum.com', 'qeqyxov.com', 'vowycac.com', 'lyxywer.com', 'lygygin.com', 'gaqycos.com', 'qexyryl.com', 'vojyjof.com', 'gahyhob.com', 'qetyvep.com', 'qegyhig.com', 'vocyruk.com', 'qegyqaq.com', 'purydyv.com', 'lyvytuj.com', 'qeqysag.com', 'lyxylux.com', 'puzywel.com', 'gaqydeb.com', 'lysynur.com', 'vofymik.com', 'pufygug.com', 'puvyxil.com', 'volykyc.com', 'pujyjav.com', 'qexylup.com', 'pufymoq.com', 'qebytiq.com', 'vowydef.com', 'lykyjad.com', 'gacyryw.com', 'ganypih.com', 'pupybul.com', 'galykes.com', 'qekykev.com', 'pumypog.com', 'lygymoj.com', 'gatyvyz.com', 'gacyzuz.com', 'vonypom.com', 'lyryfyd.com', 'vocyzit.com', 'purycap.com', 'gadyniw.com', 'qedynul.com', 'lymysan.com', 'gahyqah.com', 'puzylyp.com', 'vojyqem.com', 'qetyfuv.com', 'gatyfus.com', 'lyvyxor.com', 'ganyhus.com', 'qetyraq.com'], 'network.dynamic.uri': ['http://pumyxiv.com/login.php', 'http://lysyfyj.com/login.php', 'http://galyqaz.com/login.php', 'http://vonyzuf.com/login.php', 'http://qedyfyq.com/login.php', 'http://qekyqop.com/login.php', 'http://lymyxid.com/login.php', 'http://lyryvex.com/login.php', 'http://gadyfuh.com/login.php', 'http://vopybyt.com/login.php', 'http://puvytuq.com/login.php', 'http://volyqat.com/login.php', 'http://vofygum.com/login.php', 'http://qeqyxov.com/login.php', 'http://vowycac.com/login.php', 'http://lyxywer.com/login.php', 'http://lygygin.com/login.php', 'http://gaqycos.com/login.php', 'http://qexyryl.com/login.php', 'http://vojyjof.com/login.php', 'http://gahyhob.com/login.php', 'http://qetyvep.com/login.php', 'http://qegyhig.com/login.php', 'http://vocyruk.com/login.php', 'http://qegyqaq.com/login.php', 'http://purydyv.com/login.php', 'http://lyvytuj.com/login.php', 'http://qeqysag.com/login.php', 'http://lyxylux.com/login.php', 'http://puzywel.com/login.php', 'http://gaqydeb.com/login.php', 'http://lysynur.com/login.php', 'http://vofymik.com/login.php', 'http://pufygug.com/login.php', 'http://puvyxil.com/login.php', 'http://volykyc.com/login.php', 'http://pujyjav.com/login.php', 'http://qexylup.com/login.php', 'http://pufymoq.com/login.php', 'http://qebytiq.com/login.php', 'http://vowydef.com/login.php', 'http://lykyjad.com/login.php', 'http://gacyryw.com/login.php', 'http://ganypih.com/login.php', 'http://pupybul.com/login.php', 'http://galykes.com/login.php', 'http://qekykev.com/login.php', 'http://pumypog.com/login.php', 'http://lygymoj.com/login.php', 'http://gatyvyz.com/login.php', 'http://gacyzuz.com/login.php', 'http://vonypom.com/login.php', 'http://lyryfyd.com/login.php', 'http://vocyzit.com/login.php', 'http://purycap.com/login.php', 'http://gadyniw.com/login.php', 'http://qedynul.com/login.php', 'http://lymysan.com/login.php', 'http://gahyqah.com/login.php', 'http://puzylyp.com/login.php', 'http://vojyqem.com/login.php', 'http://qetyfuv.com/login.php', 'http://gatyfus.com/login.php', 'http://lyvyxor.com/login.php', 'http://ganyhus.com/login.php', 'http://qetyraq.com/login.php']})
+        http_subsection = ResultTableSection("Protocol: HTTP/HTTPS", tags={'network.protocol': ['http'], 'network.dynamic.domain': ['pumyxiv.com', 'lysyfyj.com', 'galyqaz.com', 'vonyzuf.com', 'qedyfyq.com', 'qekyqop.com', 'lymyxid.com', 'lyryvex.com', 'gadyfuh.com', 'vopybyt.com', 'puvytuq.com', 'volyqat.com', 'vofygum.com', 'qeqyxov.com', 'vowycac.com', 'lyxywer.com', 'lygygin.com', 'gaqycos.com', 'qexyryl.com', 'vojyjof.com', 'gahyhob.com', 'qetyvep.com', 'qegyhig.com', 'vocyruk.com', 'qegyqaq.com', 'purydyv.com', 'lyvytuj.com', 'qeqysag.com', 'lyxylux.com', 'puzywel.com', 'gaqydeb.com', 'lysynur.com', 'vofymik.com', 'pufygug.com', 'puvyxil.com', 'volykyc.com', 'pujyjav.com', 'qexylup.com', 'pufymoq.com', 'qebytiq.com', 'vowydef.com', 'lykyjad.com', 'gacyryw.com', 'ganypih.com', 'pupybul.com', 'galykes.com', 'qekykev.com', 'pumypog.com', 'lygymoj.com', 'gatyvyz.com', 'gacyzuz.com', 'vonypom.com', 'lyryfyd.com', 'vocyzit.com', 'purycap.com', 'gadyniw.com', 'qedynul.com', 'lymysan.com', 'gahyqah.com', 'puzylyp.com', 'vojyqem.com', 'qetyfuv.com', 'gatyfus.com', 'lyvyxor.com', 'ganyhus.com', 'qetyraq.com'], 'network.dynamic.uri': ['http://pumyxiv.com/login.php', 'http://lysyfyj.com/login.php', 'http://galyqaz.com/login.php', 'http://vonyzuf.com/login.php', 'http://qedyfyq.com/login.php', 'http://qekyqop.com/login.php', 'http://lymyxid.com/login.php', 'http://lyryvex.com/login.php', 'http://gadyfuh.com/login.php', 'http://vopybyt.com/login.php', 'http://puvytuq.com/login.php', 'http://volyqat.com/login.php', 'http://vofygum.com/login.php', 'http://qeqyxov.com/login.php', 'http://vowycac.com/login.php', 'http://lyxywer.com/login.php', 'http://lygygin.com/login.php', 'http://gaqycos.com/login.php', 'http://qexyryl.com/login.php', 'http://vojyjof.com/login.php', 'http://gahyhob.com/login.php', 'http://qetyvep.com/login.php', 'http://qegyhig.com/login.php', 'http://vocyruk.com/login.php', 'http://qegyqaq.com/login.php', 'http://purydyv.com/login.php', 'http://lyvytuj.com/login.php', 'http://qeqysag.com/login.php', 'http://lyxylux.com/login.php', 'http://puzywel.com/login.php', 'http://gaqydeb.com/login.php', 'http://lysynur.com/login.php', 'http://vofymik.com/login.php', 'http://pufygug.com/login.php', 'http://puvyxil.com/login.php', 'http://volykyc.com/login.php', 'http://pujyjav.com/login.php', 'http://qexylup.com/login.php', 'http://pufymoq.com/login.php', 'http://qebytiq.com/login.php', 'http://vowydef.com/login.php', 'http://lykyjad.com/login.php', 'http://gacyryw.com/login.php', 'http://ganypih.com/login.php', 'http://pupybul.com/login.php', 'http://galykes.com/login.php', 'http://qekykev.com/login.php', 'http://pumypog.com/login.php', 'http://lygymoj.com/login.php', 'http://gatyvyz.com/login.php', 'http://gacyzuz.com/login.php', 'http://vonypom.com/login.php', 'http://lyryfyd.com/login.php', 'http://vocyzit.com/login.php', 'http://purycap.com/login.php', 'http://gadyniw.com/login.php', 'http://qedynul.com/login.php', 'http://lymysan.com/login.php', 'http://gahyqah.com/login.php', 'http://puzylyp.com/login.php', 'http://vojyqem.com/login.php', 'http://qetyfuv.com/login.php', 'http://gatyfus.com/login.php', 'http://lyvyxor.com/login.php', 'http://ganyhus.com/login.php', 'http://qetyraq.com/login.php'], 'network.dynamic.uri_path': ['/login.php']})
 
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"Referer": "http://www.google.com", "UserAgent": "Mozilla/4.0 (compatible; MSIE 2.0; Windows NT 5.0; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)", "Host": "pumyxiv.com"}, "uri": "http://pumyxiv.com/login.php"}))
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"Referer": "http://www.google.com", "UserAgent": "Mozilla/4.0 (compatible; MSIE 2.0; Windows NT 5.0; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)", "Host": "lysyfyj.com"}, "uri": "http://lysyfyj.com/login.php"}))
@@ -2218,78 +2206,14 @@ class TestCapeResult:
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"Referer": "http://www.google.com", "UserAgent": "Mozilla/4.0 (compatible; MSIE 2.0; Windows NT 5.0; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)", "Host": "ganyhus.com"}, "uri": "http://ganyhus.com/login.php"}))
         http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "GET", "request": {"Referer": "http://www.google.com", "UserAgent": "Mozilla/4.0 (compatible; MSIE 2.0; Windows NT 5.0; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0)", "Host": "qetyraq.com"}, "uri": "http://qetyraq.com/login.php"}))
         http_subsection.set_heuristic(1002)
-        access_remote_subsection = ResultSection("Access Remote File", tags={'network.dynamic.domain': ['pumyxiv.com', 'lysyfyj.com', 'galyqaz.com', 'vonyzuf.com', 'qedyfyq.com', 'qekyqop.com', 'lymyxid.com', 'lyryvex.com', 'gadyfuh.com', 'vopybyt.com', 'puvytuq.com', 'volyqat.com', 'vofygum.com', 'qeqyxov.com', 'vowycac.com', 'lyxywer.com', 'lygygin.com', 'gaqycos.com', 'qexyryl.com', 'vojyjof.com', 'gahyhob.com', 'qetyvep.com', 'qegyhig.com', 'vocyruk.com', 'qegyqaq.com', 'purydyv.com', 'lyvytuj.com', 'qeqysag.com', 'lyxylux.com', 'puzywel.com', 'gaqydeb.com', 'lysynur.com', 'vofymik.com', 'pufygug.com', 'puvyxil.com', 'volykyc.com', 'pujyjav.com', 'qexylup.com', 'pufymoq.com', 'qebytiq.com', 'vowydef.com', 'lykyjad.com', 'gacyryw.com', 'ganypih.com', 'pupybul.com', 'galykes.com', 'qekykev.com', 'pumypog.com', 'lygymoj.com', 'gatyvyz.com', 'gacyzuz.com', 'vonypom.com', 'lyryfyd.com', 'vocyzit.com', 'purycap.com', 'gadyniw.com', 'qedynul.com', 'lymysan.com', 'gahyqah.com', 'puzylyp.com', 'vojyqem.com', 'qetyfuv.com', 'gatyfus.com', 'lyvyxor.com', 'ganyhus.com', 'qetyraq.com'], 'network.dynamic.uri': ['http://pumyxiv.com/login.php', 'http://lysyfyj.com/login.php', 'http://galyqaz.com/login.php', 'http://vonyzuf.com/login.php', 'http://qedyfyq.com/login.php', 'http://qekyqop.com/login.php', 'http://lymyxid.com/login.php', 'http://lyryvex.com/login.php', 'http://gadyfuh.com/login.php', 'http://vopybyt.com/login.php', 'http://puvytuq.com/login.php', 'http://volyqat.com/login.php', 'http://vofygum.com/login.php', 'http://qeqyxov.com/login.php', 'http://vowycac.com/login.php', 'http://lyxywer.com/login.php', 'http://lygygin.com/login.php', 'http://gaqycos.com/login.php', 'http://qexyryl.com/login.php', 'http://vojyjof.com/login.php', 'http://gahyhob.com/login.php', 'http://qetyvep.com/login.php', 'http://qegyhig.com/login.php', 'http://vocyruk.com/login.php', 'http://qegyqaq.com/login.php', 'http://purydyv.com/login.php', 'http://lyvytuj.com/login.php', 'http://qeqysag.com/login.php', 'http://lyxylux.com/login.php', 'http://puzywel.com/login.php', 'http://gaqydeb.com/login.php', 'http://lysynur.com/login.php', 'http://vofymik.com/login.php', 'http://pufygug.com/login.php', 'http://puvyxil.com/login.php', 'http://volykyc.com/login.php', 'http://pujyjav.com/login.php', 'http://qexylup.com/login.php', 'http://pufymoq.com/login.php', 'http://qebytiq.com/login.php', 'http://vowydef.com/login.php', 'http://lykyjad.com/login.php', 'http://gacyryw.com/login.php', 'http://ganypih.com/login.php', 'http://pupybul.com/login.php', 'http://galykes.com/login.php', 'http://qekykev.com/login.php', 'http://pumypog.com/login.php', 'http://lygymoj.com/login.php', 'http://gatyvyz.com/login.php', 'http://gacyzuz.com/login.php', 'http://vonypom.com/login.php', 'http://lyryfyd.com/login.php', 'http://vocyzit.com/login.php', 'http://purycap.com/login.php', 'http://gadyniw.com/login.php', 'http://qedynul.com/login.php', 'http://lymysan.com/login.php', 'http://gahyqah.com/login.php', 'http://puzylyp.com/login.php', 'http://vojyqem.com/login.php', 'http://qetyfuv.com/login.php', 'http://gatyfus.com/login.php', 'http://lyvyxor.com/login.php', 'http://ganyhus.com/login.php', 'http://qetyraq.com/login.php']}, body="The sample attempted to download the following files:\n\thttp://pumyxiv.com/login.php\n\thttp://lysyfyj.com/login.php\n\thttp://galyqaz.com/login.php\n\thttp://vonyzuf.com/login.php\n\thttp://qedyfyq.com/login.php\n\thttp://qekyqop.com/login.php\n\thttp://lymyxid.com/login.php\n\thttp://lyryvex.com/login.php\n\thttp://gadyfuh.com/login.php\n\thttp://vopybyt.com/login.php\n\thttp://puvytuq.com/login.php\n\thttp://volyqat.com/login.php\n\thttp://vofygum.com/login.php\n\thttp://qeqyxov.com/login.php\n\thttp://vowycac.com/login.php\n\thttp://lyxywer.com/login.php\n\thttp://lygygin.com/login.php\n\thttp://gaqycos.com/login.php\n\thttp://qexyryl.com/login.php\n\thttp://vojyjof.com/login.php\n\thttp://gahyhob.com/login.php\n\thttp://qetyvep.com/login.php\n\thttp://qegyhig.com/login.php\n\thttp://vocyruk.com/login.php\n\thttp://qegyqaq.com/login.php\n\thttp://purydyv.com/login.php\n\thttp://lyvytuj.com/login.php\n\thttp://qeqysag.com/login.php\n\thttp://lyxylux.com/login.php\n\thttp://puzywel.com/login.php\n\thttp://gaqydeb.com/login.php\n\thttp://lysynur.com/login.php\n\thttp://vofymik.com/login.php\n\thttp://pufygug.com/login.php\n\thttp://puvyxil.com/login.php\n\thttp://volykyc.com/login.php\n\thttp://pujyjav.com/login.php\n\thttp://qexylup.com/login.php\n\thttp://pufymoq.com/login.php\n\thttp://qebytiq.com/login.php\n\thttp://vowydef.com/login.php\n\thttp://lykyjad.com/login.php\n\thttp://gacyryw.com/login.php\n\thttp://ganypih.com/login.php\n\thttp://pupybul.com/login.php\n\thttp://galykes.com/login.php\n\thttp://qekykev.com/login.php\n\thttp://pumypog.com/login.php\n\thttp://lygymoj.com/login.php\n\thttp://gatyvyz.com/login.php\n\thttp://gacyzuz.com/login.php\n\thttp://vonypom.com/login.php\n\thttp://lyryfyd.com/login.php\n\thttp://vocyzit.com/login.php\n\thttp://purycap.com/login.php\n\thttp://gadyniw.com/login.php\n\thttp://qedynul.com/login.php\n\thttp://lymysan.com/login.php\n\thttp://gahyqah.com/login.php\n\thttp://puzylyp.com/login.php\n\thttp://vojyqem.com/login.php\n\thttp://qetyfuv.com/login.php\n\thttp://gatyfus.com/login.php\n\thttp://lyvyxor.com/login.php\n\thttp://ganyhus.com/login.php\n\thttp://qetyraq.com/login.php")
+        access_remote_subsection = ResultSection("Access Remote File", tags={'network.dynamic.domain': ['pumyxiv.com', 'lysyfyj.com', 'galyqaz.com', 'vonyzuf.com', 'qedyfyq.com', 'qekyqop.com', 'lymyxid.com', 'lyryvex.com', 'gadyfuh.com', 'vopybyt.com', 'puvytuq.com', 'volyqat.com', 'vofygum.com', 'qeqyxov.com', 'vowycac.com', 'lyxywer.com', 'lygygin.com', 'gaqycos.com', 'qexyryl.com', 'vojyjof.com', 'gahyhob.com', 'qetyvep.com', 'qegyhig.com', 'vocyruk.com', 'qegyqaq.com', 'purydyv.com', 'lyvytuj.com', 'qeqysag.com', 'lyxylux.com', 'puzywel.com', 'gaqydeb.com', 'lysynur.com', 'vofymik.com', 'pufygug.com', 'puvyxil.com', 'volykyc.com', 'pujyjav.com', 'qexylup.com', 'pufymoq.com', 'qebytiq.com', 'vowydef.com', 'lykyjad.com', 'gacyryw.com', 'ganypih.com', 'pupybul.com', 'galykes.com', 'qekykev.com', 'pumypog.com', 'lygymoj.com', 'gatyvyz.com', 'gacyzuz.com', 'vonypom.com', 'lyryfyd.com', 'vocyzit.com', 'purycap.com', 'gadyniw.com', 'qedynul.com', 'lymysan.com', 'gahyqah.com', 'puzylyp.com', 'vojyqem.com', 'qetyfuv.com', 'gatyfus.com', 'lyvyxor.com', 'ganyhus.com', 'qetyraq.com'], 'network.dynamic.uri': ['http://pumyxiv.com/login.php', 'http://lysyfyj.com/login.php', 'http://galyqaz.com/login.php', 'http://vonyzuf.com/login.php', 'http://qedyfyq.com/login.php', 'http://qekyqop.com/login.php', 'http://lymyxid.com/login.php', 'http://lyryvex.com/login.php', 'http://gadyfuh.com/login.php', 'http://vopybyt.com/login.php', 'http://puvytuq.com/login.php', 'http://volyqat.com/login.php', 'http://vofygum.com/login.php', 'http://qeqyxov.com/login.php', 'http://vowycac.com/login.php', 'http://lyxywer.com/login.php', 'http://lygygin.com/login.php', 'http://gaqycos.com/login.php', 'http://qexyryl.com/login.php', 'http://vojyjof.com/login.php', 'http://gahyhob.com/login.php', 'http://qetyvep.com/login.php', 'http://qegyhig.com/login.php', 'http://vocyruk.com/login.php', 'http://qegyqaq.com/login.php', 'http://purydyv.com/login.php', 'http://lyvytuj.com/login.php', 'http://qeqysag.com/login.php', 'http://lyxylux.com/login.php', 'http://puzywel.com/login.php', 'http://gaqydeb.com/login.php', 'http://lysynur.com/login.php', 'http://vofymik.com/login.php', 'http://pufygug.com/login.php', 'http://puvyxil.com/login.php', 'http://volykyc.com/login.php', 'http://pujyjav.com/login.php', 'http://qexylup.com/login.php', 'http://pufymoq.com/login.php', 'http://qebytiq.com/login.php', 'http://vowydef.com/login.php', 'http://lykyjad.com/login.php', 'http://gacyryw.com/login.php', 'http://ganypih.com/login.php', 'http://pupybul.com/login.php', 'http://galykes.com/login.php', 'http://qekykev.com/login.php', 'http://pumypog.com/login.php', 'http://lygymoj.com/login.php', 'http://gatyvyz.com/login.php', 'http://gacyzuz.com/login.php', 'http://vonypom.com/login.php', 'http://lyryfyd.com/login.php', 'http://vocyzit.com/login.php', 'http://purycap.com/login.php', 'http://gadyniw.com/login.php', 'http://qedynul.com/login.php', 'http://lymysan.com/login.php', 'http://gahyqah.com/login.php', 'http://puzylyp.com/login.php', 'http://vojyqem.com/login.php', 'http://qetyfuv.com/login.php', 'http://gatyfus.com/login.php', 'http://lyvyxor.com/login.php', 'http://ganyhus.com/login.php', 'http://qetyraq.com/login.php'], 'network.dynamic.uri_path': ['/login.php']}, body="The sample attempted to download the following files:\n\thttp://pumyxiv.com/login.php\n\thttp://lysyfyj.com/login.php\n\thttp://galyqaz.com/login.php\n\thttp://vonyzuf.com/login.php\n\thttp://qedyfyq.com/login.php\n\thttp://qekyqop.com/login.php\n\thttp://lymyxid.com/login.php\n\thttp://lyryvex.com/login.php\n\thttp://gadyfuh.com/login.php\n\thttp://vopybyt.com/login.php\n\thttp://puvytuq.com/login.php\n\thttp://volyqat.com/login.php\n\thttp://vofygum.com/login.php\n\thttp://qeqyxov.com/login.php\n\thttp://vowycac.com/login.php\n\thttp://lyxywer.com/login.php\n\thttp://lygygin.com/login.php\n\thttp://gaqycos.com/login.php\n\thttp://qexyryl.com/login.php\n\thttp://vojyjof.com/login.php\n\thttp://gahyhob.com/login.php\n\thttp://qetyvep.com/login.php\n\thttp://qegyhig.com/login.php\n\thttp://vocyruk.com/login.php\n\thttp://qegyqaq.com/login.php\n\thttp://purydyv.com/login.php\n\thttp://lyvytuj.com/login.php\n\thttp://qeqysag.com/login.php\n\thttp://lyxylux.com/login.php\n\thttp://puzywel.com/login.php\n\thttp://gaqydeb.com/login.php\n\thttp://lysynur.com/login.php\n\thttp://vofymik.com/login.php\n\thttp://pufygug.com/login.php\n\thttp://puvyxil.com/login.php\n\thttp://volykyc.com/login.php\n\thttp://pujyjav.com/login.php\n\thttp://qexylup.com/login.php\n\thttp://pufymoq.com/login.php\n\thttp://qebytiq.com/login.php\n\thttp://vowydef.com/login.php\n\thttp://lykyjad.com/login.php\n\thttp://gacyryw.com/login.php\n\thttp://ganypih.com/login.php\n\thttp://pupybul.com/login.php\n\thttp://galykes.com/login.php\n\thttp://qekykev.com/login.php\n\thttp://pumypog.com/login.php\n\thttp://lygymoj.com/login.php\n\thttp://gatyvyz.com/login.php\n\thttp://gacyzuz.com/login.php\n\thttp://vonypom.com/login.php\n\thttp://lyryfyd.com/login.php\n\thttp://vocyzit.com/login.php\n\thttp://purycap.com/login.php\n\thttp://gadyniw.com/login.php\n\thttp://qedynul.com/login.php\n\thttp://lymysan.com/login.php\n\thttp://gahyqah.com/login.php\n\thttp://puzylyp.com/login.php\n\thttp://vojyqem.com/login.php\n\thttp://qetyfuv.com/login.php\n\thttp://gatyfus.com/login.php\n\thttp://lyvyxor.com/login.php\n\thttp://ganyhus.com/login.php\n\thttp://qetyraq.com/login.php")
         access_remote_subsection.set_heuristic(1003)
         http_subsection.add_subsection(access_remote_subsection)
-        http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['www.google.com', 'pumyxiv.com', 'lysyfyj.com', 'galyqaz.com', 'vonyzuf.com', 'qedyfyq.com', 'qekyqop.com', 'lymyxid.com', 'lyryvex.com', 'gadyfuh.com', 'vopybyt.com', 'puvytuq.com', 'volyqat.com', 'vofygum.com', 'qeqyxov.com', 'vowycac.com', 'lyxywer.com', 'lygygin.com', 'gaqycos.com', 'qexyryl.com', 'vojyjof.com', 'gahyhob.com', 'qetyvep.com', 'qegyhig.com', 'vocyruk.com', 'qegyqaq.com', 'purydyv.com', 'lyvytuj.com', 'qeqysag.com', 'lyxylux.com', 'puzywel.com', 'gaqydeb.com', 'lysynur.com', 'vofymik.com', 'pufygug.com', 'puvyxil.com', 'volykyc.com', 'pujyjav.com', 'qexylup.com', 'pufymoq.com', 'qebytiq.com', 'vowydef.com', 'lykyjad.com', 'gacyryw.com', 'ganypih.com', 'pupybul.com', 'galykes.com', 'qekykev.com', 'pumypog.com', 'lygymoj.com', 'gatyvyz.com', 'gacyzuz.com', 'vonypom.com', 'lyryfyd.com', 'vocyzit.com', 'purycap.com', 'gadyniw.com', 'qedynul.com', 'lymysan.com', 'gahyqah.com', 'puzylyp.com', 'vojyqem.com', 'qetyfuv.com', 'gatyfus.com', 'lyvyxor.com', 'ganyhus.com', 'qetyraq.com'], 'network.dynamic.uri': ['http://www.google.com']})
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "www.google.com"}))
+        http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['gacyryw.com', 'gacyzuz.com', 'gadyfuh.com', 'gadyniw.com', 'gahyhob.com', 'gahyqah.com', 'galykes.com', 'galyqaz.com', 'ganyhus.com', 'ganypih.com', 'gaqycos.com', 'gaqydeb.com', 'gatyfus.com', 'gatyvyz.com', 'lygygin.com', 'lygymoj.com', 'lykyjad.com', 'lymysan.com', 'lymyxid.com', 'lyryfyd.com', 'lyryvex.com', 'lysyfyj.com', 'lysynur.com', 'lyvytuj.com', 'lyvyxor.com', 'lyxylux.com', 'lyxywer.com', 'pufygug.com', 'pufymoq.com', 'pujyjav.com', 'pumypog.com', 'pumyxiv.com', 'pupybul.com', 'purycap.com', 'purydyv.com', 'puvytuq.com', 'puvyxil.com', 'puzylyp.com', 'puzywel.com', 'qebytiq.com', 'qedyfyq.com', 'qedynul.com', 'qegyhig.com', 'qegyqaq.com', 'qekykev.com', 'qekyqop.com', 'qeqysag.com', 'qeqyxov.com', 'qetyfuv.com', 'qetyraq.com', 'qetyvep.com', 'qexylup.com', 'qexyryl.com', 'vocyruk.com', 'vocyzit.com', 'vofygum.com', 'vofymik.com', 'vojyjof.com', 'vojyqem.com', 'volykyc.com', 'volyqat.com', 'vonypom.com', 'vonyzuf.com', 'vopybyt.com', 'vowycac.com', 'vowydef.com', 'www.google.com'], 'network.dynamic.uri': ['http://www.google.com']})
+        for domain in ['gacyryw.com', 'gacyzuz.com', 'gadyfuh.com', 'gadyniw.com', 'gahyhob.com', 'gahyqah.com', 'galykes.com', 'galyqaz.com', 'ganyhus.com', 'ganypih.com', 'gaqycos.com', 'gaqydeb.com', 'gatyfus.com', 'gatyvyz.com', 'lygygin.com', 'lygymoj.com', 'lykyjad.com', 'lymysan.com', 'lymyxid.com', 'lyryfyd.com', 'lyryvex.com', 'lysyfyj.com', 'lysynur.com', 'lyvytuj.com', 'lyvyxor.com', 'lyxylux.com', 'lyxywer.com', 'pufygug.com', 'pufymoq.com', 'pujyjav.com', 'pumypog.com', 'pumyxiv.com', 'pupybul.com', 'purycap.com', 'purydyv.com', 'puvytuq.com', 'puvyxil.com', 'puzylyp.com', 'puzywel.com', 'qebytiq.com', 'qedyfyq.com', 'qedynul.com', 'qegyhig.com', 'qegyqaq.com', 'qekykev.com', 'qekyqop.com', 'qeqysag.com', 'qeqyxov.com', 'qetyfuv.com', 'qetyraq.com', 'qetyvep.com', 'qexylup.com', 'qexyryl.com', 'vocyruk.com', 'vocyzit.com', 'vofygum.com', 'vofymik.com', 'vojyjof.com', 'vojyqem.com', 'volykyc.com', 'volyqat.com', 'vonypom.com', 'vonyzuf.com', 'vopybyt.com', 'vowycac.com', 'vowydef.com', 'www.google.com']:
+            http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": domain}))
+
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://www.google.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pumyxiv.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lysyfyj.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "galyqaz.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vonyzuf.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qedyfyq.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qekyqop.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lymyxid.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyryvex.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gadyfuh.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vopybyt.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "puvytuq.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "volyqat.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vofygum.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qeqyxov.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vowycac.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyxywer.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lygygin.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gaqycos.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qexyryl.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vojyjof.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gahyhob.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qetyvep.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qegyhig.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vocyruk.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qegyqaq.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "purydyv.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyvytuj.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qeqysag.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyxylux.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "puzywel.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gaqydeb.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lysynur.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vofymik.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pufygug.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "puvyxil.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "volykyc.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pujyjav.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qexylup.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pufymoq.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qebytiq.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vowydef.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lykyjad.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gacyryw.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "ganypih.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pupybul.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "galykes.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qekykev.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "pumypog.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lygymoj.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gatyvyz.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gacyzuz.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vonypom.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyryfyd.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vocyzit.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "purycap.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gadyniw.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qedynul.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lymysan.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gahyqah.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "puzylyp.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "vojyqem.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qetyfuv.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "gatyfus.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "lyvyxor.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "ganyhus.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "qetyraq.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
         correct_network_result_section.add_subsection(http_subsection)
 
@@ -2421,7 +2345,7 @@ class TestCapeResult:
             {'objectid': {'tag': '192.168.0.4:53', 'ontology_id': 'network_gDS744W2fiKNBFkc7fWIw', 'service_name': 'blah', 'guid': '{98378EE0-60C3-4EAE-8E32-C08640DDCF41}', 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.168.0.4', 'destination_port': 53, 'transport_layer_protocol': 'udp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': None, 'dns_details': {'domain': 'lysyfyj.com', 'resolved_ips': ['192.0.2.84'], 'lookup_type': 'A'}, 'connection_type': 'dns'}
         ]
 
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
@@ -2445,7 +2369,7 @@ class TestCapeResult:
         dns_server_sec = ResultTextSection(dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description, parent=correct_network_result_section)
         dns_server_sec.add_line("\t-\t1.2.3.4")
         dns_server_sec.add_tag("network.dynamic.ip", "1.2.3.4")
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
         assert check_section_equality(parent_result_section, correct_result_section)
 
         # Example 6: DNS Server that matches INetSim DNS server and routing is INETSIM
@@ -2458,7 +2382,66 @@ class TestCapeResult:
         process_map = {}
 
         correct_result_section = ResultSection("blah")
-        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers)
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, False)
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Example 7: HTTPS Proxy causes decrypted URL to be reported
+        network =  {
+            'hosts': [],
+            'domains': [
+                {'domain': 'microsoft.com', 'ip': ''},
+            ],
+            'tcp': [],
+            'udp': [],
+            'icmp': [],
+            'http': [
+                {'count': 2, 'host': 'microsoft.com:443', 'port': 8080, 'data': 'CONNECT microsoft.com:443 HTTP/1.0\r\nUser-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)\r\nHost: microsoft.com:443\r\nContent-Length: 0\r\nProxy-Connection: Keep-Alive\r\nPragma: no-cache\r\n\r\n', 'uri': 'http://microsoft.com:443', 'body': '', 'path': '', 'user-agent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)', 'version': '1.0', 'method': 'CONNECT'},
+            ],
+            'dns': [
+                {'request': 'microsoft.com', 'type': 'A', 'answers': [{'type': 'A', 'data': '192.0.2.126'}]},
+            ],
+            'smtp': [],
+            'irc': [],
+            'dead_hosts': [],
+            'http_ex': [],
+            'https_ex': [],
+            'smtp_ex': []
+        }
+        parent_result_section = ResultSection("blah")
+        ontres = OntologyResults(service_name="blah")
+        sandbox = ontres.create_sandbox(objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"), sandbox_name="CAPE")
+        ontres.add_sandbox(sandbox)
+        process_map = {
+            512: {'name': 'C:\\Windows\\System32\\rundll32.exe', 'network_calls': [], 'decrypted_buffers': []},
+            1296: {'name': 'C:\\Windows\\System32\\wermgr.exe', 'network_calls': [{'InternetCrackUrlA': {'url': 'https://microsoft.com:443/'}}, {'InternetConnectA': {'service': '3', 'servername': 'microsoft.com', 'serverport': '443'}}, {'GetAddrInfoW': {'nodename': 'wpad'}}, {'GetAddrInfoW': {'nodename': 'microsoft.com'}}], 'decrypted_buffers': []}
+        }
+
+        correct_result_section = ResultSection("blah")
+        correct_network_result_section = ResultSection("Network Activity")
+
+        dns_subsection = ResultTableSection("Protocol: DNS", tags={'network.protocol': ['dns'], 'network.dynamic.domain': ['microsoft.com']})
+        dns_subsection.add_row(TableRow({"domain": "microsoft.com", "answer": "192.0.2.126", "type": "A"}))
+        dns_subsection.set_heuristic(1000)
+
+        http_subsection = ResultTableSection("Protocol: HTTP/HTTPS", tags={'network.protocol': ['http'], 'network.dynamic.domain': ['microsoft.com'], 'network.dynamic.uri': ['https://microsoft.com']})
+        http_subsection.add_row(TableRow({"process_name": "None (None)", "method": "CONNECT", "request": {"UserAgent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)", "Host": "microsoft.com:443", "ContentLength": "0", "ProxyConnection": "Keep-Alive", "Pragma": "no-cache"}, "uri": "https://microsoft.com"}))
+        http_subsection.set_heuristic(1002)
+
+        http_header_ioc_subsection = ResultTableSection("IOCs found in HTTP/HTTPS Headers", tags={'network.dynamic.domain': ['microsoft.com']})
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
+        http_subsection.add_subsection(http_header_ioc_subsection)
+
+        correct_network_result_section.add_subsection(dns_subsection)
+        correct_network_result_section.add_subsection(http_subsection)
+
+        correct_result_section.add_subsection(correct_network_result_section)
+
+        correct_netflows = [
+            {'objectid': {'tag': '192.168.0.4:53', 'ontology_id': 'network_gDS744W2fiKNBFkc7fWIw', 'service_name': 'blah', 'guid': '{E100429A-B64B-4FE5-92C4-422F1F762228}', 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.168.0.4', 'destination_port': 53, 'transport_layer_protocol': 'udp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': None, 'dns_details': {'domain': 'microsoft.com', 'resolved_ips': ['192.0.2.126'], 'lookup_type': 'A'}, 'connection_type': 'dns'},
+            {'objectid': {'tag': '192.0.2.126:8080', 'ontology_id': 'network_5p4ftHudCdnVUAj31rdsMI', 'service_name': 'blah', 'guid': None, 'treeid': None, 'processtree': None, 'time_observed': None, 'session': None}, 'destination_ip': '192.0.2.126', 'destination_port': 8080, 'transport_layer_protocol': 'tcp', 'direction': 'outbound', 'process': None, 'source_ip': None, 'source_port': None, 'http_details': {'request_uri': 'http://microsoft.com:443', 'request_method': 'CONNECT', 'request_headers': {'UserAgent': 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)', 'Host': 'microsoft.com:443', 'ContentLength': '0', 'ProxyConnection': 'Keep-Alive', 'Pragma': 'no-cache'}, 'response_headers': {}, 'request_body': None, 'response_status_code': None, 'response_body': None}, 'dns_details': None, 'connection_type': 'http'},
+        ]
+
+        process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, True)
         assert check_section_equality(parent_result_section, correct_result_section)
 
     @staticmethod
@@ -4695,7 +4678,7 @@ class TestCapeResult:
             # Standard key for dynamic.registry_key, nothing special with value
             ("regkey", "blah", {"dynamic.registry_key": ["blah"]}),
             # Standard key for network.dynamic.uri, nothing special with value
-            ("url", "http://blah.com/blahblah", {"network.dynamic.uri": ["http://blah.com/blahblah"], "network.dynamic.domain": ["blah.com"]}),
+            ("url", "http://blah.com/blahblah", {"network.dynamic.uri": ["http://blah.com/blahblah"], "network.dynamic.domain": ["blah.com"], "network.dynamic.uri_path": ["/blahblah"]}),
             # Standard key for file.pe.exports.function_name, nothing special with value
             ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}),
             # Key that ends in _exe for file.pe.exports.function_name, nothing special with value
