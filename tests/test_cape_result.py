@@ -30,6 +30,7 @@ from assemblyline_v4_service.common.result import (
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     _add_process_context,
+    _api_ioc_in_network_traffic,
     _create_network_connection_for_http_call,
     _create_network_connection_for_network_flow,
     _create_network_http,
@@ -49,11 +50,13 @@ from cape.cape_result import (
     _is_network_flow_a_connect_match,
     _link_flow_with_process,
     _link_process_to_http_call,
+    _massage_api_urls,
     _massage_body_paths,
     _massage_host_data,
     _massage_http_ex_data,
     _process_http_calls,
     _process_non_http_traffic_over_http,
+    _process_unseen_iocs,
     _remove_bytes_from_buffer,
     _remove_network_call,
     _remove_network_http_noise,
@@ -841,6 +844,10 @@ class TestCapeResult:
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "ip", "ioc": "95.216.164.28"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
         correct_network_result_section.add_subsection(http_subsection)
+        unseen_subsection = ResultTableSection("Unseen IOCs found in API calls", tags={'network.dynamic.ip': ['95.216.164.28'], 'network.dynamic.uri': ['http://95.216.164.28']})
+        unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
+        unseen_subsection.set_heuristic(1013)
+        correct_network_result_section.add_subsection(unseen_subsection)
         correct_result_section.add_subsection(correct_network_result_section)
 
         correct_netflows = [
@@ -1011,6 +1018,12 @@ class TestCapeResult:
 
         correct_network_result_section.add_subsection(dns_subsection)
         correct_network_result_section.add_subsection(http_subsection)
+
+        unseen_subsection = ResultTableSection("Unseen IOCs found in API calls", tags={'network.dynamic.uri': ['https://google.com/', 'https://verisign.com/'], 'network.dynamic.uri_path': ['/']})
+        for uri in ["https://google.com/", "https://verisign.com/"]:
+            unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": uri}))
+        unseen_subsection.set_heuristic(1013)
+        correct_network_result_section.add_subsection(unseen_subsection)
 
         correct_result_section.add_subsection(correct_network_result_section)
 
@@ -2217,6 +2230,14 @@ class TestCapeResult:
         http_subsection.add_subsection(http_header_ioc_subsection)
         correct_network_result_section.add_subsection(http_subsection)
 
+        all_domains = ['gacycus.com', 'gacydib.com', 'gacyfew.com', 'gacyhez.com', 'gacyhis.com', 'gacykeh.com', 'gacykub.com', 'gacynuz.com', 'gacypyz.com', 'gacyqob.com', 'gacyqys.com', 'gacyroh.com', 'gacyvah.com', 'gacyzaw.com', 'gadycew.com', 'gadyciz.com', 'gadydas.com', 'gadyduz.com', 'gadyfob.com', 'gadyhyw.com', 'gadykos.com', 'gadyneh.com', 'gadypuw.com', 'gadyquz.com', 'gadyrab.com', 'gadyveb.com', 'gadyvis.com', 'gadyzyh.com', 'gahycib.com', 'gahydoh.com', 'gahyfow.com', 'gahyfyz.com', 'gahyhys.com', 'gahykih.com', 'gahynaz.com', 'gahynus.com', 'gahypus.com', 'gahyqub.com', 'gahyraw.com', 'gahyvew.com', 'gahyvuh.com', 'gahyzez.com', 'galycuw.com', 'galydoz.com', 'galyfyb.com', 'galyheh.com', 'galyhiw.com', 'galykiz.com', 'galynab.com', 'galynuh.com', 'galypyh.com', 'galyquw.com', 'galyros.com', 'galyvas.com', 'galyzeb.com', 'ganycuh.com', 'ganydiw.com', 'ganyfes.com', 'ganyhuh.com', 'ganykaz.com', 'ganykuw.com', 'ganynyb.com', 'ganypeb.com', 'ganyqow.com', 'ganyriz.com', 'ganyrys.com', 'ganyvoz.com', 'ganyzas.com', 'ganyzub.com', 'gaqycyz.com', 'gaqydus.com', 'gaqyfah.com', 'gaqyhuz.com', 'gaqykab.com', 'gaqynyw.com', 'gaqypew.com', 'gaqypiz.com', 'gaqyqis.com', 'gaqyreh.com', 'gaqyrib.com', 'gaqyvob.com', 'gaqyzoh.com', 'gaqyzuw.com', 'gatycoh.com', 'gatycyb.com', 'gatydaw.com', 'gatyduh.com', 'gatyfaz.com', 'gatyhub.com', 'gatykow.com', 'gatynes.com', 'gatypas.com', 'gatypub.com', 'gatyqih.com', 'gatyrez.com', 'gatyviw.com', 'gatyzys.com', 'lygyfex.com', 'lygyfir.com', 'lygyged.com', 'lygyjuj.com', 'lygylax.com', 'lygymyn.com', 'lygynox.com', 'lygynud.com', 'lygysij.com', 'lygytyd.com', 'lygyvar.com', 'lygyvuj.com', 'lygywor.com', 'lygyxun.com', 'lykyfen.com', 'lykygaj.com', 'lykygur.com', 'lykyjux.com', 'lykylan.com', 'lykymox.com', 'lykymyr.com', 'lykynon.com', 'lykynyj.com', 'lykysix.com', 'lykytej.com', 'lykyvod.com', 'lykywid.com', 'lykyxur.com', 'lymyfoj.com', 'lymygyx.com', 'lymyjon.com', 'lymylij.com', 'lymylyr.com', 'lymymud.com', 'lymyner.com', 'lymysud.com', 'lymytar.com', 'lymytux.com', 'lymyvin.com', 'lymywaj.com', 'lymywun.com', 'lymyxex.com', 'lyryfox.com', 'lyrygyn.com', 'lyryjir.com', 'lyryled.com', 'lyrymuj.com', 'lyrynad.com', 'lyrysor.com', 'lyrysyj.com', 'lyrytod.com', 'lyrytun.com', 'lyryvur.com', 'lyrywax.com', 'lyryxen.com', 'lyryxij.com', 'lysyfin.com', 'lysyger.com', 'lysyjid.com', 'lysylej.com', 'lysymux.com', 'lysynaj.com', 'lysysod.com', 'lysysyx.com', 'lysytyr.com', 'lysyvan.com', 'lysyvud.com', 'lysywon.com', 'lysyxux.com', 'lyvyfad.com', 'lyvyguj.com', 'lyvyjox.com', 'lyvyjyr.com', 'lyvylod.com', 'lyvylyn.com', 'lyvymir.com', 'lyvynen.com', 'lyvysur.com', 'lyvytan.com', 'lyvyvix.com', 'lyvywed.com', 'lyvywux.com', 'lyvyxyj.com', 'lyxyfar.com', 'lyxygax.com', 'lyxygud.com', 'lyxyjaj.com', 'lyxyjun.com', 'lyxylor.com', 'lyxymed.com', 'lyxymin.com', 'lyxynyx.com', 'lyxysun.com', 'lyxytex.com', 'lyxyvoj.com', 'lyxywij.com', 'lyxyxyd.com', 'pufybop.com', 'pufybyv.com', 'pufycol.com', 'pufycyq.com', 'pufydep.com', 'pufydul.com', 'pufygav.com', 'pufyjuq.com', 'pufylap.com', 'pufymyg.com', 'pufypiq.com', 'pufytev.com', 'pufywil.com', 'pufyxug.com', 'pujybig.com', 'pujybyq.com', 'pujycov.com', 'pujydag.com', 'pujygaq.com', 'pujygul.com', 'pujyjup.com', 'pujylog.com', 'pujymel.com', 'pujymip.com', 'pujypup.com', 'pujyteq.com', 'pujywiv.com', 'pujyxyl.com', 'pumybal.com', 'pumycug.com', 'pumydoq.com', 'pumygyp.com', 'pumyjig.com', 'pumylel.com', 'pumyliq.com', 'pumymuv.com', 'pumypyv.com', 'pumytol.com', 'pumytup.com', 'pumywaq.com', 'pumyxep.com', 'pupyboq.com', 'pupycag.com', 'pupycuv.com', 'pupydeq.com', 'pupydig.com', 'pupygel.com', 'pupyjuv.com', 'pupylaq.com', 'pupymyp.com', 'pupypep.com', 'pupypiv.com', 'pupytyl.com', 'pupywog.com', 'pupyxup.com', 'purybav.com', 'purycul.com', 'purydip.com', 'purygeg.com', 'puryjil.com', 'purylev.com', 'purymuq.com', 'purypol.com', 'purypyq.com', 'purytov.com', 'purytyg.com', 'purywop.com', 'puryxag.com', 'puryxuq.com', 'puvybeg.com', 'puvycip.com', 'puvydov.com', 'puvygyq.com', 'puvyjop.com', 'puvyjyl.com', 'puvyliv.com', 'puvylyg.com', 'puvymul.com', 'puvypul.com', 'puvytag.com', 'puvywav.com', 'puvywup.com', 'puvyxeq.com', 'puzybep.com', 'puzyciq.com', 'puzydal.com', 'puzygop.com', 'puzyguv.com', 'puzyjoq.com', 'puzyjyg.com', 'puzylol.com', 'puzymev.com', 'puzymig.com', 'puzypug.com', 'puzytap.com', 'puzywuq.com', 'puzyxyv.com', 'qebyfav.com', 'qebyhuq.com', 'qebykap.com', 'qebykul.com', 'qebylov.com', 'qebylug.com', 'qebynyg.com', 'qebyqil.com', 'qebyrev.com', 'qebyrip.com', 'qebysul.com', 'qebyteg.com', 'qebyvop.com', 'qebyxyq.com', 'qedyfog.com', 'qedyhyl.com', 'qedykiv.com', 'qedyleq.com', 'qedynaq.com', 'qedyqup.com', 'qedyrag.com', 'qedysov.com', 'qedysyp.com', 'qedytul.com', 'qedyveg.com', 'qedyvuv.com', 'qedyxip.com', 'qegyfil.com', 'qegyfyp.com', 'qegyhev.com', 'qegykiq.com', 'qegylep.com', 'qegynap.com', 'qegynuv.com', 'qegyqug.com', 'qegyrol.com', 'qegysoq.com', 'qegytyv.com', 'qegyval.com', 'qegyvuq.com', 'qegyxug.com', 'qekyfeg.com', 'qekyheq.com', 'qekyhil.com', 'qekykup.com', 'qekylag.com', 'qekynog.com', 'qekynuq.com', 'qekyqyl.com', 'qekyrov.com', 'qekysip.com', 'qekytyq.com', 'qekyvav.com', 'qekyxul.com', 'qeqyfaq.com', 'qeqyhup.com', 'qeqykog.com', 'qeqyloq.com', 'qeqylyl.com', 'qeqynel.com', 'qeqyqiv.com', 'qeqyreq.com', 'qeqyrug.com', 'qeqysuv.com', 'qeqytal.com', 'qeqytup.com', 'qeqyvig.com', 'qeqyxyp.com', 'qetyfop.com', 'qetyhyg.com', 'qetykol.com', 'qetylyv.com', 'qetynev.com', 'qetyquq.com', 'qetyrap.com', 'qetysal.com', 'qetysuq.com', 'qetytav.com', 'qetytug.com', 'qetyvil.com', 'qetyxeg.com', 'qetyxiq.com', 'qexyfel.com', 'qexyhap.com', 'qexyhuv.com', 'qexykaq.com', 'qexykug.com', 'qexylal.com', 'qexynyp.com', 'qexyqog.com', 'qexyqyv.com', 'qexyriq.com', 'qexysig.com', 'qexytep.com', 'qexyvoq.com', 'qexyxuv.com', 'vocybam.com', 'vocycuc.com', 'vocydof.com', 'vocygyk.com', 'vocyjet.com', 'vocyjic.com', 'vocykem.com', 'vocykif.com', 'vocymut.com', 'vocypyt.com', 'vocyqaf.com', 'vocyquc.com', 'vocyrom.com', 'vocyzek.com', 'vofybic.com', 'vofybyf.com', 'vofycot.com', 'vofycyk.com', 'vofydac.com', 'vofydut.com', 'vofygaf.com', 'vofyjuk.com', 'vofykoc.com', 'vofymem.com', 'vofypuk.com', 'vofyqit.com', 'vofyref.com', 'vofyzym.com', 'vojybek.com', 'vojybim.com', 'vojycif.com', 'vojydam.com', 'vojygok.com', 'vojygut.com', 'vojyjyc.com', 'vojykom.com', 'vojymet.com', 'vojymic.com', 'vojypuc.com', 'vojyquf.com', 'vojyrak.com', 'vojyzyt.com', 'volybec.com', 'volycik.com', 'volydot.com', 'volygyf.com', 'volyjok.com', 'volyjym.com', 'volykit.com', 'volymaf.com', 'volymum.com', 'volypum.com', 'volyquk.com', 'volyrac.com', 'volyzef.com', 'vonybat.com', 'vonycum.com', 'vonydik.com', 'vonygec.com', 'vonyjim.com', 'vonyket.com', 'vonykuk.com', 'vonymuf.com', 'vonypyf.com', 'vonyrot.com', 'vonyryc.com', 'vonyzac.com', 'vopybok.com', 'vopycom.com', 'vopycyf.com', 'vopydek.com', 'vopydum.com', 'vopygat.com', 'vopyjuf.com', 'vopykak.com', 'vopymyc.com', 'vopypec.com', 'vopypif.com', 'vopyqim.com', 'vopyret.com', 'vopyzuc.com', 'vowybof.com', 'vowycut.com', 'vowydic.com', 'vowygem.com', 'vowyjut.com', 'vowykaf.com', 'vowymyk.com', 'vowypek.com', 'vowypit.com', 'vowyqoc.com', 'vowyrif.com', 'vowyrym.com', 'vowyzam.com', 'vowyzuk.com', 'www.google.com']
+
+        unseen_ioc_section = ResultTableSection("Unseen IOCs found in API calls", tags={'network.dynamic.domain': all_domains})
+        for domain in all_domains:
+            unseen_ioc_section.add_row(TableRow({"ioc_type": "domain", "ioc": domain}))
+        unseen_ioc_section.set_heuristic(1013)
+        correct_network_result_section.add_subsection(unseen_ioc_section)
+
         correct_result_section.add_subsection(correct_network_result_section)
 
         correct_netflows = [
@@ -2443,6 +2464,89 @@ class TestCapeResult:
 
         process_network(network, parent_result_section, inetsim_network, routing, process_map, safelist, ontres, inetsim_dns_servers, True)
         assert check_section_equality(parent_result_section, correct_result_section)
+
+    @staticmethod
+    def test_process_unseen_iocs():
+        default_so = OntologyResults(service_name="CAPE")
+        nh = default_so.create_network_http(request_uri="http://blah.ca/blah", request_method="get")
+        default_so.add_network_http(nh)
+        nh2 = default_so.create_network_http(request_uri="https://blah.ca/blah", request_method="get")
+        default_so.add_network_http(nh2)
+        nd = default_so.create_network_dns(domain="blah.ca", resolved_ips=["1.1.1.1"], lookup_type="A")
+        default_so.add_network_dns(nd)
+
+        # Do nothing
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        _process_unseen_iocs(parent_result_section, {}, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Unseen URI
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        unseen_res = ResultTableSection("Unseen IOCs found in API calls", tags={'network.dynamic.domain': ['blah.com'], 'network.dynamic.uri': ['http://blah.com/blah'], 'network.dynamic.uri_path': ['/blah']})
+        unseen_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
+        unseen_res.add_row(TableRow({"ioc_type": "uri", "ioc": "http://blah.com/blah"}))
+        unseen_res.set_heuristic(1013)
+        correct_result_section.add_subsection(unseen_res)
+        process_map = {123: {"network_calls": [{"something": {"uri": "http://blah.com/blah"}}]}}
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Seen URI
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        process_map = {123: {"network_calls": [{"something": {"uri": "http://blah.ca/blah"}}]}}
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Seen URI after massaging
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        process_map = {123: {"network_calls": [{"something": {"uri": "http://blah.ca/blah:80", "uri2": "https://blah.ca/blah:443"}}]}}
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Seen URI in blob
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        process_map = {123: {"network_calls": [{"something": {"uri": "blahblahblah http://blah.ca/blah blahblahblah", "uri2": "blahblahblah https://blah.ca/blah blahblahblah"}}]}}
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+        # Seen URI in blob after massaging
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        process_map = {123: {"network_calls": [{"something": {"uri": "blahblahblah http://blah.ca/blah blahblahblah", "uri2": "blahblahblah https://blah.ca/blah blahblahblah"}}]}}
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
+    @staticmethod
+    def test_massage_api_urls():
+        # Not a URL
+        assert _massage_api_urls("blah") == "blah"
+        # :80 spotted, but no scheme
+        assert _massage_api_urls("blah.com:80/blah") == "blah.com:80/blah"
+        # :80 spotted, and scheme
+        assert _massage_api_urls("http://blah.com:80/blah") == "http://blah.com/blah"
+        # :443 spotted, and wrong scheme
+        assert _massage_api_urls("http://blah.com:443/blah") == "http://blah.com:443/blah"
+        # :443 spotted, and scheme
+        assert _massage_api_urls("https://blah.com:443/blah") == "https://blah.com/blah"
+
+    @staticmethod
+    def test_api_ioc_in_network_traffic():
+        ioc_list = ["blah.com", "127.0.0.1", "http://blah.com", "http://blah.org:443"]
+        # Domain is present
+        assert _api_ioc_in_network_traffic("blah.com", ioc_list) is True
+        # Domain is not present
+        assert _api_ioc_in_network_traffic("blah.ca", ioc_list) is False
+        # URI is present
+        assert _api_ioc_in_network_traffic("http://blah.com", ioc_list) is True
+        # URI is present after requires massaging /
+        assert _api_ioc_in_network_traffic("http://blah.com/", ioc_list) is True
+        # URI is present after requires massaging, https+443
+        assert _api_ioc_in_network_traffic("https://blah.org:443", ioc_list) is True
 
     @staticmethod
     def test_get_dns_sec():
