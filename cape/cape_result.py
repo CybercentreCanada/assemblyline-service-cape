@@ -1134,8 +1134,103 @@ def process_network(
     else:
         _process_non_http_traffic_over_http(network_res, unique_netflows)
 
+    # Let's add a section here that covers URLs seen in API calls that the
+    # monitor picked up but the signatures / PCAP did not
+    _process_unseen_iocs(network_res, process_map, ontres, safelist)
+
     if len(network_res.subsections) > 0:
         parent_result_section.add_subsection(network_res)
+
+
+def _process_unseen_iocs(
+        network_res: ResultSection,
+        process_map: Dict[int, Dict[str, Any]],
+        ontres: OntologyResults,
+        safelist: Dict[str, Dict[str, List[str]]]
+    ) -> None:
+    """
+    This method adds a result section detailing unseen IOCs found in API calls but not network traffic
+    :param network_res: The result section that will contain the result section detailing this traffic, if any
+    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
+    :param ontres: The Ontology Results class object
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :return: None
+    """
+    unseen_iocs_heur = Heuristic(1013)
+    possibly_unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
+    seen_domains = [dns_netflow.domain for dns_netflow in ontres.dns_netflows]
+    seen_ips = [netflow.destination_ip for netflow in ontres.netflows]
+    seen_uris = [http_netflow.request_uri for http_netflow in ontres.http_netflows]
+
+    for _, process_details in process_map.items():
+        for network_call in process_details["network_calls"]:
+            for _, network_details in network_call.items():
+                for _, v in network_details.items():
+                    if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
+                        extract_iocs_from_text_blob(v, possibly_unseen_iocs_res, safelist=safelist)
+
+    if possibly_unseen_iocs_res.body:
+        possibly_seen_body = possibly_unseen_iocs_res.section_body._data
+        unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
+        for item in possibly_seen_body:
+            # We don't care about uri paths in this scenario
+            if item["ioc_type"] == "uri_path":
+                continue
+            if _api_ioc_in_network_traffic(item["ioc"], seen_domains + seen_ips + seen_uris):
+                continue
+            if re_match(FULL_URI, item["ioc"]):
+                ioc = _massage_api_urls(item["ioc"])
+            else:
+                ioc = item["ioc"]
+            unseen_iocs_res.add_row(TableRow({"ioc_type": item["ioc_type"], "ioc": ioc}))
+            _ = add_tag(unseen_iocs_res, "network.dynamic.uri", ioc, safelist)
+
+        if unseen_iocs_res.body:
+            network_res.add_subsection(unseen_iocs_res)
+
+
+def _massage_api_urls(api_url: str) -> str:
+    """
+    This method massages a URL found in an API call
+    :param api_url: A URL found in an API call
+    :return: A potentially massaged URL found in an
+    """
+    altered_api_url: Optional[str] = None
+    # API call data requires some massaging. For instance, unnecessary ports in URIs
+    if api_url.startswith("http://") and ":80" in api_url:
+        altered_api_url = api_url.replace(":80", "")
+    elif api_url.startswith("https://") and ":443" in api_url:
+        altered_api_url = api_url.replace(":443", "")
+
+    if altered_api_url:
+        return altered_api_url
+    return api_url
+
+
+def _api_ioc_in_network_traffic(ioc: str, ioc_list: List[str]) -> bool:
+    """
+    This method checks if an IOC found in an API call is seen in network traffic
+    :param ioc: The IOC found in an API call to check for
+    :param ioc_list: The list of IOCs found in the network traffic
+    :return: A boolean indicating that the API call IOC was present in
+    the network traffic
+    """
+    if ioc in ioc_list:
+        return True
+
+    if re_match(FULL_URI, ioc):
+        altered_ioc = _massage_api_urls(ioc)
+        if altered_ioc in ioc_list:
+            return True
+
+    for seen_ioc in ioc_list:
+        if re_match(FULL_URI, ioc) and re_match(FULL_URI, seen_ioc):
+            if _handle_similar_netloc_and_path(ioc, seen_ioc):
+                return True
+            if _uris_are_equal_despite_discrepancies(ioc, seen_ioc):
+                return True
+
+    return False
 
 
 def _get_dns_sec(
@@ -1753,18 +1848,30 @@ def _uris_are_equal_despite_discrepancies(api_uri: Optional[str], pcap_uri: str)
     if api_uri and pcap_uri:
         # Okay so far so good
         if api_uri.startswith("https://") and pcap_uri.startswith("http://"):
-            # Getting warmer...
-            api_domain_and_path = api_uri.split("://", 1)[1]
-            pcap_domain_and_path = pcap_uri.split("://", 1)[1]
+            return _handle_similar_netloc_and_path(api_uri, pcap_uri)
 
-            if api_domain_and_path == pcap_domain_and_path:
-                # Jackpot!
-                return True
+    return False
 
-            # If no jackpot yet, here is another discrepancy
-            elif api_domain_and_path.endswith("/") and not pcap_domain_and_path.endswith("/") and api_domain_and_path.rstrip("/") == pcap_domain_and_path:
-                # Bingo bongo!
-                return True
+
+def _handle_similar_netloc_and_path(api_uri: str, pcap_uri: str) -> bool:
+    """
+    This method handles the same netloc and path between API URLs and PCAP URLs
+    :param api_uri: The URI parsed from an API call
+    :param pcap_uri: The URI parsed from PCAP traffic
+    :return: A boolean indicating whether the two netlocs and paths are equal*
+    """
+    # Getting warmer...
+    api_domain_and_path = api_uri.split("://", 1)[1]
+    pcap_domain_and_path = pcap_uri.split("://", 1)[1]
+
+    if api_domain_and_path == pcap_domain_and_path:
+        # Jackpot!
+        return True
+
+    # If no jackpot yet, here is another discrepancy
+    elif api_domain_and_path.endswith("/") and not pcap_domain_and_path.endswith("/") and api_domain_and_path.rstrip("/") == pcap_domain_and_path:
+        # Bingo bongo!
+        return True
 
     return False
 

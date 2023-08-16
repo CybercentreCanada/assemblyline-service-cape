@@ -586,6 +586,12 @@ heuristics:
     filetype: "*"
     description: CAPE detected a non-standard HTTP header being used
 
+  - heur_id: 1013
+    name: Unseen IOCs found in API calls
+    score: 1
+    filetype: "*"
+    description: CAPE detected IOCs that were not found in network calls
+
   - heur_id: 9999
     name: Unknown
     score: 0
