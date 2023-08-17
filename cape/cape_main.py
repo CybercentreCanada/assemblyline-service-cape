@@ -2045,7 +2045,7 @@ class CAPE(ServiceBase):
                         file_name = f"{task_id}_{pid}_{f}"
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
                 elif key in ["files/"]:
-                    file_type_details = self.identify.fileinfo(destination_file_path)
+                    file_type_details = self.identify.fileinfo(destination_file_path, generate_hashes=False)
                     if file_type_details["type"] == "unknown":
                         self.log.debug(
                             f"We are not extracting {destination_file_path} for task {task_id} "
