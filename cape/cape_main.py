@@ -1300,6 +1300,9 @@ class CAPE(ServiceBase):
                 ch for ch in self.file_name if ch not in ILLEGAL_FILENAME_CHARS
             )
 
+        if self.file_name.startswith(" "):
+            self.file_name = self.file_name.lstrip()
+
     def _assign_file_extension(self) -> str:
         """
         This method determines the correct file extension to the file to be submitted
