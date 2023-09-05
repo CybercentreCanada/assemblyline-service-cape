@@ -32,12 +32,15 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     Sandbox,
     Signature,
     attach_dynamic_ontology,
-    convert_sysmon_network,
-    convert_sysmon_processes,
     extract_iocs_from_text_blob,
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
+from assemblyline_service_utilities.common.sysmon_helper import (
+    UNKNOWN_PROCESS,
+    convert_sysmon_network,
+    convert_sysmon_processes,
+)
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.result import (
     Heuristic,
@@ -737,7 +740,7 @@ def _is_network_flow_a_connect_match(network_flow: Dict[str, Any], connect: Dict
     return ip_and_port_match or domain_match
 
 
-def _link_flow_with_process(network_flow: Dict[str, Any], process_map: Dict[int, Dict[str, Any]]) -> Dict[str, Any]:
+def _link_flow_with_process(network_flow: Dict[str, Any], process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults) -> Dict[str, Any]:
     # if process name does not exist from DNS, then find processes that made connection calls
     if network_flow["image"] is None:
         for process, process_details in process_map.items():
@@ -762,6 +765,15 @@ def _link_flow_with_process(network_flow: Dict[str, Any], process_map: Dict[int,
                     break
             if network_flow["image"]:
                 break
+
+    # Special handling for when Sysmon gives us process-related details but cannot get the image name
+    elif network_flow["image"] == UNKNOWN_PROCESS:
+        p = ontres.get_process_by_guid(network_flow.get("guid"))
+        if not p:
+            p = ontres.get_process_by_pid_and_time(network_flow.get("pid"), network_flow.get("timestamp"))
+
+        if p:
+            network_flow["image"] = p.image
 
     return network_flow
 
@@ -912,7 +924,7 @@ def process_network(
         if _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist):
             network_flows_table.remove(network_flow)
         else:
-            network_flow = _link_flow_with_process(network_flow, process_map)
+            network_flow = _link_flow_with_process(network_flow, process_map, ontres)
             _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
 
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):

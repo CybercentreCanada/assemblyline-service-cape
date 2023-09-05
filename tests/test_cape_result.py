@@ -13,6 +13,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     Process,
     Signature,
 )
+from assemblyline_service_utilities.common.sysmon_helper import UNKNOWN_PROCESS
 from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.result import (
     BODY_FORMAT,
@@ -575,10 +576,23 @@ class TestCapeResult:
         ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"url": "http://blah.org/blah.com", "port": 999}}], "name": "blah.exe"}}, {"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}),
         # No image, connect exists with matching domain via servername
         ({"image": None, "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999}, {123: {"network_calls": [{"connect": {"servername": "blah.com", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "domain": "blah.com", "dest_ip": "127.0.0.1", "dest_port": 999, "pid": 123}),
-
+        # Sysmon unknown image name, but guid matches.
+        ({"image": UNKNOWN_PROCESS, "dest_ip": "127.0.0.1", "dest_port": 999, "guid": "{12345678-1234-5678-1234-567812345679}", "pid": 123}, {123: {"network_calls": [{"connect": {"ip_address": "127.0.0.1", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "dest_ip": "127.0.0.1", "dest_port": 999, "guid": "{12345678-1234-5678-1234-567812345679}", "pid": 123}),
+        # Sysmon unknown image name, but pid and timestamp matches.
+        ({"image": UNKNOWN_PROCESS, "dest_ip": "127.0.0.1", "dest_port": 999, "timestamp": "1970-01-01 00:00:03", "pid": 123}, {123: {"network_calls": [{"connect": {"ip_address": "127.0.0.1", "port": 999}}], "name": "blah.exe"}}, {"image": "blah.exe", "dest_ip": "127.0.0.1", "dest_port": 999, "timestamp": "1970-01-01 00:00:03", "pid": 123}),
     ])
     def test_link_flow_with_process(network_flow, process_map, expected_result):
-        assert _link_flow_with_process(network_flow, process_map) == expected_result
+        ontres = OntologyResults(service_name="CAPE")
+        p = ontres.create_process(
+            image="blah.exe",
+            start_time="1970-01-01 00:00:01",
+            end_time="1970-01-01 00:00:10",
+            pid=123,
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE", guid="{12345678-1234-5678-1234-567812345679}")
+        )
+        ontres.add_process(p)
+
+        assert _link_flow_with_process(network_flow, process_map, ontres) == expected_result
 
     @staticmethod
     @pytest.mark.parametrize("dom, network_flow, dest_ip, expected_tags", [
