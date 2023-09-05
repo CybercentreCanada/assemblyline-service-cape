@@ -1215,7 +1215,7 @@ class TestCapeMain:
 
     @staticmethod
     def test_remove_illegal_characters_from_file_name(cape_class_instance):
-        test_file_name = ''.join(ch for ch in ILLEGAL_FILENAME_CHARS) + "blah"
+        test_file_name = " " + ''.join(ch for ch in ILLEGAL_FILENAME_CHARS) + "blah"
         correct_file_name = "blah"
 
         cape_class_instance.file_name = test_file_name
