@@ -71,20 +71,7 @@ SCORE_TRANSLATION = {
 }  # dead_host signature
 
 # Signature Processing Constants
-SKIPPED_MARK_ITEMS = ["type", "suspicious_features", "entropy", "process", "useragent"]
-SKIPPED_CATEGORY_IOCS = ["section", "Data received", "Data sent"]
 SKIPPED_FAMILIES = ["generic"]
-SKIPPED_PATHS = ["/"]
-SILENT_IOCS = [
-    "ransomware_mass_file_delete",
-    "injection_ntsetcontextthread",
-    "injection_resumethread",
-]
-SILENT_PROCESS_NAMES = [
-    "injection_write_memory_exe",
-    "injection_write_memory",
-    "injection_modifies_memory",
-]
 
 INETSIM = "INetSim"
 CONNECT_API_CALLS = [
