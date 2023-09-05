@@ -648,6 +648,7 @@ CAPE_SIGNATURES = {
     "uses_windows_utilities_cipher": "Command",
     "uses_windows_utilities_clickonce": "Command",
     "uses_windows_utilities_csvde_ldifde": "Discovery",
+    "uses_windows_utilities_curl": "Network",
     "uses_windows_utilities_dsquery": "Discovery",
     "uses_windows_utilities_esentutl": "Evasion",
     "uses_windows_utilities_finger": "Evasion",
