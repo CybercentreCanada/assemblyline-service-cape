@@ -2014,7 +2014,7 @@ def process_curtain(
                 curtain_body.append(curtain_item)
         _ = add_tag(
             curtain_res,
-            "file.powershell.cmdlet",
+            "file.behavior",
             [behaviour for behaviour in curtain[pid]["behaviors"]],
         )
     if len(curtain_body) > 0:

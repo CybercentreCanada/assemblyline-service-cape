@@ -4065,7 +4065,7 @@ class TestCapeResult:
                         curtain_item["reformatted"] = altered
                     curtain_body.append(curtain_item)
             for behaviour in curtain[pid]["behaviors"]:
-                correct_result_section.add_tag("file.powershell.cmdlet", behaviour)
+                correct_result_section.add_tag("file.behavior", behaviour)
         correct_result_section.set_body(json.dumps(curtain_body), BODY_FORMAT.TABLE)
 
         process_curtain(curtain, al_result, process_map)
