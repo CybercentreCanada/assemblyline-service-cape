@@ -983,7 +983,7 @@ class TestCapeMain:
             assert p1.exitcode is None
 
     @staticmethod
-    def test_query_machines(cape_class_instance):
+    def test_query_machines(cape_class_instance, dummy_request_class):
         # Prerequisites before we can mock query_machines response
         query_machines_url_1 = f"http://1.1.1.1:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
         query_machines_url_2 = f"http://2.2.2.2:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
@@ -1103,6 +1103,25 @@ class TestCapeMain:
             assert cape_class_instance.hosts[3]["machines"] == []
             assert cape_class_instance.hosts[4]["machines"] == []
             assert cape_class_instance.hosts[5]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 14: The submission is requested to have Internet-connection. Host 1 does not have the
+            # internet_connected key. Host 4 has the key set to True. The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}, {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False}, {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False}, {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": True}, {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False}, {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False}]
+            options = {"routing": "internet"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == []
+            assert cape_class_instance.hosts[2]["machines"] == []
+            assert cape_class_instance.hosts[3]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
