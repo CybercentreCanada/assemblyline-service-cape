@@ -14,7 +14,7 @@ from assemblyline.odm.messages.task import Task as ServiceTask
 from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults
 from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import BODY_FORMAT, ResultImageSection, ResultSection
+from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
 from assemblyline_v4_service.common.task import Task
 from cape.cape_main import *
 from requests import ConnectionError, Session, exceptions
@@ -553,7 +553,7 @@ class TestCapeMain:
             with pytest.raises(Exception):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
         elif (poll_started_status == ANALYSIS_FAILED and poll_report_status is None) or (poll_report_status in [ANALYSIS_FAILED, PROCESSING_FAILED] and poll_started_status == TASK_STARTED):
-            with pytest.raises(AnalysisFailed):
+            with pytest.raises(NonRecoverableError):
                 cape_class_instance.submit(file_content, cape_task, parent_section)
         elif poll_report_status == "reboot":
             cape_class_instance.session = Session()
