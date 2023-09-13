@@ -1275,6 +1275,7 @@ def _get_dns_sec(
     [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
 
     if not answer_exists:
+        # This is not worth failing the entire analysis over, but worth reporting.
         _ = ResultTextSection(
             title_text="DNS services are down!",
             body="Contact the CAPE administrator for details.",

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
 
 import requests
-from assemblyline.common.exceptions import RecoverableError
+from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
 from assemblyline.common.forge import get_identify
 from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
 from assemblyline.common.str_utils import safe_str
@@ -153,12 +153,6 @@ class CapeVMBusyException(Exception):
 
 class InvalidCapeRequest(Exception):
     """Exception class for when every CAPE host's REST API returns a 200 status code with errors"""
-
-    pass
-
-
-class AnalysisFailed(Exception):
-    """Exception class for when CAPE is not able to analyze the task"""
 
     pass
 
@@ -490,8 +484,6 @@ class CAPE(ServiceBase):
             else:
                 raise Exception(f"Task ID is None. File failed to be submitted to the CAPE nest at "
                                 f"{host_to_use['ip']}.")
-        except AnalysisFailed:
-            pass
         except Exception as e:
             self.log.error(repr(e))
             if cape_task and cape_task.id is not None:
@@ -610,14 +602,7 @@ class CAPE(ServiceBase):
             raise RecoverableError(f"Unable to complete analysis and processing in time. Try again.")
 
         if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
-            # Add a subsection detailing what's happening and then moving on
-            analysis_failed_sec = ResultTextSection("CAPE Analysis/Processing Failed.")
-            analysis_failed_sec.add_line(
-                f"The analysis/processing of CAPE task {cape_task.id} has failed."
-                " Contact the CAPE administrator for details."
-            )
-            parent_section.add_subsection(analysis_failed_sec)
-            raise AnalysisFailed()
+            raise NonRecoverableError(f"The analysis/processing of CAPE task {cape_task.id} has failed. This could be for a variety of reasons. Try resubmitting again, and if that resubmission also fails then contact the CAPE administrator for details.")
 
     def stop(self) -> None:
         self.log.debug("CAPE service stopped...")
@@ -1697,6 +1682,8 @@ class CAPE(ServiceBase):
             report_json_path = self._add_json_as_supplementary_file(zip_obj, cape_task)
         except MissingCapeReportException:
             report_json_path = None
+            # Artifacts other than the JSON report may have been successful so this is worth
+            # not failing the analysis over.
             no_json_res_sec = ResultTextSection("The CAPE JSON Report Is Missing!")
             no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
