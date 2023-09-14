@@ -26,6 +26,7 @@ config:
         port: 8000
         token: "sample_token"
         internet_connected: false
+        inetsim_connected: false
 
   # REST API Timeouts and Attempts
   connection_timeout_in_seconds: 30
