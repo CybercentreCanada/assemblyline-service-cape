@@ -995,6 +995,7 @@ class TestCapeMain:
         cape_class_instance.connection_timeout_in_seconds = 30
         cape_class_instance.connection_attempts = 3
         cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+        cape_class_instance.request = dummy_request_class(routing="blah")
 
         with requests_mock.Mocker() as m:
             # Case 1: We have one host, and we are able to connect to it
@@ -1120,6 +1121,66 @@ class TestCapeMain:
             assert cape_class_instance.hosts[1]["machines"] == []
             assert cape_class_instance.hosts[2]["machines"] == []
             assert cape_class_instance.hosts[3]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
+
+            # Case 15: The submission is requested to have Internet-connection.
+            # Host 1 does not have the inetsim_connected or internet_connected keys.
+            # Host 2 has the inetsim_connected key set to True and no internet_connected key.
+            # Host 3 has the inetsim_connected key set to True and the internet_connected key set to True.
+            # Host 4 has the inetsim_connected key set to False and the internet_connected key set to True.
+            # The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True},
+                {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True, "internet_connected": True},
+                {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": True},
+                {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": False},
+                {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": False}
+            ]
+            options = {"routing": "internet"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
+
+            # Case 16: The submission is requested to have INetSim-connection.
+            # Host 1 does not have the inetsim_connected or internet_connected keys.
+            # Host 2 has the inetsim_connected key set to True and no internet_connected key.
+            # Host 3 has the inetsim_connected key set to True and the internet_connected key set to True.
+            # Host 4 has the inetsim_connected key set to False and the internet_connected key set to True.
+            # The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True},
+                {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True, "internet_connected": True},
+                {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": True},
+                {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": False},
+                {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": False, "internet_connected": False}
+            ]
+            options = {"routing": "inetsim"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == []
             assert cape_class_instance.hosts[4]["machines"] == []
             assert cape_class_instance.hosts[5]["machines"] == []
 

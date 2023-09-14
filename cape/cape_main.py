@@ -1070,6 +1070,28 @@ class CAPE(ServiceBase):
                 cape_task.id = None
                 break
 
+    def _host_supports_routing(self, routing: str, routing_key: str, host: Dict[str, Any]) -> bool:
+        if self.request.get_param("routing").lower() == routing.lower():
+            # For backwards compatibility
+            # The assumption is that a system admin has configured the eligible
+            # submission parameters relevant to available hosts.
+            if not routing_key in host:
+                return True
+            # The host supports this routing, we are a go!
+            elif host[routing_key]:
+                return True
+            else:
+                # The host does not support this routing, do not query host
+                if len(self.hosts) == 1:
+                    self.log.error(
+                        f"Failed to query {routing.capitalize()}-connected hosts because none exist. Please set '{routing_key}' to true in the host details, or remove the option to submit with the '{routing.lower()}' route."
+                    )
+                return False
+        # The requested routing does not match the given routing for this method, therefore host "supports" routing
+        else:
+            return True
+
+
     def query_machines(self) -> None:
         """
         This method queries what machines exist in the CAPE configuration on the CAPE server
@@ -1085,22 +1107,18 @@ class CAPE(ServiceBase):
                 # Initialize the "machines" key here, because all hosts need this
                 host["machines"]: List[Dict[str, Any]] = []
 
-                # To be backwards-compatible, if the "internet_connected" key does not exist, include the host in the
-                # list of hosts that could be eligible for detonation
-                if not "internet_connected" in host:
-                    pass
-                # If the route is "internet", we only want to consider hosts where the "internet_connected" flag
-                # is set to true in the service manifest
-                elif self.request.get_param("routing").lower() == INTERNET.lower() and not host["internet_connected"]:
+                # We have two cases where we only want to send files to certain machines, and it comes down to the
+                # selected routing option: Internet and INetSim
+                if not self._host_supports_routing(INTERNET, "internet_connected", host):
+                    fail_fast_count += 1
                     if len(self.hosts) == 1:
-                        self.log.error(
-                            f"Failed to query Internet-connected hosts because none exist. Please set 'internet_connected' to true for in the host details, or remove the option to submit with the 'internet' route."
-                        )
-                        fail_fast_count += 1
                         break
-                    else:
-                        fail_fast_count += 1
-                        continue
+                    continue
+                elif not self._host_supports_routing(INETSIM, "inetsim_connected", host):
+                    fail_fast_count += 1
+                    if len(self.hosts) == 1:
+                        break
+                    continue
 
                 # Try a host up until the number of connection attempts
                 # For timeouts and connection errors, we will try for all eternity. If there is an error response with a 200 status code from the REST API, then we will fail fast because this is most likely a configuration problem with the
