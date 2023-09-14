@@ -71,6 +71,7 @@ The CAPE service will submit a file and wait for the file to complete analysis a
     * **port** - [default: 8000] The port where the CAPE API is being served
     * **api_key** - [default: sample_api_token] The authentication token to be passed with each API call
     * **internet_connected** - [default: false] A flag that indicates if the host has the ability to route network calls made by detonated file to the Internet
+    * **inetsim_connected** - [default: false] A flag that indicates if the host has the ability to route network calls made by detonated file to INetSim
 
 #### REST API Timeouts and Attempts
 * **connection_timeout_in_seconds** - [default: 30] The timeout used to make the initial query to a host. (GET /machines/list)
