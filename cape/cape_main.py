@@ -33,6 +33,7 @@ from assemblyline_v4_service.common.result import (
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     GUEST_CANNOT_REACH_HOST,
+    INETSIM,
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
     SIGNATURES_SECTION_TITLE,
@@ -128,6 +129,8 @@ PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 DEFAULT_TOKEN_KEY = "Token"
 
 CONNECTION_ERRORS = ["RemoteDisconnected", "ConnectionResetError"]
+INTERNET = "internet"
+
 # Ontology Result Constants
 SANDBOX_NAME = "CAPE Sandbox"
 SERVICE_NAME = "CAPE"
@@ -1079,10 +1082,29 @@ class CAPE(ServiceBase):
         while not success and fail_fast_count != len(self.hosts):
             # Cycle through each host
             for host in self.hosts:
+                # Initialize the "machines" key here, because all hosts need this
+                host["machines"]: List[Dict[str, Any]] = []
+
+                # To be backwards-compatible, if the "internet_connected" key does not exist, include the host in the
+                # list of hosts that could be eligible for detonation
+                if not "internet_connected" in host:
+                    pass
+                # If the route is "internet", we only want to consider hosts where the "internet_connected" flag
+                # is set to true in the service manifest
+                elif self.request.get_param("routing").lower() == INTERNET.lower() and not host["internet_connected"]:
+                    if len(self.hosts) == 1:
+                        self.log.error(
+                            f"Failed to query Internet-connected hosts because none exist. Please set 'internet_connected' to true for in the host details, or remove the option to submit with the 'internet' route."
+                        )
+                        fail_fast_count += 1
+                        break
+                    else:
+                        fail_fast_count += 1
+                        continue
+
                 # Try a host up until the number of connection attempts
                 # For timeouts and connection errors, we will try for all eternity. If there is an error response with a 200 status code from the REST API, then we will fail fast because this is most likely a configuration problem with the
                 # CAPE service
-                host["machines"]: List[Dict[str, Any]] = []
 
                 for _ in range(self.connection_attempts):
                     query_machines_url = f"http://{host['ip']}:{host['port']}/{APIv2_BASE_ENDPOINT}/{CAPE_API_QUERY_MACHINES}"
@@ -1836,6 +1858,11 @@ class CAPE(ServiceBase):
             self.log.debug(
                 f"Generating AL Result from CAPE results for task {cape_task.id}."
             )
+
+            inetsim_dns_servers = []
+            if self.routing.lower() == INETSIM.lower():
+                inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
+
             cape_artifact_pids, main_process_tuples = generate_al_result(
                 cape_task.report,
                 parent_section,
@@ -1846,7 +1873,7 @@ class CAPE(ServiceBase):
                 machine_info,
                 ontres,
                 custom_tree_id_safelist,
-                self.config.get("inetsim_dns_servers", []),
+                inetsim_dns_servers,
                 self.config.get("uses_https_proxy_in_sandbox", False),
             )
             return cape_artifact_pids, main_process_tuples
