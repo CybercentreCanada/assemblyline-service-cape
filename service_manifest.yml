@@ -548,7 +548,7 @@ heuristics:
 
   - heur_id: 1006
     name: IOC found in Buffer
-    score: 500
+    score: 10
     filetype: '*'
     description: CAPE detected an IOC found in a buffer, either encrypted or decrypted
 
