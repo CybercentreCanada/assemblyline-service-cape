@@ -2637,7 +2637,7 @@ def _tag_mark_values(
                         source=process_with_pid.objectid,
                     )
                     attributes.append(attribute)
-            _ = add_tag(sig_res, "file.rule.yara", reg_match.group(2))
+            _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{reg_match.group(2)}")
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 

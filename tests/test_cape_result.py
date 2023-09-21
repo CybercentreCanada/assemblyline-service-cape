@@ -4802,9 +4802,9 @@ class TestCapeResult:
             # Key that ends in _exe for file.pe.exports.function_name, nothing special with value
             ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}),
             # Standard key for file.rule.yara, nothing special with value
-            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
+            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}),
             # Standard key for file.rule.yara, value has PID in it
-            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["iwantthis"]}),
+            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}),
             # IOC found in data
             ("data", "Hey you I want to callout to http://blah.com", {}),
         ]
