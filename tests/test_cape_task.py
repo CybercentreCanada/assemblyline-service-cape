@@ -1,13 +1,18 @@
 import pytest
-from test_cape_main import samples, cape_task_class
+from test_cape_main import cape_task_class, samples
 
 
 class TestCuckooTask:
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
     def test_init(sample, cape_task_class):
-        from cape.cape_main import CAPE_API_SUBMIT, CAPE_API_QUERY_TASK, CAPE_API_DELETE_TASK, \
-            CAPE_API_QUERY_REPORT, CAPE_API_QUERY_MACHINES
+        from cape.cape_main import (
+            CAPE_API_DELETE_TASK,
+            CAPE_API_QUERY_MACHINES,
+            CAPE_API_QUERY_REPORT,
+            CAPE_API_QUERY_TASK,
+            CAPE_API_SUBMIT,
+        )
 
         kwargs = {"blah": "blah"}
         host_details = {"ip": "blah", "port": "blah", "auth_header": "blah"}
@@ -21,4 +26,6 @@ class TestCuckooTask:
         assert cape_task_class_instance.submit_url == f"{cape_task_class_instance.base_url}/{CAPE_API_SUBMIT}"
         assert cape_task_class_instance.query_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_TASK}"
         assert cape_task_class_instance.delete_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_DELETE_TASK}"
-        assert cape_task_class_instance.query_report_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_REPORT}"
+        assert (
+            cape_task_class_instance.query_report_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_REPORT}"
+        )
