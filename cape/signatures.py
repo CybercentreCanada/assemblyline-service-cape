@@ -130,7 +130,9 @@ CAPE_SIGNATURES = {
     "browser_security": "Browser",
     "browser_startpage": "Browser",
     "bypass_firewall": "Bypass",
-    "cape_extracted_content": "Banker",
+    "cape_extracted_config": "Malware",  # CAPE
+    "cape_extracted_content": "Packer",  # CAPE
+    "cape_detected_threat": "Malware",  # CAPE
     "captures_screenshot": "Infostealer",
     "carberp_mutex": "Banker",
     "cerber_behavior": "Ransomware",
@@ -147,6 +149,7 @@ CAPE_SIGNATURES = {
     "cmdline_reversed_http_link": "Command",
     "cmdline_switches": "Command",
     "cmdline_terminate": "Command",
+    "compression": "Packer",  # CAPE
     "codelux_behavior": "Keylogger",
     "copies_self": "Persistence",
     "crat_mutexes": "Rat",
@@ -176,6 +179,7 @@ CAPE_SIGNATURES = {
     "debugs_self": "Stealth",
     "decoy_document": "Exploit",
     "decoy_image": "Stealth",
+    "decryption": "Encryption",  # CAPE
     "deepfreeze_mutex": "Anti-sandbox",
     "deletes_executed_files": "Persistence",
     "deletes_self": "Persistence",
@@ -215,6 +219,7 @@ CAPE_SIGNATURES = {
     "disables_winfirewall": "Generic",
     "dll_load_uncommon_file_types": "Anti-debug",
     "document_script_exe_drop": "Dropper",
+    "doppelganging": "Injection",  # CAPE
     "dotnet_clr_usagelog_regkeys": "Evasion",
     "dotnet_code_compile": "Evasion",
     "dotnet_csc_build": "Command",
@@ -234,6 +239,7 @@ CAPE_SIGNATURES = {
     "encrypt_pcinfo": "C2",
     "encrypted_ioc": "Encryption",
     "enumerates_running_processes": "Discovery",
+    "evil_grab": "Malware",  # CAPE
     "excel4_macro_urls": "Macro",
     "exe_dropper_js": "Dropper",
     "exec_crash": "Execution",
@@ -278,12 +284,13 @@ CAPE_SIGNATURES = {
     "injection_createremotethread": "Injection",
     "injection_create_remote_thread": "Injection",  # CAPE
     "injection_explorer": "Injection",
-    "injection_inter_process": "Injection",
+    "injection_inter_process": "Injection",  # CAPE
     "injection_needextension": "Injection",
     "injection_network_traffic": "Injection",
-    "injection_process_hollowing": "Injection",
+    "injection_process_hollowing": "Injection",  # CAPE
     "injection_runpe": "Injection",
     "injection_rwx": "Injection",
+    "injection_set_window_long": "Injection",  # CAPE
     "injection_themeinitapihook": "Injection",
     "internet_dropper": "Network",
     "invalid_authenticode_signature": "Static",
@@ -475,6 +482,7 @@ CAPE_SIGNATURES = {
     "persists_dev_util": "Masquerading",
     "phorpiex_mutexes": "Downloader",
     "physical_drive_access": "Bootkit",
+    "PlugX": "Malware",  # CAPE
     "polymorphic": "Persistence",
     "pony_behavior": "Trojan",
     "potential_overwrite_mbr": "Bootkit",
@@ -531,6 +539,7 @@ CAPE_SIGNATURES = {
     "recon_fingerprint": "Discovery",
     "recon_programs": "Discovery",
     "recon_systeminfo": "Discovery",
+    "reg_binary": "Dropper",  # CAPE
     "registry_credential_dumping": "Persistence",
     "registry_credential_store_access": "Persistence",
     "registry_lsa_secrets_access": "Credential Dumping",
@@ -623,7 +632,7 @@ CAPE_SIGNATURES = {
     "terminates_remote_process": "Persistence",
     "territorial_disputes_sigs": "Generic",
     "tinba_behavior": "Trojan",
-    "transacted_hollowing": "Injection",
+    "transacted_hollowing": "Injection",  # CAPE
     "trickbot_mutex": "Banker",
     "trickbot_task_delete": "Banker",
     "trochilusrat_apis": "Rat",
@@ -633,6 +642,7 @@ CAPE_SIGNATURES = {
     "uac_bypass_delegateexecute_sdclt": "Bypass",
     "uac_bypass_eventvwr": "Bypass",
     "uac_bypass_fodhelper": "Persistence",
+    "Unpacker": "Packer",  # CAPE
     "upatre_behavior": "Dropper",
     "upatre_files": "Rat",
     "upatre_mutexes": "Rat",
