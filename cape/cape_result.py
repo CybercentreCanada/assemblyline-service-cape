@@ -2129,7 +2129,7 @@ def process_buffers(
                 buffer = call["OutputDebugStringA"]["string"]
             if not buffer:
                 continue
-            extract_iocs_from_text_blob(buffer, buffer_ioc_table)
+            extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
             table_row = {
                 "Process": process_name_to_be_displayed,
                 "Source": "Windows API",

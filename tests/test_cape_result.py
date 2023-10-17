@@ -31687,11 +31687,19 @@ class TestCapeResult:
                 {"network.dynamic.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
+            # Buffer min is enforced for iocs pulled from buffers, this domain is too small
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.ca"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.ca"}]',
-                {"network.dynamic.domain": ["blah.ca"]},
-                [{"ioc_type": "domain", "ioc": "blah.ca"}],
+                {},
+                [],
+            ),
+            # Buffer min is enforced for iocs pulled from buffers, this domain is just right
+            (
+                {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.com"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
+                {"network.dynamic.domain": ["blah.com"]},
+                [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
