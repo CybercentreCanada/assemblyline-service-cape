@@ -1,8 +1,8 @@
+import json
 from collections import defaultdict
 from datetime import datetime
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
-from json import dumps
 from logging import getLogger
 from re import compile as re_compile
 from re import match as re_match
@@ -1160,7 +1160,7 @@ def _process_unseen_iocs(
                         extract_iocs_from_text_blob(v, possibly_unseen_iocs_res, safelist=safelist)
 
     if possibly_unseen_iocs_res.body:
-        possibly_seen_body = possibly_unseen_iocs_res.section_body._data
+        possibly_seen_body = json.loads(possibly_unseen_iocs_res.section_body.body)
         unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
         for item in possibly_seen_body:
             # We don't care about uri paths in this scenario
@@ -1416,8 +1416,8 @@ def _get_low_level_flows(
                     )
                     netflows_sec.add_subsection(too_many_unique_ips_sec)
                     break
-                dst_port_pair = dumps({network_call["dst"]: network_call["dport"]})
-                if dst_port_pair not in [dumps({x["dst"]: x["dport"]}) for x in network_calls_made_to_unique_ips]:
+                dst_port_pair = json.dumps({network_call["dst"]: network_call["dport"]})
+                if dst_port_pair not in [json.dumps({x["dst"]: x["dport"]}) for x in network_calls_made_to_unique_ips]:
                     network_calls_made_to_unique_ips.append(network_call)
             network_calls = network_calls_made_to_unique_ips
         for network_call in network_calls:
@@ -2486,7 +2486,7 @@ def _handle_mark_data(
     :return: None
     """
     for k, v in mark_items:
-        if not v or k in MARK_KEYS_TO_NOT_DISPLAY or dumps({k: v}) in sig_res.section_body.body:
+        if not v or k in MARK_KEYS_TO_NOT_DISPLAY or json.dumps({k: v}) in sig_res.section_body.body:
             continue
 
         # The mark_count limit only exists for diaply purposes
@@ -2717,7 +2717,6 @@ def convert_processtree_id_to_tree_id(processtree_id: str) -> str:
 
 
 if __name__ == "__main__":
-    from json import loads
     from sys import argv
 
     # pip install PyYAML
@@ -2730,8 +2729,8 @@ if __name__ == "__main__":
     random_ip_range = argv[3]
     routing = argv[4]
     safelist_path = argv[5]
-    custom_processtree_id_safelist = loads(argv[6])
-    inetsim_dns_servers = loads(argv[7])
+    custom_processtree_id_safelist = json.loads(argv[6])
+    inetsim_dns_servers = json.loads(argv[7])
     uses_https_proxy_in_sandbox = True if argv[8] == "True" else False
 
     with open(safelist_path, "r") as f:
@@ -2741,7 +2740,7 @@ if __name__ == "__main__":
     ontres = OntologyResults(service_name="CAPE")
 
     with open(report_path, "r") as f:
-        api_report = loads(f.read())
+        api_report = json.loads(f.read())
 
     al_result = ResultSection("Parent")
     machine_info = {
@@ -2778,5 +2777,5 @@ if __name__ == "__main__":
     service = ServiceBase()
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
-    print(dumps(ontres.as_primitives(), indent=4))
+    print(json.dumps(ontres.as_primitives(), indent=4))
     attach_dynamic_ontology(service, ontres)
