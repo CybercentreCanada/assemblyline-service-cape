@@ -252,9 +252,6 @@ class CAPE(ServiceBase):
         request.result = Result()
         ontres = OntologyResults(service_name=SERVICE_NAME)
 
-        # Setting working directory for request
-        request._working_directory = self.working_directory
-
         self.file_res = request.result
 
         # Poorly name var to track keyword arguments to pass into CAPE's 'submit' function
