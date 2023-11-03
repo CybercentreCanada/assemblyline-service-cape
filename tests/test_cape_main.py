@@ -11,10 +11,11 @@ from assemblyline.common.exceptions import RecoverableError
 from assemblyline.common.identify_defaults import type_to_extension
 from assemblyline.common.str_utils import safe_str
 from assemblyline.odm.messages.task import Task as ServiceTask
+from assemblyline.odm.models.result import BODY_FORMAT
 from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults
 from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.request import ServiceRequest
-from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
+from assemblyline_v4_service.common.result import ResultSection
 from assemblyline_v4_service.common.task import Task
 from cape.cape_main import *
 from requests import ConnectionError, Session, exceptions

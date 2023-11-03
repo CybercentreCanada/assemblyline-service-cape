@@ -3,6 +3,7 @@ from ipaddress import IPv4Network, ip_network
 from json import dumps, loads
 
 import pytest
+from assemblyline.odm.models.result import BODY_FORMAT
 from assemblyline_service_utilities.common.dynamic_service_helper import (
     Attribute,
     NetworkConnection,
@@ -16,7 +17,6 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
 from assemblyline_service_utilities.common.sysmon_helper import UNKNOWN_PROCESS
 from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.result import (
-    BODY_FORMAT,
     Heuristic,
     KVSectionBody,
     ProcessItem,
