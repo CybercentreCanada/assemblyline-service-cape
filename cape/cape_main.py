@@ -30,6 +30,7 @@ from assemblyline_v4_service.common.result import (
     ResultTextSection,
     TextSectionBody,
 )
+from assemblyline_v4_service.common.task import PARENT_RELATION
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     GUEST_CANNOT_REACH_HOST,
@@ -361,7 +362,11 @@ class CAPE(ServiceBase):
 
         # Adding sandbox artifacts using the OntologyResults helper class
         artifact_section = OntologyResults.handle_artifacts(
-            self.artifact_list, self.request, collapsed=True, injection_heur_id=32, parent_relation="DYNAMIC"
+            self.artifact_list,
+            self.request,
+            collapsed=True,
+            injection_heur_id=32,
+            parent_relation=PARENT_RELATION.DYNAMIC,
         )
         if artifact_section:
             self.file_res.add_section(artifact_section)
