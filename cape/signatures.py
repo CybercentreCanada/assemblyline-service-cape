@@ -238,6 +238,7 @@ CAPE_SIGNATURES = {
     "encrypt_data_nanocore": "Keylogger",
     "encrypt_pcinfo": "C2",
     "encrypted_ioc": "Encryption",
+    "enumerates_physical_drives": "Discovery",
     "enumerates_running_processes": "Discovery",
     "evil_grab": "Malware",  # CAPE
     "excel4_macro_urls": "Macro",

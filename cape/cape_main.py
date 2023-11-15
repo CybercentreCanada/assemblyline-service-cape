@@ -1654,8 +1654,9 @@ class CAPE(ServiceBase):
 
         # Check for any extra files in full report to add as extracted files
         try:
+            file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
-            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres)
+            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
 
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
@@ -1807,6 +1808,31 @@ class CAPE(ServiceBase):
                 self.delete_task(cape_task)
             raise
 
+    def _get_files_json_contents(self, zip_obj: ZipFile, task_id: int) -> dict:
+        """
+        This method parses the files.json file to get the file name map
+        :param zip_obj: The tarball object, containing the analysis artifacts for the task
+        :param task_id: The CapeTask ID
+        :return: The file name map
+        """
+        file_name_map: Dict[str, str] = dict()
+        member_name = "files.json"
+        if member_name not in zip_obj.namelist():
+            self.log.debug(f"No {member_name} available")
+        else:
+            try:
+                task_dir = os.path.join(self.working_directory, f"{task_id}")
+                zip_obj.extract(member_name, path=task_dir)
+                with open(os.path.join(task_dir, member_name)) as f:
+                    file_jsons = f.readlines()
+
+                    for file_json_content in file_jsons:
+                        file_json = loads(file_json_content)
+                        file_name_map[file_json["path"]] = file_json["filepath"].split("\\")[-1]
+            except Exception as e:
+                self.log.exception(f"Unable to parse files.json for task {task_id}. Exception: {e}")
+        return file_name_map
+
     def _extract_console_output(self, task_id: int) -> None:
         """
         This method adds a file containing console output, if it exists
@@ -1857,6 +1883,7 @@ class CAPE(ServiceBase):
         cape_artifact_pids: List[Dict[str, str]],
         parent_section: ResultSection,
         ontres: OntologyResults,
+        file_name_map: Dict[str, str],
     ) -> None:
         """
         This method extracts certain artifacts from that zipfile
@@ -1865,6 +1892,7 @@ class CAPE(ServiceBase):
         :param cape_artifact_pids: A list of dictionaries with details about the payloads and the pids that they were hollowed out of
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :param ontres: The sandbox ontology class object
+        :param file_name_map: The file name map for extracted files
         :return: None
         """
         image_section = ResultMultiSection(f"Screenshots taken during Task {task_id}")
@@ -1927,13 +1955,16 @@ class CAPE(ServiceBase):
                     evtx_file_path = os.path.join(task_dir, x.filename)
                     evtx_zip_obj.extract(x.filename, path=task_dir)
                     artifact = {
-                        "name": f"{task_id}_{x.filename}",
+                        "name": f"{task_id}_{file_name_map.get(x.filename, x.filename)}",
                         "path": evtx_file_path,
                         "description": value,
                         "to_be_extracted": True,
                     }
                     self.artifact_list.append(artifact)
-                    self.log.debug(f"Adding extracted file for task {task_id}: {task_id}_{x.filename}")
+                    self.log.debug(
+                        f"Adding extracted file for task {task_id}: "
+                        f"{task_id}_{file_name_map.get(x.filename, x.filename)}"
+                    )
                 os.remove(destination_file_path)
                 continue
 
@@ -1969,7 +2000,7 @@ class CAPE(ServiceBase):
                         None,
                     )
                     if pid:
-                        file_name = f"{task_id}_{pid}_{f}"
+                        file_name = f"{task_id}_{pid}_{file_name_map.get(f, f)}"
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
                 elif key in ["files/"]:
                     file_type_details = self.identify.fileinfo(destination_file_path, generate_hashes=False)
@@ -1992,7 +2023,7 @@ class CAPE(ServiceBase):
                         continue
 
                 if not file_name:
-                    file_name = f"{task_id}_{f}"
+                    file_name = f"{task_id}_{file_name_map.get(f, f)}"
 
                 if key in ["shots"]:
                     to_be_extracted = False
