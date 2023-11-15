@@ -158,6 +158,7 @@ def dummy_zip_class():
                 "files/yaba.exe",
                 "dump.pcap",
                 "sum.pcap",
+                "files.json",
             ]
 
         def extract(self, output, path=None):
@@ -1831,6 +1832,7 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
         mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
+        mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
         mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
@@ -1976,6 +1978,30 @@ class TestCapeMain:
             )
 
     @staticmethod
+    def test_get_files_json_contents(cape_class_instance, dummy_zip_class):
+        task_id = 1
+        zip_obj = dummy_zip_class()
+        # No such file
+        output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
+        assert output == {}
+        directory = os.path.join(cape_class_instance.working_directory, f"{task_id}")
+        os.makedirs(directory, exist_ok=True)
+        file_path = os.path.join(directory, "files.json")
+        with open(file_path, "a+") as f:
+            f.write(json.dumps({"path": "CAPE/ohmy.exe", "filepath": "C:\\Windows\\System32\\blah\\ohmy.exe"}))
+            f.write("\n")
+            f.write(json.dumps({"path": "files/yaba.exe", "filepath": "C:\\Windows\\Users\\buddy\\AppData\\yaba.exe"}))
+
+        # File exists
+        output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
+        assert output == {
+            "CAPE/ohmy.exe": "ohmy.exe",
+            "files/yaba.exe": "yaba.exe",
+        }
+        os.remove(file_path)
+        os.removedirs(directory)
+
+    @staticmethod
     def test_extract_console_output(cape_class_instance, dummy_request_class, mocker):
         mocker.patch("os.path.exists", return_value=True)
         cape_class_instance.request = dummy_request_class()
@@ -2045,7 +2071,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
-                "name": f"{task_id}_3_CAPE/ohmy.exe",
+                "name": f"{task_id}_3_ohmy.exe",
                 "description": "Memory Dump",
                 "to_be_extracted": True,
             }
@@ -2068,8 +2094,10 @@ class TestCapeMain:
         )
 
         cape_artifact_pids = [{"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False}]
-        cape_class_instance._extract_artifacts(zip_obj, task_id, cape_artifact_pids, parent_section, ontres)
-
+        file_name_map = {"CAPE/ohmy.exe": "ohmy.exe"}
+        cape_class_instance._extract_artifacts(
+            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
+        )
         all_files = True
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
         for f in cape_class_instance.artifact_list:
