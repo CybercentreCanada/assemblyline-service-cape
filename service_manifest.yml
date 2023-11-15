@@ -17,7 +17,7 @@ is_external: false
 licence_count: 0
 
 config:
-# See README for in-depth descriptions of configuration values
+  # See README for in-depth descriptions of configuration values
   # CAPE host configurations
 
   remote_host_details:
@@ -182,199 +182,199 @@ heuristics:
   - heur_id: 1
     name: Account
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Adds or manipulates an administrative user account.
 
   - heur_id: 2
     attack_id: T1518.001
     name: Anti-analysis
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Constructed to conceal or obfuscate itself to prevent analysis.
 
   - heur_id: 3
     attack_id: [T1518.001, T1562.001]
     name: Anti-av
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Attempts to conceal itself from detection by antivirus.
 
   - heur_id: 4
     attack_id: [T1057, T1518.001]
     name: Anti-debug
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Attempts to detect if it is being debugged.
 
   - heur_id: 5
     attack_id: T1497
     name: Anti-emulation
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Detects the presence of an emulator.
 
   - heur_id: 6
     attack_id: T1497
     name: Anti-sandbox
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Attempts to detect if it is in a sandbox.
 
   - heur_id: 7
     attack_id: [T1497, T1007]
     name: Anti-vm
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Attempts to detect if it is being run in virtualized environment.
 
   - heur_id: 8
     name: Antivirus
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: AntiVirus hit. File is infected.
 
   - heur_id: 9
     name: Banker
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Designed to gain access to confidential information stored or processed through online banking.
 
   - heur_id: 10
     name: Bootkit
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Manipulates machine configurations that would affect the boot of the machine.
 
   - heur_id: 11
     name: Bot
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Appears to be a bot or exhibits bot-like behaviour.
 
   - heur_id: 12
     name: Browser
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Manipulates browser-settings in a suspicious way.
 
   - heur_id: 13
     attack_id: T1562.001
     name: Bypass
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)
 
   - heur_id: 14
     attack_id: T1071
     name: C2
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Communicates with a server controlled by a malicious actor.
 
   - heur_id: 15
     name: Clickfraud
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Manipulates browser settings to allow for insecure clicking.
 
   - heur_id: 16
     attack_id: T1059
     name: Command
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: A suspicious command was observed.
 
   - heur_id: 17
     name: Credential Access
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Uses techniques to access credentials.
 
   - heur_id: 18
     name: Credential Dumping
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Uses techniques to dump credentials.
 
   - heur_id: 19
     name: Cryptomining
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Facilitates mining of cryptocurrency.
 
   - heur_id: 20
     name: Discovery
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Uses techniques for discovery information about the system, the user, or the environment.
 
   - heur_id: 21
     name: Dns
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Uses suspicious DNS queries.
 
   - heur_id: 22
     name: Dotnet
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: .NET code is used in a suspicious manner.
 
   - heur_id: 23
     name: Downloader
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Trojan that downloads installs files.
 
   - heur_id: 24
     name: Dropper
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Trojan that drops additional malware on an affected system.
 
   - heur_id: 25
     name: Encryption
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Encryption algorithms are used for obfuscating data.
 
   - heur_id: 26
     name: Evasion
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Techniques are used to avoid detection.
 
   - heur_id: 27
     name: Execution
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Uses techniques to execute harmful code or create executables that could run harmful code.
 
   - heur_id: 28
     name: Exploit
     attack_id: [T1190, T1212, T1082, T1211, T1068]
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Exploits an known software vulnerability or security flaw.
 
   - heur_id: 29
     name: Exploit Kit
     attack_id: T1059
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Programs designed to crack or break computer and network security measures.
 
   - heur_id: 30
     name: Generic
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Basic operating system objects are used in suspicious ways.
 
   - heur_id: 31
     attack_id: [T1003, T1005]
     name: Infostealer
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Collects and disseminates information such as login details, usernames, passwords, etc.
 
   - heur_id: 32
@@ -385,177 +385,177 @@ heuristics:
     signature_score_map:
       hollowshunter_exe: 0
       hollowshunter_dll: 0
-    filetype: '*'
+    filetype: "*"
     description: Input is not properly validated and gets processed by an interpreter as part of a command or query.
 
   - heur_id: 33
     name: Keylogger
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Monitoring software detected.
 
   - heur_id: 34
     name: Lateral
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Techniques used to move through environment and maintain access.
 
   - heur_id: 35
     attack_id: [T1071, T1129]
     name: Loader
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Download and execute additional payloads on compromised machines.
 
   - heur_id: 36
     attack_id: T1112
     name: Locker
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Prevents access to system data and files.
 
   - heur_id: 37
     name: Macro
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: A set of commands that automates a software to perform a certain action, found in Office macros.
 
   - heur_id: 38
     name: Malware
     score: 1000
-    filetype: '*'
+    filetype: "*"
     description: The file uses techniques associated with malicious software.
 
   - heur_id: 39
     name: Martians
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Command shell or script process was created by unexpected parent process.
 
   - heur_id: 40
     name: Masquerading
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: The name or location of an object is manipulated to evade defenses and observation.
 
   - heur_id: 41
     name: Network
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Suspicious network traffic was observed.
 
   - heur_id: 42
     name: Office
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Makes API calls not consistent with expected/standard behaviour.
 
   - heur_id: 43
     attack_id: T1027.002
     name: Packer
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Compresses, encrypts, and/or modifies a malicious file's format.
 
   - heur_id: 44
     attack_id: [T1547.001, T1546.010, T1098]
     name: Persistence
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Technique used to maintain presence in system(s) across interruptions that could cut off access.
 
   - heur_id: 45
     name: Phishing
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Techniques were observed that attempted to obtain information from the user.
 
   - heur_id: 46
     attack_id: T1486
     name: Ransomware
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Designed to block access to a system until a sum of money is paid.
 
   - heur_id: 47
     attack_id: T1219
     name: Rat
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.
 
   - heur_id: 48
     attack_id: T1014
     name: Rootkit
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Designed to provide continued privileged access to a system while actively hiding its presence.
 
   - heur_id: 51
     name: Static
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: A suspicious characteristic was discovered during static analysis.
 
   - heur_id: 52
     attack_id: [T1036, T1564.001, T1070]
     name: Stealth
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Leverages/modifies internal processes and settings to conceal itself.
 
   - heur_id: 53
     name: Trojan
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Presents itself as legitimate in attempt to infiltrate a system.
 
   - heur_id: 54
     name: Virus
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Malicious software program.
 
   - heur_id: 1000
     name: Domain detected
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected Domains
 
   - heur_id: 1002
     name: HTTP/HTTPS detected
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected HTTP/HTTPS requests
 
   - heur_id: 1003
     name: Access Remote File
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected an attempt to access a remote file
 
   - heur_id: 1004
     name: TCP/UDP Detected
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected traffic made over TCP/UDP
 
   - heur_id: 1005
     name: Non-HTTP Traffic over HTTP ports
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected non-HTTP traffic being made over HTTP ports (80, 443)
 
   - heur_id: 1006
     name: IOC found in Buffer
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected an IOC found in a buffer, either encrypted or decrypted
 
   - heur_id: 1007
     name: Suspicious User Agent
     score: 1
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected a suspicious user agent used for HTTP calls
 
   - heur_id: 1008
@@ -573,13 +573,13 @@ heuristics:
   - heur_id: 1010
     name: TCP Detected
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected traffic made over TCP
 
   - heur_id: 1011
     name: UDP Detected
     score: 10
-    filetype: '*'
+    filetype: "*"
     description: CAPE detected traffic made over UDP
 
   - heur_id: 1012
@@ -597,7 +597,7 @@ heuristics:
   - heur_id: 9999
     name: Unknown
     score: 0
-    filetype: '*'
+    filetype: "*"
     description: Unknown signature detected by CAPE
 
 docker_config:
