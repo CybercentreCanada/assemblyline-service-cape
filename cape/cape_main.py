@@ -1660,8 +1660,8 @@ class CAPE(ServiceBase):
         # Check for any extra files in full report to add as extracted files
         try:
             file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
-            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
             self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
+            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
 
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
