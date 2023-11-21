@@ -757,7 +757,7 @@ def _link_flow_with_process(
     elif network_flow["image"] == UNKNOWN_PROCESS:
         p = ontres.get_process_by_guid(network_flow.get("guid"))
         if isinstance(network_flow.get("timestamp"), float):
-            timestamp = epoch_to_local_with_ms(network_flow.get("timestamp"))
+            timestamp = epoch_to_local_with_ms(network_flow["timestamp"])
         else:
             timestamp = network_flow.get("timestamp")
         if not p:
