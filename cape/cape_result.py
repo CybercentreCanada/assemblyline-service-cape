@@ -756,8 +756,12 @@ def _link_flow_with_process(
     # Special handling for when Sysmon gives us process-related details but cannot get the image name
     elif network_flow["image"] == UNKNOWN_PROCESS:
         p = ontres.get_process_by_guid(network_flow.get("guid"))
+        if isinstance(network_flow.get("timestamp"), float):
+            timestamp = epoch_to_local_with_ms(network_flow.get("timestamp"))
+        else:
+            timestamp = network_flow.get("timestamp")
         if not p:
-            p = ontres.get_process_by_pid_and_time(network_flow.get("pid"), network_flow.get("timestamp"))
+            p = ontres.get_process_by_pid_and_time(network_flow.get("pid"), timestamp)
 
         if p:
             network_flow["image"] = p.image
