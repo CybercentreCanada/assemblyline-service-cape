@@ -32,10 +32,12 @@ from assemblyline_v4_service.common.result import (
 )
 from cape.cape_result import (
     ANALYSIS_ERRORS,
+    BAT_COMMANDS_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
+    PS1_COMMANDS_PATH,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
@@ -1657,7 +1659,7 @@ class CAPE(ServiceBase):
             file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
             self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
-
+            self._extract_commands()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
         zip_obj.close()
@@ -2108,6 +2110,27 @@ class CAPE(ServiceBase):
                 self.artifact_list.append(artifact)
                 self.log.debug(f"Adding HollowsHunter file {file_name} for task {task_id}")
 
+    def _extract_commands(self) -> None:
+        if os.path.exists(PS1_COMMANDS_PATH) and os.path.getsize(PS1_COMMANDS_PATH):
+            self.artifact_list.append(
+                {
+                    "name": "commands.ps1",
+                    "path": PS1_COMMANDS_PATH,
+                    "description": "Extract PowerShell commands",
+                    "to_be_extracted": True,
+                }
+            )
+
+        if os.path.exists(BAT_COMMANDS_PATH) and os.path.getsize(BAT_COMMANDS_PATH):
+            self.artifact_list.append(
+                {
+                    "name": "commands.bat",
+                    "path": BAT_COMMANDS_PATH,
+                    "description": "Extract Batch commands",
+                    "to_be_extracted": True,
+                }
+            )
+
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """
         This method provides a safe way to grab a parameter that may or may not exist in the service configuration
@@ -2463,7 +2486,10 @@ class CAPE(ServiceBase):
         temp_dir = "/tmp"
         for file in os.listdir(temp_dir):
             file_path = os.path.join(temp_dir, file)
-            if any(leftover_file_name in file_path for leftover_file_name in ["_console_output", "_injected_memory_"]):
+            if any(
+                leftover_file_name in file_path
+                for leftover_file_name in ["_console_output", "_injected_memory_", "commands.ps1", "commands.bat"]
+            ):
                 os.remove(file_path)
 
     def _get_machine_by_name(self, machine_name) -> Optional[Dict[str, Any]]:
