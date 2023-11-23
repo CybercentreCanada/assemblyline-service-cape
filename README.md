@@ -136,6 +136,9 @@ Note that this is only applicable to samples that would use the `doc` and `js` p
 #### You want to add your own `processtree_id` values on the fly?
 * **custom_processtree_id_safelist** - [default: list()] A list of `processtree_id`s to be safelisted
 
+#### You want to cache CAPE results every day because the CAPE system does not change that frequently?
+* **update_period** - [default: 24] The period/interval (in hours) in which signatures/YARA rules/configuration extractors are updated on the CAPE nest.
+
 ### CAPE Submission Options
 
 The options available for submissions to the CAPE service via REST API are not the clearest, but the [submission utility](https://capev2.readthedocs.io/en/latest/usage/submit.html#submission-utility) gives us a glimpse. These are the options you can select per analysis wittout having to go under the hood:
