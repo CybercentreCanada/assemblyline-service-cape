@@ -2,3 +2,4 @@ assemblyline-service-utilities
 pefile
 retrying
 SetSimilaritySearch
+multidecoder
