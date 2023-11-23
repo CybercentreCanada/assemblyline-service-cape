@@ -1,13 +1,13 @@
 import os
 from email.header import decode_header
 from json import JSONDecodeError, loads
-from math import ceil
+from math import ceil, floor
 from random import choice, random
 from re import compile, match
 from sys import maxsize, setrecursionlimit
 from tempfile import SpooledTemporaryFile
 from threading import Thread
-from time import sleep
+from time import sleep, time
 from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
 
@@ -15,6 +15,7 @@ import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
 from assemblyline.common.forge import get_identify
 from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
+from assemblyline.common.isotime import epoch_to_local
 from assemblyline.common.str_utils import safe_str
 from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults, attach_dynamic_ontology
 from assemblyline_service_utilities.common.tag_helper import add_tag
@@ -74,6 +75,7 @@ ANALYSIS_TIMEOUT = 150
 DEFAULT_REST_TIMEOUT = 120
 DEFAULT_CONNECTION_TIMEOUT = 120
 DEFAULT_CONNECTION_ATTEMPTS = 3
+DEFAULT_UPDATE_PERIOD = 24
 
 RELEVANT_IMAGE_TAG = "auto"
 ALL_IMAGES_TAG = "all"
@@ -249,6 +251,14 @@ class CAPE(ServiceBase):
     # noinspection PyTypeChecker
     def execute(self, request: ServiceRequest) -> None:
         self.request = request
+
+        update_period = self.config.get("update_period", DEFAULT_UPDATE_PERIOD) * 60 * 60
+        current_epoch_time = int(time())
+        floor_of_epoch_multiples = floor(current_epoch_time / update_period)
+        lower_range = floor_of_epoch_multiples * update_period
+        upper_range = lower_range + update_period
+        request.set_service_context(f"Nest Update Range: {epoch_to_local(lower_range)} - {epoch_to_local(upper_range)}")
+
         self.session = requests.Session()
         self.artifact_list = []
         # self.sandbox_ontologies = []
