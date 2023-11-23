@@ -80,6 +80,9 @@ config:
   # This is a list of processtree_id values that will be added to the stock safelist found at safe_process_tree_leaf_hashes.py
   custom_processtree_id_safelist: []
 
+  # The period/interval (in hours) in which signatures/YARA rules/configuration extractors are updated on the CAPE nest
+  update_period: 24
+
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds
