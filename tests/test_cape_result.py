@@ -1,6 +1,6 @@
 import json
+import os
 from ipaddress import IPv4Network, ip_network
-from json import dumps, loads
 
 import pytest
 from assemblyline_service_utilities.common.dynamic_service_helper import (
@@ -30,6 +30,8 @@ from assemblyline_v4_service.common.result import (
 )
 from cape.cape_result import (
     ANALYSIS_ERRORS,
+    BAT_COMMANDS_PATH,
+    PS1_COMMANDS_PATH,
     _add_process_context,
     _api_ioc_in_network_traffic,
     _create_network_connection_for_http_call,
@@ -29776,7 +29778,7 @@ class TestCapeResult:
         expected_res_sec = ResultSection(
             "Protocol: DNS",
             body_format=BODY_FORMAT.TABLE,
-            body=dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": None}]),
+            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": None}]),
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
@@ -29790,7 +29792,7 @@ class TestCapeResult:
         expected_res_sec = ResultSection(
             "Protocol: DNS",
             body_format=BODY_FORMAT.TABLE,
-            body=dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "A"}]),
+            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "A"}]),
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
@@ -29802,7 +29804,7 @@ class TestCapeResult:
         # No answer test
         resolved_ips = {"0": [{"domain": "blah.com"}]}
         expected_res_sec = ResultSection(
-            "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=dumps([{"domain": "blah.com", "type": None}])
+            "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=json.dumps([{"domain": "blah.com", "type": None}])
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
@@ -29821,7 +29823,7 @@ class TestCapeResult:
         expected_res_sec = ResultSection(
             "Protocol: DNS",
             body_format=BODY_FORMAT.TABLE,
-            body=dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "TXT"}]),
+            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "TXT"}]),
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
@@ -31459,19 +31461,24 @@ class TestCapeResult:
         correct_result_section.add_tag("network.dynamic.domain", "blah2.com")
         correct_result_section.add_tag("network.port", 80)
         correct_result_section.add_tag("network.port", 443)
-        correct_result_section.set_body(dumps(network_flows), BODY_FORMAT.TABLE)
+        correct_result_section.set_body(json.dumps(network_flows), BODY_FORMAT.TABLE)
         _process_non_http_traffic_over_http(test_parent_section, network_flows)
         assert check_section_equality(test_parent_section.subsections[0], correct_result_section)
 
     @staticmethod
     def test_process_all_events():
+        if os.path.exists(BAT_COMMANDS_PATH):
+            os.remove(BAT_COMMANDS_PATH)
+        if os.path.exists(PS1_COMMANDS_PATH):
+            os.remove(PS1_COMMANDS_PATH)
         default_so = OntologyResults()
         al_result = ResultSection("blah")
         p = default_so.create_process(
             pid=1,
             ppid=1,
             guid="{12345678-1234-5678-1234-567812345679}",
-            command_line="blah blah.com",
+            # command_line="blah blah.com",
+            command_line="powershell -Command curl blah.com && cmd /c curl https://abc.org && powershell -Command cat /etc/passwd",
             image="blah",
             start_time="1970-01-01 00:00:01.000",
             pguid="{12345678-1234-5678-1234-567812345679}",
@@ -31532,7 +31539,11 @@ class TestCapeResult:
         default_so.add_network_connection(nc_tcp)
 
         correct_result_section = ResultTableSection(title_text="Event Log")
-        correct_result_section.add_tag("dynamic.process.command_line", "blah blah.com")
+        # correct_result_section.add_tag("dynamic.process.command_line", "blah blah.com")
+        correct_result_section.add_tag(
+            "dynamic.process.command_line",
+            "powershell -Command curl blah.com && cmd /c curl https://abc.org && powershell -Command cat /etc/passwd",
+        )
         correct_result_section.add_tag("dynamic.process.file_name", "blah")
 
         correct_result_section.add_row(
@@ -31540,7 +31551,10 @@ class TestCapeResult:
                 **{
                     "time_observed": "1970-01-01 00:00:01.000",
                     "process_name": "blah (1)",
-                    "details": {"command_line": "blah blah.com"},
+                    # "details": {"command_line": "blah blah.com"},
+                    "details": {
+                        "command_line": "powershell -Command curl blah.com && cmd /c curl https://abc.org && powershell -Command cat /etc/passwd"
+                    },
                 }
             )
         )
@@ -31573,14 +31587,33 @@ class TestCapeResult:
         )
 
         correct_ioc_table = ResultTableSection("Event Log IOCs")
+        correct_ioc_table.add_tag("network.dynamic.domain", "abc.org")
         correct_ioc_table.add_tag("network.dynamic.domain", "blah.com")
-        table_data = [{"ioc_type": "domain", "ioc": "blah.com"}]
+        correct_ioc_table.add_tag("network.dynamic.uri", "https://abc.org")
+        table_data = [
+            {"ioc_type": "domain", "ioc": "abc.org"},
+            {"ioc_type": "domain", "ioc": "blah.com"},
+            {"ioc_type": "uri", "ioc": "https://abc.org"},
+        ]
         for item in table_data:
             correct_ioc_table.add_row(TableRow(**item))
         correct_result_section.add_subsection(correct_ioc_table)
         custom_tree_id_safelist = list()
         process_all_events(al_result, default_so, custom_tree_id_safelist)
         assert check_section_equality(al_result.subsections[0], correct_result_section)
+
+        assert os.path.exists(PS1_COMMANDS_PATH)
+        with open(PS1_COMMANDS_PATH, "rb") as f:
+            contents = f.read()
+            assert (
+                contents
+                == b"#!/usr/bin/env pwsh\ncurl blah.com && cmd /c curl https://abc.org && powershell -Command cat /etc/passwd\ncat /etc/passwd\n"
+            )
+
+        assert os.path.exists(BAT_COMMANDS_PATH)
+        with open(BAT_COMMANDS_PATH, "rb") as f:
+            contents = f.read()
+            assert contents == b'REM Batch extracted by Assemblyline\ncurl https://abc.org && powershell -Command cat /etc/passwd\n'
 
     @staticmethod
     @pytest.mark.parametrize(
@@ -32424,7 +32457,7 @@ class TestCapeResult:
         ioc_res = _handle_mark_data(
             mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
         )
-        assert loads(mark_body.body)["f"] == "blah" * 128 + "..."
+        assert json.loads(mark_body.body)["f"] == "blah" * 128 + "..."
         assert ioc_res is None
 
     @staticmethod

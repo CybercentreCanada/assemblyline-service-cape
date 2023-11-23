@@ -1,4 +1,5 @@
 import json
+import os
 from collections import defaultdict
 from datetime import datetime
 from hashlib import sha256
@@ -12,6 +13,7 @@ from urllib.parse import urlparse
 
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
+from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms
 from assemblyline.common.net import is_valid_ip
 from assemblyline.common.str_utils import safe_str, truncate
@@ -55,6 +57,12 @@ from assemblyline_v4_service.common.result import (
 )
 from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 from cape.standard_http_headers import STANDARD_HTTP_HEADERS
+from multidecoder.decoders.shell import (
+    find_cmd_strings,
+    find_powershell_strings,
+    get_cmd_command,
+    get_powershell_command,
+)
 
 al_log.init_logging("service.cape.cape_result")
 log = getLogger("assemblyline.service.cape.cape_result")
@@ -182,6 +190,8 @@ MACHINE_NAME_REGEX = (
     f"(?:{'|'.join([LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX])})(.*)"
     f"(?:{'|'.join([x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX])})"
 )
+BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
+PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 
 
 # noinspection PyBroadException
@@ -1953,6 +1963,10 @@ def process_all_events(
         return
     events_section = ResultTableSection("Event Log")
     event_ioc_table = ResultTableSection("Event Log IOCs")
+
+    ps1_commands: List[str] = []
+    bat_commands: List[str] = []
+
     for event in ontres.get_events(safelist=processtree_id_safelist):
         if isinstance(event, NetworkConnection):
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
@@ -1997,6 +2011,20 @@ def process_all_events(
                     )
                 )
         elif isinstance(event, Process):
+            # We want ALL command lines, even the ones that we failed to get times for
+            if event.command_line:
+                ps1_matches = find_powershell_strings(event.command_line.encode())
+                for match in ps1_matches:
+                    command = get_powershell_command(match.value)
+                    if command and command + b"\n" not in ps1_commands:
+                        ps1_commands.append(command + b"\n")
+
+                cmd_matches = find_cmd_strings(event.command_line.encode())
+                for match in cmd_matches:
+                    command = get_cmd_command(match.value)
+                    if command and command + b"\n" not in bat_commands:
+                        bat_commands.append(command + b"\n")
+
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
@@ -2017,6 +2045,17 @@ def process_all_events(
             )
         else:
             raise ValueError(f"{event.as_primitives()} is not of type NetworkConnection or Process.")
+
+    if ps1_commands:
+        with open(PS1_COMMANDS_PATH, "wb") as f:
+            ps1_commands.insert(0, CUSTOM_PS1_ID)
+            f.writelines(ps1_commands)
+
+    if bat_commands:
+        with open(BAT_COMMANDS_PATH, "wb") as f:
+            bat_commands.insert(0, CUSTOM_BATCH_ID)
+            f.writelines(bat_commands)
+
     if event_ioc_table.body:
         events_section.add_subsection(event_ioc_table)
     if events_section.body:

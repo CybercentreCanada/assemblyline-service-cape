@@ -1835,6 +1835,7 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
+        mocker.patch.object(CAPE, "_extract_commands")
         mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
 
         cape_class_instance._unpack_zip(
@@ -2147,6 +2148,51 @@ class TestCapeMain:
             "description": "Memory Dump",
             "to_be_extracted": True,
         }
+
+    @staticmethod
+    def test_extract_commands(cape_class_instance):
+        if os.path.exists(BAT_COMMANDS_PATH):
+            os.remove(BAT_COMMANDS_PATH)
+        if os.path.exists(PS1_COMMANDS_PATH):
+            os.remove(PS1_COMMANDS_PATH)
+        cape_class_instance.artifact_list = []
+
+        # Nothing
+        cape_class_instance._extract_commands()
+        assert cape_class_instance.artifact_list == []
+
+        # Empty file!
+        with open(BAT_COMMANDS_PATH, "w") as f:
+            f.write("")
+
+        cape_class_instance._extract_commands()
+        assert cape_class_instance.artifact_list == []
+
+        # Something!
+        # Empty file!
+        with open(BAT_COMMANDS_PATH, "w") as f:
+            f.write("bat")
+
+        with open(PS1_COMMANDS_PATH, "w") as f:
+            f.write("ps1")
+
+        cape_class_instance._extract_commands()
+
+        assert len(cape_class_instance.artifact_list) == 2
+        assert cape_class_instance.artifact_list[0] == {
+            "name": "commands.ps1",
+            "path": "/tmp/commands.ps1",
+            "description": "Extract PowerShell commands",
+            "to_be_extracted": True,
+        }
+        assert cape_class_instance.artifact_list[1] == {
+            "name": "commands.bat",
+            "path": "/tmp/commands.bat",
+            "description": "Extract Batch commands",
+            "to_be_extracted": True,
+        }
+        os.remove(BAT_COMMANDS_PATH)
+        os.remove(PS1_COMMANDS_PATH)
 
     @staticmethod
     @pytest.mark.parametrize("param_exists, param, correct_value", [(True, "blah", "blah"), (False, "blah", None)])
@@ -2605,14 +2651,28 @@ class TestCapeMain:
 
     @staticmethod
     def test_cleanup_leftovers(cape_class_instance):
+        for f in [
+            "/tmp/blah_console_output.txt",
+            "/tmp/blah_injected_memory_blah.exe",
+            BAT_COMMANDS_PATH,
+            PS1_COMMANDS_PATH,
+        ]:
+            if os.path.exists(f):
+                os.remove(f)
+
         temp_dir = "/tmp"
         number_of_files_in_tmp_pre_call = len(os.listdir(temp_dir))
-        with open("/tmp/blah_console_output.txt", "w") as f:
-            f.write("blah")
-        with open("/tmp/blah_injected_memory_blah.exe", "w") as f:
-            f.write("blah")
+        for f in [
+            "/tmp/blah_console_output.txt",
+            "/tmp/blah_injected_memory_blah.exe",
+            BAT_COMMANDS_PATH,
+            PS1_COMMANDS_PATH,
+        ]:
+            with open(f, "w") as fh:
+                fh.write("blah")
+
         number_of_files_in_tmp_post_write = len(os.listdir(temp_dir))
-        assert number_of_files_in_tmp_post_write == number_of_files_in_tmp_pre_call + 2
+        assert number_of_files_in_tmp_post_write == number_of_files_in_tmp_pre_call + 4
         cape_class_instance._cleanup_leftovers()
         number_of_files_in_tmp_post_call = len(os.listdir(temp_dir))
         assert number_of_files_in_tmp_post_call == number_of_files_in_tmp_pre_call
