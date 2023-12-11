@@ -1992,6 +1992,7 @@ class CAPE(ServiceBase):
                 destination_file_path = os.path.join(task_dir, f)
                 zip_obj.extract(f, path=task_dir)
                 file_name = None
+                to_be_extracted = True
 
                 # If we are here, we really want to make sure we want these dumps
                 if key in ["CAPE", "procdump"]:
@@ -2039,6 +2040,14 @@ class CAPE(ServiceBase):
                         )
                         continue
 
+                    elif file_type_details["type"] == "text/plain":
+                        self.log.debug(
+                            f"We are not extracting {destination_file_path} for task {task_id} "
+                            "because it will most likely not provide further benefit to analysis. "
+                            "Adding as supplementary."
+                        )
+                        to_be_extracted = False
+
                 if not file_name:
                     file_name = f"{task_id}_{file_name_map.get(f, f)}"
 
@@ -2051,8 +2060,6 @@ class CAPE(ServiceBase):
                         except OSError as e:
                             self.log.debug(f"Unable to add image due to {e}")
                     continue
-                else:
-                    to_be_extracted = True
 
                 artifact = {
                     "name": file_name,
@@ -2061,7 +2068,9 @@ class CAPE(ServiceBase):
                     "to_be_extracted": to_be_extracted,
                 }
                 self.artifact_list.append(artifact)
-                self.log.debug(f"Adding extracted file for task {task_id}: {file_name}")
+                self.log.debug(
+                    f"Adding {'extracted' if to_be_extracted else 'supplementary'} file for task {task_id}: {file_name}"
+                )
 
         if image_section_body.body:
             image_section.add_section_part(image_section_body)
