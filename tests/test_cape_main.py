@@ -156,6 +156,7 @@ def dummy_zip_class():
                 "network/blahblah",
                 "CAPE/ohmy.exe",
                 "files/yaba.exe",
+                "files/README.txt",
                 "dump.pcap",
                 "sum.pcap",
                 "files.json",
@@ -171,17 +172,7 @@ def dummy_zip_class():
             pass
 
         def get_artifacts(self):
-            return [
-                "shots/0005.jpg",
-                "shots/0010.jpg",
-                "shots/0001_small.jpg",
-                "shots/0001.jpg",
-                "network/blahblah",
-                "CAPE/ohmy.exe",
-                "files/yaba.exe",
-                "dump.pcap",
-                "sum.pcap",
-            ]
+            return self.namelist()
 
     yield DummyZip
 
@@ -2037,11 +2028,6 @@ class TestCapeMain:
         correct_artifact_list = []
         zip_obj = dummy_zip_class()
         [zip_obj.members.append(dummy_zip_member_class(f, 1)) for f in zip_obj.get_artifacts()]
-        mocker.patch.object(
-            cape_class_instance.identify,
-            "fileinfo",
-            return_value={"type": "unknown", "mime": "application/octet-stream", "magic": "SQLite Rollback Journal"},
-        )
         task_id = 1
         cape_class_instance.artifact_list = []
         cape_class_instance.request = dummy_request_class()
@@ -2071,6 +2057,14 @@ class TestCapeMain:
         correct_image_section.add_section_part(correct_image_section_body)
         correct_artifact_list.append(
             {
+                "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
+                "name": f"{task_id}_files/README.txt",
+                "description": "File extracted during analysis",
+                "to_be_extracted": False,
+            }
+        )
+        correct_artifact_list.append(
+            {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
                 "name": f"{task_id}_3_ohmy.exe",
                 "description": "Memory Dump",
@@ -2096,6 +2090,14 @@ class TestCapeMain:
 
         cape_artifact_pids = [{"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False}]
         file_name_map = {"CAPE/ohmy.exe": "ohmy.exe"}
+        mocker.patch.object(
+            cape_class_instance.identify,
+            "fileinfo",
+            side_effect=[
+                {"type": "text/plain", "mime": "text/plain", "magic": "ASCII text, with CRLF line terminators"},
+                {"type": "unknown", "mime": "application/octet-stream", "magic": "SQLite Rollback Journal"},
+            ],
+        )
         cape_class_instance._extract_artifacts(
             zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
         )
