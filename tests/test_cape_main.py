@@ -149,6 +149,7 @@ def dummy_zip_class():
                 "hollowshunter/hh_process_321_main.exe",
                 "hollowshunter/hh_process_123_blah.shc",
                 "hollowshunter/hh_process_123_blah.dll",
+                "hollowshunter/hh_process_231_fp.dll",
                 "shots/0005.jpg",
                 "shots/0010.jpg",
                 "shots/0001_small.jpg",
@@ -2118,7 +2119,21 @@ class TestCapeMain:
         task_id = 1
         cape_class_instance.artifact_list = []
         main_process_tuples = [(321, "main.exe")]
-        cape_class_instance._extract_hollowshunter(zip_obj, task_id, main_process_tuples)
+        ontres = OntologyResults(service_name="blah")
+        p_objectid = OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        p = ontres.create_process(
+            pid=123,
+            ppid=1,
+            guid="{12345678-1234-5678-1234-567812345679}",
+            command_line="blah blah.com",
+            image="blah",
+            start_time="1970-01-01 00:00:01.000",
+            pguid="{12345678-1234-5678-1234-567812345679}",
+            objectid=p_objectid,
+        )
+        ontres.add_process(p)
+        safelist = []
+        cape_class_instance._extract_hollowshunter(zip_obj, task_id, main_process_tuples, ontres, safelist)
 
         assert cape_class_instance.artifact_list[0] == {
             "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_dump_report.json",
@@ -2150,6 +2165,10 @@ class TestCapeMain:
             "description": "Memory Dump",
             "to_be_extracted": True,
         }
+        assert not any(
+            artifact["name"] == f"{task_id}_hollowshunter/hh_process_231_fp.dll"
+            for artifact in cape_class_instance.artifact_list
+        )
 
     @staticmethod
     def test_extract_commands(cape_class_instance):

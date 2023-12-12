@@ -1967,9 +1967,14 @@ def process_all_events(
     ps1_commands: List[str] = []
     bat_commands: List[str] = []
 
+    process_seen = False
+
     for event in ontres.get_events(safelist=processtree_id_safelist):
         if isinstance(event, NetworkConnection):
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
+                continue
+            # We need to see a process first, otherwise this network event is most likely a false positive
+            if not process_seen:
                 continue
             if event.dns_details:
                 events_section.add_row(
@@ -2027,6 +2032,10 @@ def process_all_events(
 
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
+
+            # Our dreams have come true. We have seen a process. Now we can start displaying network calls
+            process_seen = True
+
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
             extract_iocs_from_text_blob(event.command_line, event_ioc_table)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
@@ -2803,7 +2812,7 @@ if __name__ == "__main__":
         ]
     )
 
-    generate_al_result(
+    cape_artifact_pids, main_process_tuples = generate_al_result(
         api_report,
         al_result,
         file_ext,

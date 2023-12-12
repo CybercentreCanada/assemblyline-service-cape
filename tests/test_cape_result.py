@@ -31473,6 +31473,22 @@ class TestCapeResult:
             os.remove(PS1_COMMANDS_PATH)
         default_so = OntologyResults()
         al_result = ResultSection("blah")
+
+        # Add a network connection that takes place prior to process being executed
+        # Note: this network connection will not make it into the events table
+        fp_nc_tcp = default_so.create_network_connection(
+            source_port=1,
+            destination_ip="1.1.1.1",
+            source_ip="2.2.2.2",
+            destination_port=123,
+            transport_layer_protocol="tcp",
+            direction="outbound",
+            objectid=OntologyResults.create_objectid(
+                tag="blah", ontology_id="blah", service_name="CAPE", time_observed="1970-01-01 00:00:00.500"
+            ),
+        )
+        default_so.add_network_connection(fp_nc_tcp)
+
         p = default_so.create_process(
             pid=1,
             ppid=1,
@@ -31613,7 +31629,10 @@ class TestCapeResult:
         assert os.path.exists(BAT_COMMANDS_PATH)
         with open(BAT_COMMANDS_PATH, "rb") as f:
             contents = f.read()
-            assert contents == b'REM Batch extracted by Assemblyline\ncurl https://abc.org && powershell -Command cat /etc/passwd\n'
+            assert (
+                contents
+                == b"REM Batch extracted by Assemblyline\ncurl https://abc.org && powershell -Command cat /etc/passwd\n"
+            )
 
     @staticmethod
     @pytest.mark.parametrize(
