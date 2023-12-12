@@ -1673,7 +1673,7 @@ class CAPE(ServiceBase):
         try:
             file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
             self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
-            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples)
+            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
@@ -2077,7 +2077,12 @@ class CAPE(ServiceBase):
             parent_section.add_subsection(image_section)
 
     def _extract_hollowshunter(
-        self, zip_obj: ZipFile, task_id: int, main_process_tuples: List[Tuple[int, str]]
+        self,
+        zip_obj: ZipFile,
+        task_id: int,
+        main_process_tuples: List[Tuple[int, str]],
+        ontres: OntologyResults,
+        custom_tree_id_safelist: List[str],
     ) -> None:
         """
         This method extracts HollowsHunter dumps from the tarball
@@ -2085,6 +2090,8 @@ class CAPE(ServiceBase):
         :param task_id: An integer representing the CAPE Task ID
         :param main_process_tuple: A list of tuples representing both the PID of
         the initial process and the process name
+        :param ontres: The sandbox ontology class object
+        :param custom_tree_id_safelist: A list of hashes used for safelisting process tree IDs
         :return: None
         """
         task_dir = os.path.join(self.working_directory, f"{task_id}")
@@ -2112,6 +2119,18 @@ class CAPE(ServiceBase):
 
                     if hit:
                         continue
+
+                # HollowsHunter can sometimes pick up memory dumps from processes that have been safelisted,
+                # in which case we do not want them extracted
+                if not any(
+                    f"hh_process_{proc['pid']}_" in path
+                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist)
+                ):
+                    self.log.debug(
+                        f"'{path}' is not associated with a non-safelisted process, "
+                        "therefore we are not going to upload it."
+                    )
+                    continue
 
                 full_path = os.path.join(task_dir, path)
                 file_name = f"{task_id}_{path}"
