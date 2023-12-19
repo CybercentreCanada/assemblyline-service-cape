@@ -943,6 +943,8 @@ def process_network(
         for request in requests:
             if answer.isdigit():
                 continue
+            if not request["domain"] or not request.get("type"):
+                continue
             nd = ontres.create_network_dns(domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"])
 
             destination_ip = dns_servers[0] if dns_servers else None
