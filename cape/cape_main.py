@@ -1412,8 +1412,23 @@ class CAPE(ServiceBase):
         if self.config.get("limit_monitor_apis", False):
             task_options.append("api-cap=1000")
 
-        if password:
-            task_options.append(f"password={password}")
+        # The "password" option is only used in archive-related packages
+        if self.request.file_type.startswith("archive/"):
+            # Based on the logic in this PR: https://github.com/kevoreilly/CAPEv2/pull/1900
+            # There are two different methods in which a password could be received by AL and sent to CAPE
+            # No. 1: via submission params
+            if password:
+                task_options.append(f"password={password}")
+                if ":" in password:
+                    task_options.append("enable_multi_password=true")
+                    self.log.debug(f"Trying to run archive with password(s): {password}")
+
+            # No. 2: via temp_submission_data
+            elif self.request.temp_submission_data.get("passwords"):
+                multiple_password_arg = ":".join(self.request.temp_submission_data["passwords"])
+                task_options.append(f"password={multiple_password_arg}")
+                task_options.append("enable_multi_password=true")
+                self.log.debug(f"Trying to run archive with password(s): {multiple_password_arg}")
 
         kwargs["options"] = ",".join(task_options)
         if custom_options is not None:
