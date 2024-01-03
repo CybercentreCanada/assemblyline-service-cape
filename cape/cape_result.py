@@ -313,7 +313,7 @@ def generate_al_result(
 
     cape_artifact_pids: Dict[str, int] = {}
     if cape:
-        cape_artifact_pids = process_cape(cape)
+        cape_artifact_pids = process_cape(cape, al_result)
 
     return cape_artifact_pids, main_process_tuples
 
@@ -2227,10 +2227,11 @@ def process_buffers(
         parent_result_section.add_subsection(buffer_res)
 
 
-def process_cape(cape: Dict[str, Any]) -> List[Dict[str, str]]:
+def process_cape(cape: Dict[str, Any], parent_result_section: ResultSection) -> List[Dict[str, str]]:
     """
     This method creates a map of payloads and the pids that they were hollowed out of
     :param cape: A dictionary containing the CAPE reporting output
+    :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of
     """
     cape_artifacts: List[Dict[str, str]] = list()
@@ -2242,6 +2243,22 @@ def process_cape(cape: Dict[str, Any]) -> List[Dict[str, str]]:
                 "is_yara_hit": True if len(payload["cape_yara"]) else False,
             }
         )
+
+    if cape.get("configs", []):
+        malware_heur = Heuristic(38)
+        malware_heur.add_signature_id("config_extracted", 1000)
+        configs_sec = ResultSection("Configs Extracted By CAPE", parent=parent_result_section, heuristic=malware_heur)
+
+        for configuration in cape["configs"]:
+            for config_name, config_values in configuration.items():
+                if config_name.startswith("_"):
+                    continue
+                config_sec = ResultTableSection(f"{config_name} Config", parent=configs_sec)
+                config_sec.set_column_order(["type", "config_value"])
+
+                for key, value in config_values.items():
+                    config_sec.add_row(TableRow(type=key, config_value=value))
+
     return cape_artifacts
 
 

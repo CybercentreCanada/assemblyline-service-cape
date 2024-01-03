@@ -31805,10 +31805,10 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "input, output",
+        "input, expected_cape_artifacts, expected_result_section",
         [
-            ({}, []),
-            ({"payloads": []}, []),
+            ({}, [], None),
+            ({"payloads": []}, [], None),
             (
                 {
                     "payloads": [
@@ -31819,12 +31819,63 @@ class TestCapeResult:
                 [
                     {"sha256": "blah", "pid": 1, "is_yara_hit": True},
                     {"sha256": "blahblah", "pid": 2, "is_yara_hit": False},
+                ], None
+            ),
+            # With configs
+            ({
+                "payloads": [
+                    {
+                        "sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b",
+                        "yara": [
+                            [
+                                {"name": "INDICATOR_EXE_Packed_GEN01", "meta": {}, "strings": [], "addresses": {}},
+                                {
+                                    "name": "INDICATOR_SUSPICIOUS_EXE_VaultSchemaGUID",
+                                    "meta": {},
+                                    "strings": [],
+                                    "addresses": {},
+                                },
+                            ]
+                        ],
+                        "cape_yara": [{"name": "AgentTeslaV3", "meta": {}, "strings": [], "addresses": {}}],
+                        "pid": 5256,
+                    }
                 ],
+                "configs": [
+                    {
+                        "AgentTesla": {
+                            "Protocol": ["SMTP"],
+                            "C2": ["mail.asiaparadisehotel.com"],
+                        },
+                        "_associated_config_hashes": [
+                            {"sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b"}
+                        ],
+                        "_associated_analysis_hashes": {
+                            "sha256": "fc72fd6a4fdc1440d122d98d90279ff898193f68a63180da90eb5ec2495062d1"
+                        },
+                    }
+                ],
+            },
+                [{'sha256': 'b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b', 'pid': 5256, 'is_yara_hit': True}],
+                {"name": "AgentTesla Config", "rows": [
+                    {"type": "Protocol", "config_value": ["SMTP"]},
+                    {"type": "C2", "config_value": ["mail.asiaparadisehotel.com"]},
+                ]}
             ),
         ],
     )
-    def test_process_cape(input, output):
-        assert process_cape(input) == output
+    def test_process_cape(input, expected_cape_artifacts, expected_result_section):
+        al_result = ResultSection("blah")
+        assert process_cape(input, al_result) == expected_cape_artifacts
+        if expected_result_section:
+            correct_heur = Heuristic(38)
+            correct_heur.add_signature_id("config_extracted", 1000)
+            correct_res = ResultSection("Configs Extracted By CAPE", heuristic=correct_heur)
+            correct_sub_res = ResultTableSection(expected_result_section["name"], parent=correct_res)
+            for row in expected_result_section["rows"]:
+                correct_sub_res.add_row(TableRow(**row))
+
+            assert check_section_equality(al_result.subsections[0], correct_res)
 
     @staticmethod
     @pytest.mark.parametrize(
