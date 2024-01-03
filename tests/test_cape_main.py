@@ -102,6 +102,7 @@ def dummy_request_class(dummy_task_class):
             self.file_type = None
             self.sha256 = True
             self.deep_scan = False
+            self.temp_submission_data = {}
             self.update(some_dict)
 
         def add_supplementary(self, path, name, description):
@@ -1619,100 +1620,95 @@ class TestCapeMain:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "params",
+        "params, expected_kwargs",
         [
-            {
-                "analysis_timeout_in_seconds": 0,
-                "dll_function": "",
-                "arguments": "",
-                "no_monitor": False,
-                "custom_options": "",
-                "clock": "",
-                "force_sleepskip": False,
-                "simulate_user": False,
-                "deep_scan": False,
-                "package": "",
-                "dump_memory": False,
-                "routing": "none",
-                "password": "",
-            },
-            {
-                "analysis_timeout_in_seconds": 1,
-                "dll_function": "",
-                "arguments": "blah",
-                "no_monitor": True,
-                "custom_options": "blah",
-                "clock": "blah",
-                "force_sleepskip": True,
-                "simulate_user": True,
-                "deep_scan": True,
-                "package": "doc",
-                "dump_memory": True,
-                "routing": "tor",
-                "password": "blah",
-            },
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "none",
+                    "password": "",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "none",
+                    "options": "file=,nohuman=true,password=infected:123,enable_multi_password=true,",
+                },
+            ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 1,
+                    "dll_function": "",
+                    "arguments": "blah",
+                    "no_monitor": True,
+                    "custom_options": "blah",
+                    "clock": "blah",
+                    "force_sleepskip": True,
+                    "simulate_user": True,
+                    "deep_scan": True,
+                    "package": "doc",
+                    "dump_memory": True,
+                    "routing": "tor",
+                    "password": "blah",
+                },
+                {
+                    "enforce_timeout": True,
+                    "timeout": 1,
+                    "clock": "blah",
+                    "package": "doc",
+                    "memory": True,
+                    "route": "tor",
+                    "options": "file=,arguments=blah,free=yes,force-sleepskip=1,hollowshunter=all,password=blah,blah",
+                },
+            ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "none",
+                    "password": "blah:tryme",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "none",
+                    "options": "file=,nohuman=true,password=blah:tryme,enable_multi_password=true,",
+                },
+            ),
         ],
     )
-    def test_set_task_parameters(params, cape_class_instance, dummy_request_class, mocker):
+    def test_set_task_parameters(params, expected_kwargs, cape_class_instance, dummy_request_class, mocker):
         mocker.patch.object(CAPE, "_prepare_dll_submission", return_value=None)
         kwargs = dict()
-        correct_task_options = []
-        correct_kwargs = dict()
-
-        timeout = params["analysis_timeout_in_seconds"]
-        arguments = params["arguments"]
-        no_monitor = params["no_monitor"]
-        custom_options = params["custom_options"]
-        correct_kwargs["clock"] = params["clock"]
-        force_sleepskip = params["force_sleepskip"]
-        simulate_user = params["simulate_user"]
-        package = params["package"]
-        dump_memory = params["dump_memory"]
-        route = params["routing"]
-        password = params["password"]
-
-        # Note because of the file type of the request, set below
-        correct_task_options.append("file=")
-        if timeout:
-            correct_kwargs["enforce_timeout"] = True
-            correct_kwargs["timeout"] = timeout
-        else:
-            correct_kwargs["enforce_timeout"] = False
-            correct_kwargs["timeout"] = ANALYSIS_TIMEOUT
-        if arguments:
-            correct_task_options.append(f"arguments={arguments}")
-        if no_monitor:
-            correct_task_options.append("free=yes")
-        if force_sleepskip:
-            correct_task_options.append("force-sleepskip=1")
-        if simulate_user not in [True, "True"]:
-            correct_task_options.append("nohuman=true")
-
-        deep_scan = params.pop("deep_scan")
-        if deep_scan:
-            correct_task_options.append("hollowshunter=all")
-        if password:
-            correct_task_options.append(f"password={password}")
-        if route:
-            correct_kwargs["route"] = route
-
-        correct_kwargs["options"] = ",".join(correct_task_options)
-        if custom_options is not None:
-            correct_kwargs["options"] += f",{custom_options}"
-        if package:
-            correct_kwargs["package"] = package
-
         parent_section = ResultSection("blah")
-
         cape_class_instance.request = dummy_request_class(**params)
-        cape_class_instance.request.deep_scan = deep_scan
+        cape_class_instance.request.deep_scan = params.pop("deep_scan")
         cape_class_instance.request.file_type = "archive/iso"
-
+        cape_class_instance.request.temp_submission_data["passwords"] = ["infected", "123"]
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
-        if dump_memory:
-            correct_kwargs["memory"] = True
         cape_class_instance._set_task_parameters(kwargs, parent_section)
-        assert kwargs == correct_kwargs
+        assert kwargs == expected_kwargs
 
     @staticmethod
     @pytest.mark.parametrize(
