@@ -426,6 +426,15 @@ heuristics:
   - heur_id: 38
     name: Malware
     score: 1000
+    signature_score_map:
+      # The following signatures are "nested" within the procmem_yara signature
+      # If the score is 0, they are signatures that have the tendency to be a false positive
+      # These signature names have to be lower-cased to survive the YAML parsing
+      embedded_pe: 0
+      embedded_win_api: 0
+      shellcode_get_eip: 0
+      shellcode_patterns: 0
+      upx: 0
     filetype: "*"
     description: The file uses techniques associated with malicious software.
 
