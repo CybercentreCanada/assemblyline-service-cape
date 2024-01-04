@@ -157,6 +157,7 @@ def dummy_zip_class():
                 "shots/0001.jpg",
                 "network/blahblah",
                 "CAPE/ohmy.exe",
+                "CAPE/yarahit.exe",
                 "files/yaba.exe",
                 "files/README.txt",
                 "dump.pcap",
@@ -2028,7 +2029,7 @@ class TestCapeMain:
         task_id = 1
         cape_class_instance.artifact_list = []
         cape_class_instance.request = dummy_request_class()
-        cape_class_instance.request.deep_scan = True
+        cape_class_instance.request.deep_scan = False
         cape_class_instance.config["extract_cape_dumps"] = True
 
         correct_image_section = ResultMultiSection(
@@ -2060,10 +2061,20 @@ class TestCapeMain:
                 "to_be_extracted": False,
             }
         )
+        # This is NOT added to the artifact list because it does not have a yara hit
+        # correct_artifact_list.append(
+        #     {
+        #         "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
+        #         "name": f"{task_id}_3_ohmy.exe",
+        #         "description": "Memory Dump",
+        #         "to_be_extracted": True,
+        #     }
+        # )
+        # This IS added to the artifact list because it does have a yara hit
         correct_artifact_list.append(
             {
-                "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
-                "name": f"{task_id}_3_ohmy.exe",
+                "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/yarahit.exe",
+                "name": f"{task_id}_3_yarahit.exe",
                 "description": "Memory Dump",
                 "to_be_extracted": True,
             }
@@ -2085,8 +2096,11 @@ class TestCapeMain:
             }
         )
 
-        cape_artifact_pids = [{"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False}]
-        file_name_map = {"CAPE/ohmy.exe": "ohmy.exe"}
+        cape_artifact_pids = [
+            {"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False},
+            {"sha256": "yarahit.exe", "pid": 3, "is_yara_hit": True},
+        ]
+        file_name_map = {"CAPE/ohmy.exe": "ohmy.exe", "CAPE/yarahit.exe": "yarahit.exe"}
         mocker.patch.object(
             cape_class_instance.identify,
             "fileinfo",

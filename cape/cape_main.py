@@ -2011,8 +2011,7 @@ class CAPE(ServiceBase):
 
                 # If we are here, we really want to make sure we want these dumps
                 if key in ["CAPE", "procdump"]:
-                    # If extract_cape_dumps or deep_scan is set to true, we want them all!
-                    if not self.config["extract_cape_dumps"] or not self.request.deep_scan:
+                    if self.config["extract_cape_dumps"] and not self.request.deep_scan:
                         yara_hit = False
                         # If we don't want them all, we only want those with yara hits
                         for artifact_dict in cape_artifact_pids:
