@@ -1821,6 +1821,7 @@ class CAPE(ServiceBase):
                 custom_tree_id_safelist,
                 inetsim_dns_servers,
                 self.config.get("uses_https_proxy_in_sandbox", False),
+                self.config.get("suspicious_accepted_languages", []),
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
