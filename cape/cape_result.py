@@ -2683,7 +2683,10 @@ def _tag_mark_values(
                         source=process_with_pid.objectid,
                     )
                     attributes.append(attribute)
-            _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{reg_match.group(2)}")
+            rule_name = reg_match.group(2)
+            _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{rule_name}")
+            if sig_res.heuristic:
+                sig_res.heuristic.add_signature_id(rule_name.lower())
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 
@@ -2792,7 +2795,10 @@ if __name__ == "__main__":
 
     # pip install PyYAML
     import yaml
+    from assemblyline.common.heuristics import HeuristicHandler, InvalidHeuristicException
     from assemblyline_v4_service.common.base import ServiceBase
+    from assemblyline_v4_service.common.helper import get_heuristics
+    from assemblyline_v4_service.common.result import Result
     from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
     report_path = argv[1]
@@ -2813,7 +2819,9 @@ if __name__ == "__main__":
     with open(report_path, "r") as f:
         api_report = json.loads(f.read())
 
+    result = Result()
     al_result = ResultSection("Parent")
+    result.add_section(al_result)
     machine_info = {
         "Name": "blahblahwin10x86",
         "Manager": "blah",
@@ -2848,5 +2856,37 @@ if __name__ == "__main__":
     service = ServiceBase()
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
+    # Print the ontres
     print(json.dumps(ontres.as_primitives(), indent=4))
     attach_dynamic_ontology(service, ontres)
+
+    # Convert Result object to dict
+    output = dict(
+        result=result.finalize(),
+    )
+
+    # Load heuristics
+    heuristics = get_heuristics()
+
+    # Transform heuristics and calculate score
+    total_score = 0
+    for section in output["result"]["sections"]:
+        if section["heuristic"]:
+            heur_id = section["heuristic"]["heur_id"]
+
+            try:
+                section["heuristic"], new_tags = HeuristicHandler().service_heuristic_to_result_heuristic(
+                    section["heuristic"], heuristics
+                )
+                for tag in new_tags:
+                    section["tags"].setdefault(tag[0], [])
+                    if tag[1] not in section["tags"][tag[0]]:
+                        section["tags"][tag[0]].append(tag[1])
+                total_score += section["heuristic"]["score"]
+            except InvalidHeuristicException:
+                section["heuristic"] = None
+            section["heuristic"]["name"] = heuristics[heur_id]["name"]
+    output["result"]["score"] = total_score
+
+    # Print the result
+    print(json.dumps(output, indent=4))
