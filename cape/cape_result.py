@@ -207,6 +207,7 @@ def generate_al_result(
     processtree_id_safelist: List[str],
     inetsim_dns_servers: List[str],
     uses_https_proxy_in_sandbox: bool,
+    suspicious_accepted_languages: List[str],
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -223,6 +224,7 @@ def generate_al_result(
     :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
+    :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
     :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
              the initial process and the process name
     """
@@ -293,6 +295,7 @@ def generate_al_result(
             ontres,
             inetsim_dns_servers,
             uses_https_proxy_in_sandbox,
+            suspicious_accepted_languages,
         )
 
     if sigs:
@@ -879,6 +882,7 @@ def process_network(
     ontres: OntologyResults,
     inetsim_dns_servers: List[str],
     uses_https_proxy_in_sandbox: bool,
+    suspicious_accepted_languages: List[str],
 ) -> None:
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
@@ -892,7 +896,9 @@ def process_network(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
     :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
-    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that    :return: None
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
+    :return: None
     """
     session = ontres.sandboxes[-1].objectid.session
     network_res = ResultSection("Network Activity")
@@ -1099,6 +1105,14 @@ def process_network(
                         suspicious_user_agent_sec.add_line(f"\t{sus_user_agent_used}")
                         sus_user_agents_used.append(sus_user_agent_used)
 
+            accept_language = http_call.request_headers.get("AcceptLanguage")
+            if accept_language:
+                for sus_language in suspicious_accepted_languages:
+                    if sus_language.lower() in accept_language.lower():
+                        http_header_anomaly_sec.heuristic.add_signature_id(
+                            f"suspicious_language_accepted_{sus_language.split('-')[1].lower()}", 750
+                        )
+
             nc = ontres.get_network_connection_by_network_http(http_call)
             if nc:
                 process = nc.process
@@ -1133,7 +1147,7 @@ def process_network(
         if suspicious_user_agent_sec.heuristic:
             suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
             http_sec.add_subsection(suspicious_user_agent_sec)
-        if http_header_anomaly_sec.body:
+        if http_header_anomaly_sec.body or http_header_anomaly_sec.heuristic.signatures:
             http_sec.add_subsection(http_header_anomaly_sec)
         if http_sec.body or http_sec.subsections:
             network_res.add_subsection(http_sec)
@@ -2809,6 +2823,7 @@ if __name__ == "__main__":
     custom_processtree_id_safelist = json.loads(argv[6])
     inetsim_dns_servers = json.loads(argv[7])
     uses_https_proxy_in_sandbox = True if argv[8] == "True" else False
+    suspicious_accepted_languages = json.loads(argv[9])
 
     with open(safelist_path, "r") as f:
         safelist = yaml.safe_load(f)
@@ -2851,6 +2866,7 @@ if __name__ == "__main__":
         custom_tree_id_safelist,
         inetsim_dns_servers,
         uses_https_proxy_in_sandbox,
+        suspicious_accepted_languages,
     )
 
     service = ServiceBase()
