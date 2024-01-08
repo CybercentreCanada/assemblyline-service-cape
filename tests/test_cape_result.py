@@ -163,6 +163,7 @@ class TestCapeResult:
         machine_info = {"blah": "blah"}
         custom_tree_id_safelist = list()
         inetsim_dns_servers = list()
+        suspicious_accepted_languages = list()
 
         output = generate_al_result(
             api_report,
@@ -176,6 +177,7 @@ class TestCapeResult:
             custom_tree_id_safelist,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
 
         assert output == ({}, [])
@@ -930,6 +932,7 @@ class TestCapeResult:
     def test_process_network():
         inetsim_network = IPv4Network("192.0.2.0/24")
         inetsim_dns_servers = []
+        suspicious_accepted_languages = ["en-US"]
         routing = "inetsim"
         safelist = {
             "match": {"file.path": []},
@@ -1108,6 +1111,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
         assert ontres.netflows == []
@@ -1417,7 +1421,7 @@ class TestCapeResult:
                     "host": "95.216.164.28",
                     "uri": "/package.zip",
                     "status": 200,
-                    "request": "GET /package.zip HTTP/1.1\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\nHost: 95.216.164.28\r\nCache-Control: no-cache",
+                    "request": "GET /package.zip HTTP/1.1\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\nHost: 95.216.164.28\r\nCache-Control: no-cache\r\nAccept-Language: en-US",
                     "resp": {
                         "md5": "be5eae9bd85769bce02d6e52a4927bcd",
                         "sha1": "c4489a059a38e94b666edcb0f9facbf823b142d0",
@@ -1662,6 +1666,7 @@ class TestCapeResult:
                         "UserAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
                         "Host": "95.216.164.28",
                         "CacheControl": "no-cache",
+                        "AcceptLanguage": "en-US",
                     },
                     "uri": "http://95.216.164.28/package.zip",
                 }
@@ -1685,6 +1690,10 @@ class TestCapeResult:
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "ip", "ioc": "95.216.164.28"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
         correct_network_result_section.add_subsection(http_subsection)
+        http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
+        http_header_anomaly_sec.set_heuristic(1012)
+        http_header_anomaly_sec.heuristic.add_signature_id("suspicious_language_accepted_us", 750)
+        http_subsection.add_subsection(http_header_anomaly_sec)
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
             tags={"network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
@@ -1938,6 +1947,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
@@ -3320,6 +3330,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
@@ -29405,6 +29416,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
@@ -29447,6 +29459,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
@@ -29473,6 +29486,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             False,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
@@ -29647,6 +29661,7 @@ class TestCapeResult:
             ontres,
             inetsim_dns_servers,
             True,
+            suspicious_accepted_languages,
         )
         assert check_section_equality(parent_result_section, correct_result_section)
 
