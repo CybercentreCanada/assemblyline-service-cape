@@ -1187,7 +1187,9 @@ def _process_unseen_iocs(
             for _, network_details in network_call.items():
                 for _, v in network_details.items():
                     if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
-                        extract_iocs_from_text_blob(v, possibly_unseen_iocs_res, safelist=safelist)
+                        extract_iocs_from_text_blob(
+                            v, possibly_unseen_iocs_res, enforce_char_min=True, safelist=safelist
+                        )
 
     if possibly_unseen_iocs_res.body:
         possibly_seen_body = json.loads(possibly_unseen_iocs_res.section_body.body)
