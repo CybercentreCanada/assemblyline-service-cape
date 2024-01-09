@@ -29754,6 +29754,24 @@ class TestCapeResult:
         _process_unseen_iocs(parent_result_section, process_map, default_so, {})
         assert check_section_equality(parent_result_section, correct_result_section)
 
+        # Unseen domain in blob but it is too short
+        parent_result_section = ResultSection("blah")
+        correct_result_section = ResultSection("blah")
+        process_map = {
+            123: {
+                "network_calls": [
+                    {
+                        "something": {
+                            "uri": "blahblahblah a.com blahblahblah",
+                            "uri2": "blahblahblah b.org blahblahblah",
+                        }
+                    }
+                ]
+            }
+        }
+        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
+        assert check_section_equality(parent_result_section, correct_result_section)
+
     @staticmethod
     def test_massage_api_urls():
         # Not a URL
