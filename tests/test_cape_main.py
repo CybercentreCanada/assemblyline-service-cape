@@ -569,6 +569,9 @@ class TestCapeMain:
         with pytest.raises(Exception):
             cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
+        # For code coverage
+        kwargs["options"] = "blah;free=yes;blah"
+
         # Reboot coverage
         cape_class_instance.config["reboot_supported"] = True
         cape_class_instance._general_flow(
@@ -596,6 +599,14 @@ class TestCapeMain:
 
         with mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=True):
             cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+
+        # mocker.patch.object(CAPE, "submit")
+        # mocker.patch.object(CAPE, "_generate_report")
+        # mocker.patch.object(CAPE, "delete_task")
+        # mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=False)
+        # mocker.patch.object(CAPE, "_determine_host_to_use", return_value=host_to_use)
+        # mocker.patch.object(CAPE, "_set_task_parameters")
+        # assert parent_section.title_text.endswith(" (with monitor disabled)")
 
     @staticmethod
     @pytest.mark.parametrize(

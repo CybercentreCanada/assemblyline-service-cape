@@ -327,11 +327,11 @@ class CAPE(ServiceBase):
             submit_for_each_monitoring_option = False
 
         if submit_for_each_monitoring_option:
+            submission_threads = []
             for no_monitor in [False, True]:
                 self.log.debug(f"Submitting task with {'disabled' if no_monitor else 'enabled'} monitor")
                 submission_specific_kwargs = kwargs.copy()
                 submission_specific_kwargs["no_monitor"] = no_monitor
-                submission_threads = []
                 thr = SubmissionThread(
                     target=self._handle_machine_submission,
                     args=(
@@ -419,7 +419,6 @@ class CAPE(ServiceBase):
         """
         if self._is_invalid_analysis_timeout(parent_section, reboot):
             return
-
         if reboot:
             host_to_use = hosts[0]
             parent_section = ResultSection(f"Reboot Analysis -> {parent_section.title_text}")
@@ -427,6 +426,10 @@ class CAPE(ServiceBase):
         else:
             self._set_task_parameters(kwargs, parent_section)
             host_to_use = self._determine_host_to_use(hosts)
+
+        # Let's add this for distinction between analyses
+        if "free=yes" in kwargs.get("options", ""):
+            parent_section.title_text += " (with monitor disabled)"
 
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
@@ -2124,6 +2127,7 @@ class CAPE(ServiceBase):
                 if not any(
                     f"hh_process_{proc['pid']}_" in path
                     for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist)
+                    if proc.get("pid")
                 ):
                     self.log.debug(
                         f"'{path}' is not associated with a non-safelisted process, "
