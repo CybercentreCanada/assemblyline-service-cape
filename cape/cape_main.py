@@ -317,23 +317,31 @@ class CAPE(ServiceBase):
             ]
         )
 
-        # If an image has been requested, and there is more than 1 image to send the file to, then use threads
-        if image_requested and len(relevant_images_keys) > 1:
-            submission_threads: List[SubmissionThread] = []
-            for relevant_image, host_list in relevant_images.items():
-                hosts = [host for host in self.hosts if host["ip"] in host_list]
-                submission_specific_kwargs = kwargs.copy()
-                parent_section = ResultSection(f"Analysis Environment Target: {relevant_image}")
-                self.file_res.add_section(parent_section)
+        # If the user has requested that a task be submitted with monitoring enabled and monitoring disabled, each task
+        # must be submitted twice
+        submit_for_each_monitoring_option = self.request.get_param("monitored_and_unmonitored")
+        no_monitor = self.request.get_param("no_monitor")
+        # If a user requests monitored and unmonitored, but also no monitor, default to a single task with no monitor
+        # submitted
+        if no_monitor:
+            submit_for_each_monitoring_option = False
 
-                submission_specific_kwargs["tags"] = relevant_image
+        if submit_for_each_monitoring_option:
+            for no_monitor in [False, True]:
+                self.log.debug(f"Submitting task with {'disabled' if no_monitor else 'enabled'} monitor")
+                submission_specific_kwargs = kwargs.copy()
+                submission_specific_kwargs["no_monitor"] = no_monitor
+                submission_threads = []
                 thr = SubmissionThread(
-                    target=self._general_flow,
+                    target=self._handle_machine_submission,
                     args=(
+                        image_requested,
+                        relevant_images_keys,
+                        relevant_images,
+                        platform_requested,
+                        hosts_with_platform,
                         submission_specific_kwargs,
                         file_ext,
-                        parent_section,
-                        hosts,
                         ontres,
                         custom_tree_id_safelist,
                     ),
@@ -343,34 +351,18 @@ class CAPE(ServiceBase):
 
             for thread in submission_threads:
                 thread.join()
-        elif image_requested and len(relevant_images_keys) == 1:
-            parent_section = ResultSection(f"Analysis Environment Target: {relevant_images_keys[0]}")
-            self.file_res.add_section(parent_section)
-
-            kwargs["tags"] = relevant_images_keys[0]
-            hosts = [host for host in self.hosts if host["ip"] in relevant_images[relevant_images_keys[0]]]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
-        elif platform_requested and len(hosts_with_platform[next(iter(hosts_with_platform))]) > 0:
-            parent_section = ResultSection(f"Analysis Environment Target: {next(iter(hosts_with_platform))}")
-            self.file_res.add_section(parent_section)
-
-            hosts = [host for host in self.hosts if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]]
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
         else:
-            if kwargs.get("machine"):
-                specific_machine = self._safely_get_param("specific_machine")
-                if ":" in specific_machine:
-                    host_ip, _ = specific_machine.split(":")
-                    hosts = [host for host in self.hosts if host["ip"] == host_ip]
-                else:
-                    hosts = self.hosts
-                parent_section = ResultSection(f"Analysis Environment Target: {kwargs['machine']}")
-            else:
-                parent_section = ResultSection("Analysis Environment Target: First Machine Available")
-                hosts = self.hosts
-            self.file_res.add_section(parent_section)
-
-            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+            self._handle_machine_submission(
+                image_requested,
+                relevant_images_keys,
+                relevant_images,
+                platform_requested,
+                hosts_with_platform,
+                kwargs,
+                file_ext,
+                ontres,
+                custom_tree_id_safelist,
+            )
 
         # Adding sandbox artifacts using the OntologyResults helper class
         artifact_section = OntologyResults.handle_artifacts(
@@ -1330,15 +1322,6 @@ class CAPE(ServiceBase):
         arguments = self.request.get_param("arguments")
         dump_memory = self._safely_get_param("dump_memory")
         no_monitor = self.request.get_param("no_monitor")
-
-        # If the user didn't select no_monitor, but at the service level we want no_monitor on Windows 10x64, then:
-        if (
-            not no_monitor
-            and self.config.get("no_monitor_for_win10x64", False)
-            and kwargs.get("tags", {}) == "win10x64"
-        ):
-            no_monitor = True
-
         custom_options = self.request.get_param("custom_options")
         kwargs["clock"] = self.request.get_param("clock")
         force_sleepskip = self.request.get_param("force_sleepskip")
@@ -1374,7 +1357,8 @@ class CAPE(ServiceBase):
         ]:
             # Assign the appropriate package based on file type. As of 2022-11-25, there are only two.
             kwargs["package"] = "doc_antivm" if self.request.file_type == "document/office/word" else "js_antivm"
-        # Force the "archive" package instead of the "rar" package since it is more feature-full, and 7zip can extract rar files too.
+        # Force the "archive" package instead of the "rar" package since it is more feature-full, and 7zip can extract
+        # rar files too.
         elif self.request.file_type == "archive/rar":
             kwargs["package"] = "archive"
 
@@ -1386,7 +1370,7 @@ class CAPE(ServiceBase):
         elif dump_memory:
             parent_section.add_subsection(ResultSection("CAPE Machinery Cannot Generate Memory Dumps."))
 
-        if no_monitor:
+        if no_monitor or kwargs.pop("no_monitor", False):
             task_options.append("free=yes")
 
         if force_sleepskip:
@@ -2579,6 +2563,73 @@ class CAPE(ServiceBase):
             return not any(e in error for e in CONNECTION_ERRORS)
         else:
             return True
+
+    def _handle_machine_submission(
+        self,
+        image_requested,
+        relevant_images_keys,
+        relevant_images,
+        platform_requested,
+        hosts_with_platform,
+        kwargs,
+        file_ext,
+        ontres,
+        custom_tree_id_safelist,
+    ):
+        # If an image has been requested, and there is more than 1 image to send the file to, then use threads
+        if image_requested and len(relevant_images_keys) > 1:
+            submission_threads: List[SubmissionThread] = []
+            for relevant_image, host_list in relevant_images.items():
+                hosts = [host for host in self.hosts if host["ip"] in host_list]
+                submission_specific_kwargs = kwargs.copy()
+                parent_section = ResultSection(f"Analysis Environment Target: {relevant_image}")
+                self.file_res.add_section(parent_section)
+
+                submission_specific_kwargs["tags"] = relevant_image
+                thr = SubmissionThread(
+                    target=self._general_flow,
+                    args=(
+                        submission_specific_kwargs,
+                        file_ext,
+                        parent_section,
+                        hosts,
+                        ontres,
+                        custom_tree_id_safelist,
+                    ),
+                )
+                submission_threads.append(thr)
+                thr.start()
+
+            for thread in submission_threads:
+                thread.join()
+        elif image_requested and len(relevant_images_keys) == 1:
+            parent_section = ResultSection(f"Analysis Environment Target: {relevant_images_keys[0]}")
+            self.file_res.add_section(parent_section)
+
+            kwargs["tags"] = relevant_images_keys[0]
+            hosts = [host for host in self.hosts if host["ip"] in relevant_images[relevant_images_keys[0]]]
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+        elif platform_requested and len(hosts_with_platform[next(iter(hosts_with_platform))]) > 0:
+            parent_section = ResultSection(f"Analysis Environment Target: {next(iter(hosts_with_platform))}")
+            self.file_res.add_section(parent_section)
+
+            hosts = [host for host in self.hosts if host["ip"] in hosts_with_platform[next(iter(hosts_with_platform))]]
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+        else:
+            if kwargs.get("machine"):
+                specific_machine = self._safely_get_param("specific_machine")
+                if ":" in specific_machine:
+                    host_ip, _ = specific_machine.split(":")
+                    hosts = [host for host in self.hosts if host["ip"] == host_ip]
+                else:
+                    hosts = self.hosts
+                parent_section = ResultSection(f"Analysis Environment Target: {kwargs['machine']}")
+            else:
+                parent_section = ResultSection("Analysis Environment Target: First Machine Available")
+                hosts = self.hosts
+            self.file_res.add_section(parent_section)
+
+            self._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
 
 def generate_random_words(num_words: int) -> str:
