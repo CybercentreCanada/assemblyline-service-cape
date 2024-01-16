@@ -419,6 +419,7 @@ class CAPE(ServiceBase):
         """
         if self._is_invalid_analysis_timeout(parent_section, reboot):
             return
+
         if reboot:
             host_to_use = hosts[0]
             parent_section = ResultSection(f"Reboot Analysis -> {parent_section.title_text}")
