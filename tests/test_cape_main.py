@@ -460,6 +460,8 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_general_flow")
         # mocker.patch.object(CAPE, "attach_ontological_result")
 
+        sample["service_config"]["monitored_and_unmonitored"] = False
+        sample["service_config"]["no_monitor"] = False
         service_task = ServiceTask(sample)
         task = Task(service_task)
         cape_class_instance._task = task
@@ -511,6 +513,27 @@ class TestCapeMain:
             # Cover that code!
             cape_class_instance.execute(service_request)
 
+        # We want two tasks per submission
+        sample["service_config"]["monitored_and_unmonitored"] = True
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        service_request = ServiceRequest(task)
+        cape_class_instance.execute(service_request)
+        assert True
+        assert cape_class_instance.file_res == service_request.result
+
+        # We actually only want one task with no monitor
+        sample["service_config"]["monitored_and_unmonitored"] = True
+        sample["service_config"]["no_monitor"] = True
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        service_request = ServiceRequest(task)
+        cape_class_instance.execute(service_request)
+        assert True
+        assert cape_class_instance.file_res == service_request.result
+
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
         from assemblyline.common.exceptions import RecoverableError
@@ -545,6 +568,9 @@ class TestCapeMain:
         # Purely for code coverage
         with pytest.raises(Exception):
             cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+
+        # For code coverage
+        kwargs["options"] = "blah;free=yes;blah"
 
         # Reboot coverage
         cape_class_instance.config["reboot_supported"] = True

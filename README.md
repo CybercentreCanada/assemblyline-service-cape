@@ -170,6 +170,7 @@ than this if the process being monitored exits. If the value is 0, then the anal
 * **routing** - [default: "none"] Specify the type of routing to be used on a per-analysis basis.
 * **ignore_cape_cache** - [default: false] If there is currently a task for the same file with the exact same task options being analyzed in CAPE, this setting will ignore that task and submit a new task. Otherwise this setting will cause the service to follow the task that is currently being analyzed.
 * **password** - [default: ""] The password for the password-protected file that you are submitting to CAPE.
+* **monitored_and_unmonitored** - [default: false] This submission parameter will submit two tasks to CAPE, one with the monitor enabled, and another with the monitor disabled. Use wisely since it doubles the load on CAPE.
 
 ### Deployment of CAPE Nest
 
