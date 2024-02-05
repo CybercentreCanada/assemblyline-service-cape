@@ -112,6 +112,7 @@ HTTP_API_CALLS = [
     "WSASend",
 ]
 BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
+CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NcryptEncrypt", "OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
     "bat",
@@ -2263,8 +2264,6 @@ def process_buffers(
                 buffer_body.append(table_row)
                 count_per_source_per_process += 1
             buffers.append(table_row)
-        with open(BUFFER_PATH, "wb") as f:
-            f.writelines(f'{s}\n' for s in buffers)
         count_per_source_per_process = 0
         network_buffers = []
         for network_call in process_details.get("network_calls", []):
@@ -2294,8 +2293,12 @@ def process_buffers(
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
                         network_buffers.append(table_row)
+    if len(network_buffers) > 0:
         with open(NETWORK_BUFFER_PATH, "wb") as f:
             f.writelines(f'{s}\n' for s in network_buffers)
+    if len(buffers) > 0:
+        with open(BUFFER_PATH, "wb") as f:
+            f.writelines(f'{s}\n' for s in buffers)
     #Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
