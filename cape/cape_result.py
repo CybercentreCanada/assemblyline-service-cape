@@ -2203,45 +2203,46 @@ def process_buffers(
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
+            # Note not all calls have the key name consistent with their capemon api output
             if call.get("CryptDecrypt"): # Depricated but still used
-                buffer = call["CryptDecrypt"]["Buffer"]
+                buffer = call["CryptDecrypt"]["buffer"]
             elif call.get("CryptEncrypt"): # Depricated but still used
-                buffer = call["CryptEncrypt"]["Buffer"]
+                buffer = call["CryptEncrypt"]["buffer"]
             elif call.get("BCryptDecrypt"): # Key in memory
-                buffer = call["BCryptDecrypt"]["Output"]
+                buffer = call["BCryptDecrypt"]["buffer"]
             elif call.get("BCryptEncrypt"): # Key in memory
-                buffer = call["BCryptEncrypt"]["Input"]
+                buffer = call["BCryptEncrypt"]["buffer"]
             elif call.get("NCryptDecrypt"):  #key in a KSP
-                buffer = call["NCryptDecrypt"]["Output"]
+                buffer = call["NCryptDecrypt"]["buffer"]
             elif call.get("NCryptEncrypt"): # key in a KSP
-                buffer = call["NCryptEncrypt"]["Input"]
+                buffer = call["NCryptEncrypt"]["buffer"]
             #Commented out since in most cases the encryption and decryption must be done on the same computer
             #elif call.get("CryptProtectData"):
-            #    buffer = call["CryptProtectData"]["Buffer"]
+            #    buffer = call["CryptProtectData"]["buffer"]
             #elif call.get("CryptUnProtectData"):
-            #    buffer = call["CryptUnprotectData"]["Buffer"]
+            #    buffer = call["CryptUnprotectData"]["buffer"]
             # Commented out since no proof of requirement is there
             #elif call.get("CryptDecryptMessage"):
-            #    buffer = call["CryptDecryptMessage"]["Buffer"]
+            #    buffer = call["CryptDecryptMessage"]["buffer"]
             #elif call.get("CryptEncryptMessage"):
-            #    buffer = call["CryptEncryptMessage"]["Buffer"]
+            #    buffer = call["CryptEncryptMessage"]["buffer"]
             #elif call.get("CryptDecodeMessage"):
-            #    buffer = call["CryptDecodeMessage"]["Buffer"]
+            #    buffer = call["CryptDecodeMessage"]["buffer"]
             # Do we want hashing as well ?
             #elif call.get("CryptHashMessage"):
-            #    buffer = call["CryptHashMessage"]["Buffer"]
+            #    buffer = call["CryptHashMessage"]["buffer"]
             
 
             elif call.get("OutputDebugStringA"):
-                buffer = call["OutputDebugStringA"]["OutputString"]
+                buffer = call["OutputDebugStringA"]["string"]
             elif call.get("OutputDebugStringW"):
-                buffer = call["OutputDebugStringW"]["OutputString"]
+                buffer = call["OutputDebugStringW"]["string"]
 
             #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
             #elif call.get("CryptProtectMemory"):
-            #    buffer = call["CryptProtectMemory"]["Buffer"]
+            #    buffer = call["CryptProtectMemory"]["buffer"]
             #elif call.get("CryptUnprotectMemory"):
-            #    buffer = call["CryptUnprotectMemory"]["Buffer"]
+            #    buffer = call["CryptUnprotectMemory"]["buffer"]
             #The need for compression/decompression buffer is probably not needed
             #elif call.get("RtlDecompressBuffer"):
             #    buffer = call["RtlDecompressBuffer"]["UncompressedBuffer"]
@@ -2250,7 +2251,7 @@ def process_buffers(
 
             # Do we want hashing as well ?
             #elif call.get("CryptHashData"):
-            #    buffer = call["CryptHashData"]["Buffer"]
+            #    buffer = call["CryptHashData"]["buffer"]
 
             if not buffer:
                 continue

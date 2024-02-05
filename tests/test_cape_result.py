@@ -31816,6 +31816,36 @@ class TestCapeResult:
                 {"network.dynamic.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
+            (
+                {0: {"decrypted_buffers": [{"CryptEncrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"BCryptDecrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"BCryptEncrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"NCryptDecrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+            ),
+            (
+                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+            ),
         ],
     )
     def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
