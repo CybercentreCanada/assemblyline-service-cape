@@ -2295,10 +2295,10 @@ def process_buffers(
                         count_per_source_per_process += 1
                         network_buffers.append(table_row)
     if len(network_buffers) > 0:
-        with open(NETWORK_BUFFER_PATH, "wb") as f:
+        with open(NETWORK_BUFFER_PATH, "w") as f:
             f.writelines(f'{s}\n' for s in network_buffers)
     if len(buffers) > 0:
-        with open(BUFFER_PATH, "wb") as f:
+        with open(BUFFER_PATH, "w") as f:
             f.writelines(f'{s}\n' for s in buffers)
     #Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
