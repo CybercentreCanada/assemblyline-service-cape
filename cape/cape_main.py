@@ -40,6 +40,8 @@ from cape.cape_result import (
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
     PS1_COMMANDS_PATH,
+    BUFFER_PATH,
+    NETWORK_BUFFER_PATH,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
@@ -1678,6 +1680,7 @@ class CAPE(ServiceBase):
             self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
+            self._extract_buffers()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
         zip_obj.close()
@@ -2174,6 +2177,26 @@ class CAPE(ServiceBase):
                     "name": "commands.bat",
                     "path": BAT_COMMANDS_PATH,
                     "description": "Extract Batch commands",
+                    "to_be_extracted": True,
+                }
+            )
+
+    def _extract_buffers(self) -> None:
+        if os.path.exists(BUFFER_PATH) and os.path.getsize(BUFFER_PATH):
+            self.artifact_list.append(
+                {
+                    "name": "Encrypted_buffers.txt",
+                    "path": BUFFER_PATH,
+                    "description": "Extract buffers",
+                    "to_be_extracted": True,
+                }
+            )
+        if os.path.exists(NETWORK_BUFFER_PATH) and os.path.getsize(NETWORK_BUFFER_PATH):
+            self.artifact_list.append(
+                {
+                    "name": "Network_buffers.txt",
+                    "path": NETWORK_BUFFER_PATH,
+                    "description": "Extract network buffers",
                     "to_be_extracted": True,
                 }
             )

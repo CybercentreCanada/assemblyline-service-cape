@@ -111,7 +111,7 @@ HTTP_API_CALLS = [
     "WinHttpConnect",
     "WSASend",
 ]
-BUFFER_API_CALLS = ["send", "WSASend"]
+BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
     "bat",
@@ -192,6 +192,8 @@ MACHINE_NAME_REGEX = (
 )
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
+BUFFER_PATH = os.path.join("/tmp", "buffer.txt")
+NETWORK_BUFFER_PATH = os.path.join("/tmp", "network_buffer.txt")
 
 
 # noinspection PyBroadException
@@ -2194,16 +2196,61 @@ def process_buffers(
     buffer_res.set_column_order(["Process", "Source", "Buffer"])
     buffer_ioc_table = ResultTableSection("Buffer IOCs")
     buffer_body = []
-
+    buffers = []
     for process, process_details in process_map.items():
         count_per_source_per_process = 0
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
-            if call.get("CryptDecrypt"):
-                buffer = call["CryptDecrypt"]["buffer"]
+            if call.get("CryptDecrypt"): # Depricated but still used
+                buffer = call["CryptDecrypt"]["Buffer"]
+            elif call.get("CryptEncrypt"): # Depricated but still used
+                buffer = call["CryptEncrypt"]["Buffer"]
+            elif call.get("BCryptDecrypt"): # Key in memory
+                buffer = call["BCryptDecrypt"]["Output"]
+            elif call.get("BCryptEncrypt"): # Key in memory
+                buffer = call["BCryptEncrypt"]["Input"]
+            elif call.get("NCryptDecrypt"):  #key in a KSP
+                buffer = call["NCryptDecrypt"]["Output"]
+            elif call.get("NCryptEncrypt"): # key in a KSP
+                buffer = call["NCryptEncrypt"]["Input"]
+            #Commented out since in most cases the encryption and decryption must be done on the same computer
+            #elif call.get("CryptProtectData"):
+            #    buffer = call["CryptProtectData"]["Buffer"]
+            #elif call.get("CryptUnProtectData"):
+            #    buffer = call["CryptUnprotectData"]["Buffer"]
+            # Commented out since no proof of requirement is there
+            #elif call.get("CryptDecryptMessage"):
+            #    buffer = call["CryptDecryptMessage"]["Buffer"]
+            #elif call.get("CryptEncryptMessage"):
+            #    buffer = call["CryptEncryptMessage"]["Buffer"]
+            #elif call.get("CryptDecodeMessage"):
+            #    buffer = call["CryptDecodeMessage"]["Buffer"]
+            # Do we want hashing as well ?
+            #elif call.get("CryptHashMessage"):
+            #    buffer = call["CryptHashMessage"]["Buffer"]
+            
+
             elif call.get("OutputDebugStringA"):
-                buffer = call["OutputDebugStringA"]["string"]
+                buffer = call["OutputDebugStringA"]["OutputString"]
+            elif call.get("OutputDebugStringW"):
+                buffer = call["OutputDebugStringW"]["OutputString"]
+
+            #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
+            #elif call.get("CryptProtectMemory"):
+            #    buffer = call["CryptProtectMemory"]["Buffer"]
+            #elif call.get("CryptUnprotectMemory"):
+            #    buffer = call["CryptUnprotectMemory"]["Buffer"]
+            #The need for compression/decompression buffer is probably not needed
+            #elif call.get("RtlDecompressBuffer"):
+            #    buffer = call["RtlDecompressBuffer"]["UncompressedBuffer"]
+            #elif call.get("RtlCompressBuffer"):
+            #    buffer = call["RtlCompressBuffer"]["UncompressedBuffer"]
+
+            # Do we want hashing as well ?
+            #elif call.get("CryptHashData"):
+            #    buffer = call["CryptHashData"]["Buffer"]
+
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
@@ -2215,8 +2262,11 @@ def process_buffers(
             if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
                 buffer_body.append(table_row)
                 count_per_source_per_process += 1
-
+            buffers.append(table_row)
+        with open(BUFFER_PATH, "wb") as f:
+            f.writelines(f'{s}\n' for s in buffers)
         count_per_source_per_process = 0
+        network_buffers = []
         for network_call in process_details.get("network_calls", []):
             for api_call in BUFFER_API_CALLS:
                 if api_call in network_call:
@@ -2243,7 +2293,10 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-
+                        network_buffers.append(table_row)
+        with open(NETWORK_BUFFER_PATH, "wb") as f:
+            f.writelines(f'{s}\n' for s in network_buffers)
+    #Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
         if buffer_ioc_table.body:
