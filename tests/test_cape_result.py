@@ -34,9 +34,9 @@ from cape.cape_result import (
     BAT_COMMANDS_PATH,
     PS1_COMMANDS_PATH,
     BUFFER_PATH,
-    NETWORK_BUFFER_PATH,
     BUFFER_API_CALLS,
     CRYPT_BUFFER_CALLS,
+    PE_INDICATORS,
     _add_process_context,
     _api_ioc_in_network_traffic,
     _create_network_connection_for_http_call,
@@ -31842,8 +31842,8 @@ class TestCapeResult:
                 [],
             ),
             (
-                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "blah"}}]}},
-                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ"}]',
                 {},
                 [],
             ),
@@ -31878,19 +31878,20 @@ class TestCapeResult:
         crypt_buffers = []
         for processes in process_map.keys():
             for field in process_map[processes].keys():
-                if field == "network_calls" or "decrypted_buffers":
-                    for call in process_map[processes][field]:
-                        if call in BUFFER_API_CALLS:
-                            if not should_have_network_buffer:
-                                should_have_network_buffer = True
-                            if call not in network_buffers:
-                                network_buffers.append(call)
+                if field == "network_calls" or field == "decrypted_buffers":
+                    for calls in process_map[processes][field]:
+                        for call, buffer in calls.items():
+                            if call in BUFFER_API_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                                if not should_have_network_buffer:
+                                    should_have_network_buffer = True
+                                if call not in network_buffers:
+                                    network_buffers.append(call)
 
-                        if call in CRYPT_BUFFER_CALLS:
-                            if not should_have_crypt_buffer:
-                                should_have_crypt_buffer = True
-                            if call not in crypt_buffers:
-                                crypt_buffers.append(call)
+                            if call in CRYPT_BUFFER_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                                if not should_have_crypt_buffer:
+                                    should_have_crypt_buffer = True
+                                if call not in crypt_buffers:
+                                    crypt_buffers.append(call)
 
         if should_have_crypt_buffer:
             assert os.path.exists(BUFFER_PATH)
@@ -31906,8 +31907,6 @@ class TestCapeResult:
                     assert (
                         all(call in entry.name for call in network_buffers)
                 )
-        if os.path.exists(BUFFER_PATH):
-            shutil.rmtree(BUFFER_PATH, ignore_errors=False, onerror=None)
 
     @staticmethod
     @pytest.mark.parametrize(
