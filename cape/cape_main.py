@@ -2182,24 +2182,17 @@ class CAPE(ServiceBase):
             )
 
     def _extract_buffers(self) -> None:
-        if os.path.exists(BUFFER_PATH) and os.path.getsize(BUFFER_PATH):
-            self.artifact_list.append(
-                {
-                    "name": "Encrypted_buffers.txt",
-                    "path": BUFFER_PATH,
-                    "description": "Extract buffers",
-                    "to_be_extracted": True,
-                }
-            )
-        if os.path.exists(NETWORK_BUFFER_PATH) and os.path.getsize(NETWORK_BUFFER_PATH):
-            self.artifact_list.append(
-                {
-                    "name": "Network_buffers.txt",
-                    "path": NETWORK_BUFFER_PATH,
-                    "description": "Extract network buffers",
-                    "to_be_extracted": True,
-                }
-            )
+        if os.path.exists(BUFFER_PATH):
+            for entry in os.scandir(BUFFER_PATH):
+                if entry.is_file():
+                    self.artifact_list.append(
+                        {
+                            "name": entry.name,
+                            "path": entry.path,
+                            "description": "Extract buffers",
+                            "to_be_extracted": True,
+                        }
+                )
 
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """

@@ -1,4 +1,5 @@
 import json
+import shutil
 import os
 from ipaddress import IPv4Network, ip_network
 
@@ -31851,6 +31852,8 @@ class TestCapeResult:
     def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
         safelist = {}
         parent_section = ResultSection("blah")
+        if os.path.exists(BUFFER_PATH):
+            shutil.rmtree(BUFFER_PATH, ignore_errors=False, onerror=None)
         process_buffers(process_map, safelist, parent_section)
 
         if correct_buffer_body is None:
@@ -31891,18 +31894,20 @@ class TestCapeResult:
 
         if should_have_crypt_buffer:
             assert os.path.exists(BUFFER_PATH)
-            with open(BUFFER_PATH, "rb") as f:
-                contents = f.read()
-                assert (
-                    all(call in contents for call in crypt_buffers)
-                )
+            for entry in os.scandir(BUFFER_PATH):
+                if entry.is_file():
+                    assert (
+                        all(call in entry.name for call in crypt_buffers)
+                    )
         if should_have_network_buffer:
-            assert os.path.exists(NETWORK_BUFFER_PATH)
-            with open(NETWORK_BUFFER_PATH, "rb") as f:
-                contents = f.read()
-                assert (
-                    all(call in contents for call in network_buffers)
+            assert os.path.exists(BUFFER_PATH)
+            for entry in os.scandir(BUFFER_PATH):
+                if entry.is_file():
+                    assert (
+                        all(call in entry.name for call in network_buffers)
                 )
+        if os.path.exists(BUFFER_PATH):
+            shutil.rmtree(BUFFER_PATH, ignore_errors=False, onerror=None)
 
     @staticmethod
     @pytest.mark.parametrize(

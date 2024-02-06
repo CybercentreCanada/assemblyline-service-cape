@@ -112,7 +112,7 @@ HTTP_API_CALLS = [
     "WSASend",
 ]
 BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
-CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NcryptEncrypt", "OutputDebugStringA", "OutputDebugStringW"]
+CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt", "OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
     "bat",
@@ -193,8 +193,10 @@ MACHINE_NAME_REGEX = (
 )
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
-BUFFER_PATH = os.path.join("/tmp", "buffer.txt")
-NETWORK_BUFFER_PATH = os.path.join("/tmp", "network_buffer.txt")
+BUFFER_PATH = os.path.join("/tmp", "buffers")
+
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
+
 
 
 # noinspection PyBroadException
@@ -2203,55 +2205,48 @@ def process_buffers(
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
+            iterable = iter(CRYPT_BUFFER_CALLS)
+            while True:
+                item = next(iterable, "end")
+                if item == "end":
+                    break
+                if call.get(item) and item in ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]:
+                    buffer = call[item]["buffer"]
+                    buffers.append((process, item, buffer))
+                    break
+                elif call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
+                    buffer = call[item]["string"]
+                    buffers.append((process, item, buffer))
+                    break
             # Note not all calls have the key name consistent with their capemon api output
-            if call.get("CryptDecrypt"): # Depricated but still used
-                buffer = call["CryptDecrypt"]["buffer"]
-            elif call.get("CryptEncrypt"): # Depricated but still used
-                buffer = call["CryptEncrypt"]["buffer"]
-            elif call.get("BCryptDecrypt"): # Key in memory
-                buffer = call["BCryptDecrypt"]["buffer"]
-            elif call.get("BCryptEncrypt"): # Key in memory
-                buffer = call["BCryptEncrypt"]["buffer"]
-            elif call.get("NCryptDecrypt"):  #key in a KSP
-                buffer = call["NCryptDecrypt"]["buffer"]
-            elif call.get("NCryptEncrypt"): # key in a KSP
-                buffer = call["NCryptEncrypt"]["buffer"]
+            #"CryptDecrypt" --> "buffer " Depricated but still used
+            #"CryptEncrypt" --> "buffer" Depricated but still used
+            # "BCryptDecrypt" --> "buffer" Key in memory
+            #"BCryptEncrypt" --> "buffer" Key in memory
+            #"NCryptDecrypt" --> "buffer"  #key in a KSP
+            #"NCryptEncrypt" --> "buffer" key in a KSP
             #Commented out since in most cases the encryption and decryption must be done on the same computer
-            #elif call.get("CryptProtectData"):
-            #    buffer = call["CryptProtectData"]["buffer"]
-            #elif call.get("CryptUnProtectData"):
-            #    buffer = call["CryptUnprotectData"]["buffer"]
+            #"CryptProtectData" --> ? 
+            #"CryptUnProtectData" --> ?
             # Commented out since no proof of requirement is there
-            #elif call.get("CryptDecryptMessage"):
-            #    buffer = call["CryptDecryptMessage"]["buffer"]
-            #elif call.get("CryptEncryptMessage"):
-            #    buffer = call["CryptEncryptMessage"]["buffer"]
-            #elif call.get("CryptDecodeMessage"):
-            #    buffer = call["CryptDecodeMessage"]["buffer"]
+            #"CryptDecryptMessage" --> ?
+            #"CryptEncryptMessage" --> ?
+            #"CryptDecodeMessage" --> ?
             # Do we want hashing as well ?
-            #elif call.get("CryptHashMessage"):
-            #    buffer = call["CryptHashMessage"]["buffer"]
-            
+            #"CryptHashMessage" --> ?
 
-            elif call.get("OutputDebugStringA"):
-                buffer = call["OutputDebugStringA"]["string"]
-            elif call.get("OutputDebugStringW"):
-                buffer = call["OutputDebugStringW"]["string"]
+            #"OutputDebugStringA" --> "string"
+            #"OutputDebugStringW" --> "string"
 
             #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
-            #elif call.get("CryptProtectMemory"):
-            #    buffer = call["CryptProtectMemory"]["buffer"]
-            #elif call.get("CryptUnprotectMemory"):
-            #    buffer = call["CryptUnprotectMemory"]["buffer"]
+            #"CryptProtectMemory" --> ?
+            #"CryptUnprotectMemory" --> ?
             #The need for compression/decompression buffer is probably not needed
-            #elif call.get("RtlDecompressBuffer"):
-            #    buffer = call["RtlDecompressBuffer"]["UncompressedBuffer"]
-            #elif call.get("RtlCompressBuffer"):
-            #    buffer = call["RtlCompressBuffer"]["UncompressedBuffer"]
+            #"RtlDecompressBuffer" --> ?
+            #"RtlCompressBuffer" --> ?
 
             # Do we want hashing as well ?
-            #elif call.get("CryptHashData"):
-            #    buffer = call["CryptHashData"]["buffer"]
+           #"CryptHashData" --> ?
 
             if not buffer:
                 continue
@@ -2264,7 +2259,6 @@ def process_buffers(
             if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
                 buffer_body.append(table_row)
                 count_per_source_per_process += 1
-            buffers.append(table_row)
         count_per_source_per_process = 0
         network_buffers = []
         for network_call in process_details.get("network_calls", []):
@@ -2293,13 +2287,29 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-                        network_buffers.append(table_row)
-    if len(network_buffers) > 0:
-        with open(NETWORK_BUFFER_PATH, "w") as f:
-            f.writelines(f'{s}\n' for s in network_buffers)
-    if len(buffers) > 0:
-        with open(BUFFER_PATH, "w") as f:
-            f.writelines(f'{s}\n' for s in buffers)
+                        network_buffers.append((process, api_call, buffer))
+
+    network_buffers_PE = []
+    for process, api, buffer in network_buffers:
+        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+            hash = sha256(buffer.encode()).hexdigest()
+            network_buffers_PE.append((f"{str(process)}-{api}-{hash}", buffer))
+    buffers_PE = []
+    for process, api, buffer in buffers:
+        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+            hash = sha256(buffer.encode()).hexdigest()
+            buffers_PE.append((f"{str(process)}-{api}-{hash}", buffer))
+
+    if not os.path.exists(BUFFER_PATH):
+        os.mkdir(BUFFER_PATH)
+
+    for filename, buffer in network_buffers_PE:
+        with open(f"{BUFFER_PATH}/{filename}.txt", "w") as f:
+            f.write(buffer)
+    for filename, buffer in buffers_PE:
+        with open(f"{BUFFER_PATH}/{filename}.txt", "w") as f:
+            f.write(buffer)
+
     #Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
