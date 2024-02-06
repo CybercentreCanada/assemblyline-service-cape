@@ -36,6 +36,7 @@ from cape.cape_result import (
     BUFFER_PATH,
     BUFFER_API_CALLS,
     CRYPT_BUFFER_CALLS,
+    MISC_BUFFER_CALLS,
     PE_INDICATORS,
     _add_process_context,
     _api_ioc_in_network_traffic,
@@ -31875,6 +31876,8 @@ class TestCapeResult:
         should_have_network_buffer = False
         network_buffers = []
         should_have_crypt_buffer = False
+        should_have_misc_buffer = False
+        misc_buffers = []
         crypt_buffers = []
         for processes in process_map.keys():
             for field in process_map[processes].keys():
@@ -31893,6 +31896,12 @@ class TestCapeResult:
                                 if call not in crypt_buffers:
                                     crypt_buffers.append(call)
 
+                            if call in MISC_BUFFER_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                                if not should_have_misc_buffer:
+                                    should_have_misc_buffer = True
+                                if call not in misc_buffers:
+                                    misc_buffers.append(call)
+
         if should_have_crypt_buffer:
             assert os.path.exists(BUFFER_PATH)
             for entry in os.scandir(BUFFER_PATH):
@@ -31906,6 +31915,13 @@ class TestCapeResult:
                 if entry.is_file():
                     assert (
                         all(call in entry.name for call in network_buffers)
+                )
+        if should_have_misc_buffer:
+            assert os.path.exists(BUFFER_PATH)
+            for entry in os.scandir(BUFFER_PATH):
+                if entry.is_file():
+                    assert (
+                        all(call in entry.name for call in misc_buffers)
                 )
 
     @staticmethod

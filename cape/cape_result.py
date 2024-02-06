@@ -112,7 +112,8 @@ HTTP_API_CALLS = [
     "WSASend",
 ]
 BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
-CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt", "OutputDebugStringA", "OutputDebugStringW"]
+CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]
+MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
     "bat",
@@ -196,8 +197,6 @@ PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
 
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
-
-
 
 # noinspection PyBroadException
 def generate_al_result(
@@ -2212,11 +2211,20 @@ def process_buffers(
                     break
                 if call.get(item) and item in ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]:
                     buffer = call[item]["buffer"]
-                    buffers.append((process, item, buffer))
+                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(buffer.encode()).hexdigest()
+                        buffers.append((f"{str(process)}-{item}-{hash}", buffer))
                     break
-                elif call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
+            misc_iterable = iter(MISC_BUFFER_CALLS)
+            while True:
+                item = next(misc_iterable, "end")
+                if item == "end":
+                    break
+                if call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
                     buffer = call[item]["string"]
-                    buffers.append((process, item, buffer))
+                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(buffer.encode()).hexdigest()
+                        buffers.append((f"{str(process)}-{item}-{hash}", buffer))
                     break
             # Note not all calls have the key name consistent with their capemon api output
             #"CryptDecrypt" --> "buffer " Depricated but still used
@@ -2287,30 +2295,21 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-                        network_buffers.append((process, api_call, buffer))
-
-    network_buffers_PE = []
-    for process, api, buffer in network_buffers:
-        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-            hash = sha256(buffer.encode()).hexdigest()
-            network_buffers_PE.append((f"{str(process)}-{api}-{hash}", buffer))
-    buffers_PE = []
-    for process, api, buffer in buffers:
-        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-            hash = sha256(buffer.encode()).hexdigest()
-            buffers_PE.append((f"{str(process)}-{api}-{hash}", buffer))
+                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                            hash = sha256(buffer.encode()).hexdigest()
+                            network_buffers.append((f"{str(process)}-{api}-{hash}", buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
 
-    for filename, buffer in network_buffers_PE:
-        with open(f"{BUFFER_PATH}/{filename}.txt", "w") as f:
+    for filename, buffer in network_buffers:
+        with open(f"{BUFFER_PATH}/{filename}", "w") as f:
             f.write(buffer)
-    for filename, buffer in buffers_PE:
-        with open(f"{BUFFER_PATH}/{filename}.txt", "w") as f:
+    for filename, buffer in buffers:
+        with open(f"{BUFFER_PATH}/{filename}", "w") as f:
             f.write(buffer)
 
-    #Element in buffer_body should be extracted or scanned for carving PE
+    # Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
         if buffer_ioc_table.body:

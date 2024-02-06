@@ -1,6 +1,7 @@
 import os
 from email.header import decode_header
 from json import JSONDecodeError, loads
+import shutil
 from math import ceil, floor
 from random import choice, random
 from re import compile, match
@@ -41,6 +42,7 @@ from cape.cape_result import (
     MACHINE_NAME_REGEX,
     PS1_COMMANDS_PATH,
     BUFFER_PATH,
+    PE_INDICATORS,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
@@ -113,8 +115,6 @@ ANALYSIS_FAILED = "failed_analysis"
 PROCESSING_FAILED = "failed_processing"
 
 MACHINE_INFORMATION_SECTION_TITLE = "Machine Information"
-
-PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 DEFAULT_TOKEN_KEY = "Token"
 
@@ -2188,7 +2188,7 @@ class CAPE(ServiceBase):
                         {
                             "name": entry.name,
                             "path": entry.path,
-                            "description": "Extract buffers",
+                            "description": "PEs extracted from Windows API buffers",
                             "to_be_extracted": True,
                         }
                 )
@@ -2553,6 +2553,8 @@ class CAPE(ServiceBase):
                 for leftover_file_name in ["_console_output", "_injected_memory_", "commands.ps1", "commands.bat"]
             ):
                 os.remove(file_path)
+        if os.path.exists(BUFFER_PATH):
+            shutil.rmtree(BUFFER_PATH)
 
     def _get_machine_by_name(self, machine_name) -> Optional[Dict[str, Any]]:
         """
