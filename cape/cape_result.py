@@ -2206,25 +2206,31 @@ def process_buffers(
             buffer = ""
             iterable = iter(CRYPT_BUFFER_CALLS)
             while True:
-                item = next(iterable, "end")
-                if item == "end":
-                    break
-                if call.get(item) and item in ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]:
-                    buffer = call[item]["buffer"]
-                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                        hash = sha256(buffer.encode()).hexdigest()
-                        buffers.append((f"{str(process)}-{item}-{hash}", buffer))
+                try:
+                    item = next(iterable, "end")
+                    if item == "end":
+                        break
+                    if call.get(item) and item in ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]:
+                        buffer = call[item]["buffer"]
+                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                            hash = sha256(buffer.encode()).hexdigest()
+                            buffers.append((f"{str(process)}-{item}-{hash}", buffer))
+                            break
+                except StopIteration:
                     break
             misc_iterable = iter(MISC_BUFFER_CALLS)
             while True:
-                item = next(misc_iterable, "end")
-                if item == "end":
-                    break
-                if call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
-                    buffer = call[item]["string"]
-                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                        hash = sha256(buffer.encode()).hexdigest()
-                        buffers.append((f"{str(process)}-{item}-{hash}", buffer))
+                try:
+                    item = next(misc_iterable, "end")
+                    if item == "end":
+                        break
+                    if call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
+                        buffer = call[item]["string"]
+                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                            hash = sha256(buffer.encode()).hexdigest()
+                            buffers.append((f"{str(process)}-{item}-{hash}", buffer))
+                            break
+                except StopIteration:
                     break
             # Note not all calls have the key name consistent with their capemon api output
             #"CryptDecrypt" --> "buffer " Depricated but still used
