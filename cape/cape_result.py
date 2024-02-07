@@ -2204,34 +2204,21 @@ def process_buffers(
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
-            iterable = iter(CRYPT_BUFFER_CALLS)
-            while True:
-                try:
-                    item = next(iterable, "end")
-                    if item == "end":
-                        break
-                    if call.get(item) and item in ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]:
-                        buffer = call[item]["buffer"]
-                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                            hash = sha256(buffer.encode()).hexdigest()
-                            buffers.append((f"{str(process)}-{item}-{hash}", buffer))
-                            break
-                except StopIteration:
-                    break
-            misc_iterable = iter(MISC_BUFFER_CALLS)
-            while True:
-                try:
-                    item = next(misc_iterable, "end")
-                    if item == "end":
-                        break
-                    if call.get(item) and item in ["OutputDebugStringA", "OutputDebugStringW"]:
-                        buffer = call[item]["string"]
-                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                            hash = sha256(buffer.encode()).hexdigest()
-                            buffers.append((f"{str(process)}-{item}-{hash}", buffer))
-                            break
-                except StopIteration:
-                    break
+            
+            crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
+            if crypt_api:
+                buffer = call[crypt_api]["buffer"]
+                if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                    hash = sha256(buffer.encode()).hexdigest()
+                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", buffer))
+                            
+            else:
+                misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
+                if misc_api :
+                    buffer = call[misc_api]["string"]
+                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(buffer.encode()).hexdigest()
+                        buffers.append((f"{str(process)}-{misc_api}-{hash}", buffer))
             # Note not all calls have the key name consistent with their capemon api output
             #"CryptDecrypt" --> "buffer " Depricated but still used
             #"CryptEncrypt" --> "buffer" Depricated but still used
@@ -2303,7 +2290,7 @@ def process_buffers(
                         count_per_source_per_process += 1
                         if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
                             hash = sha256(buffer.encode()).hexdigest()
-                            network_buffers.append((f"{str(process)}-{api}-{hash}", buffer))
+                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
