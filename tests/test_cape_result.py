@@ -32202,8 +32202,9 @@ class TestCapeResult:
         ontres = OntologyResults(service_name="blah")
         process_map = {}
         safelist = {}
+        uses_https_proxy_in_sandbox = False
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist
+            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
 
         assert actual_res_sec.title_text == "Signature: blah"
@@ -32246,7 +32247,7 @@ class TestCapeResult:
             ]
         }
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist
+            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
         assert (
             actual_res_sec.body
@@ -32281,7 +32282,7 @@ class TestCapeResult:
         ontres.add_process(p)
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}]}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist
+            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
         attr_as_primitives = ontres_sig.attributes[0].as_primitives()
@@ -32309,7 +32310,7 @@ class TestCapeResult:
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}]}
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist
+            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec is None
 
@@ -32323,7 +32324,7 @@ class TestCapeResult:
         }
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist
+            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
         assert (
             actual_res_sec.body
@@ -32594,28 +32595,28 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "key, value, expected_tags",
+        "key, value, expected_tags, uses_https_proxy_in_sandbox",
         [
             #  Standard key for dynamic.process.file_name, nothing special with value
-            ("cookie", "blah", {"dynamic.process.file_name": ["blah"]}),
+            ("cookie", "blah", {"dynamic.process.file_name": ["blah"]}, False),
             # Standard key for dynamic.process.file_name, process: in value
-            ("setwindowshookexw", "process: blah", {"dynamic.process.file_name": ["blah"]}),
+            ("setwindowshookexw", "process: blah", {"dynamic.process.file_name": ["blah"]}, False),
             # Standard key for dynamic.process.file_name, process: and delimiter in value
-            ("setwindowshookexw", "process: blah -> blahblah", {"dynamic.process.file_name": ["blah"]}),
+            ("setwindowshookexw", "process: blah -> blahblah", {"dynamic.process.file_name": ["blah"]}, False),
             # Standard key for dynamic.process.file_name, delimiter in value, special case
-            ("file", "C:\\blah\\blah\\blah", {"dynamic.process.file_name": ["C:\\blah\\blah\\blah"]}),
+            ("file", "C:\\blah\\blah\\blah", {"dynamic.process.file_name": ["C:\\blah\\blah\\blah"]}, False),
             # Standard key for dynamic.process.file_name, delimiter in value, order of delimiters matters
-            ("process", "regsrv32.exe, PID 123", {"dynamic.process.file_name": ["regsrv32.exe"]}),
+            ("process", "regsrv32.exe, PID 123", {"dynamic.process.file_name": ["regsrv32.exe"]}, False),
             # Standard key for dynamic.process.command_line, nothing special with value
-            ("command", "blah", {"dynamic.process.command_line": ["blah"]}),
+            ("command", "blah", {"dynamic.process.command_line": ["blah"]}, False),
             # Standard key for network.dynamic.ip, nothing special with value
-            ("ip", "1.1.1.1", {"network.dynamic.ip": ["1.1.1.1"]}),
+            ("ip", "1.1.1.1", {"network.dynamic.ip": ["1.1.1.1"]}, False),
             # Standard key for network.dynamic.ip, : in value
-            ("ip", "1.1.1.1:blah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}),
+            ("ip", "1.1.1.1:blah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
             # Standard key for network.dynamic.ip, : and ( in value
-            ("ip", "1.1.1.1:blah (blahblah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}),
+            ("ip", "1.1.1.1:blah (blahblah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
             # Standard key for dynamic.registry_key, nothing special with value
-            ("regkey", "blah", {"dynamic.registry_key": ["blah"]}),
+            ("regkey", "blah", {"dynamic.registry_key": ["blah"]}, False),
             # Standard key for network.dynamic.uri, nothing special with value
             (
                 "url",
@@ -32625,23 +32626,35 @@ class TestCapeResult:
                     "network.dynamic.domain": ["blah.com"],
                     "network.dynamic.uri_path": ["/blahblah"],
                 },
+                False
             ),
             # Standard key for file.pe.exports.function_name, nothing special with value
-            ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}),
+            ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}, False),
             # Key that ends in _exe for file.pe.exports.function_name, nothing special with value
-            ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}),
+            ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}, False),
             # Standard key for file.rule.yara, nothing special with value
-            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}),
+            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}, False),
             # Standard key for file.rule.yara, value has PID in it
-            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}),
+            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}, False),
             # IOC found in data
-            ("data", "Hey you I want to callout to http://blah.com", {}),
+            ("data", "Hey you I want to callout to http://blah.com", {}, False),
+            # Standard key for network.dynamic.uri, test uses_https_proxy_in_sandbox
+            (
+                "url",
+                "http://blah.com/blahblah:443",
+                {
+                    "network.dynamic.uri": ["https://blah.com/blahblah"],
+                    "network.dynamic.domain": ["blah.com"],
+                    "network.dynamic.uri_path": ["/blahblah"],
+                },
+                True
+            ),
         ],
     )
-    def test_tag_mark_values(key, value, expected_tags):
+    def test_tag_mark_values(key, value, expected_tags, uses_https_proxy_in_sandbox):
         ontres = OntologyResults("CAPE")
         actual_res_sec = ResultSection("blah")
-        iocs_res = _tag_mark_values(actual_res_sec, key, value, [], {}, ontres)
+        iocs_res = _tag_mark_values(actual_res_sec, key, value, [], {}, ontres, None, uses_https_proxy_in_sandbox)
         assert actual_res_sec.tags == expected_tags
         if key == "data":
             correct_iocs_res = ResultTableSection("IOCs found in Signature data")
