@@ -31756,27 +31756,30 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "process_map, correct_buffer_body, correct_tags, correct_body",
+        "process_map, correct_buffer_body, correct_tags, correct_body, expected_extracted_buffers",
         [
-            ({0: {"decrypted_buffers": []}}, None, {}, []),
-            ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, []),
+            ({0: {"decrypted_buffers": []}}, None, {}, [], {"PE": False}),
+            ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, [], {"PE": False}),
             (
                 {0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["CryptDecrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
                 {"network.dynamic.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is too small
             (
@@ -31784,6 +31787,7 @@ class TestCapeResult:
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.ca"}]',
                 {},
                 [],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is just right
             (
@@ -31791,12 +31795,14 @@ class TestCapeResult:
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
                 {"network.dynamic.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
                 {"network.dynamic.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {
@@ -31806,6 +31812,7 @@ class TestCapeResult:
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
                 {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
+                {"PE": False, "net": ["send"]},
             ),
             (
                 {
@@ -31817,40 +31824,46 @@ class TestCapeResult:
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
                 {"network.dynamic.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
+                {"PE": False, "net": ["send"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"CryptEncrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["CryptEncrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"BCryptDecrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["BCryptDecrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"BCryptEncrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["BCryptEncrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"NCryptDecrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["NCryptDecrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ"}]',
                 {},
                 [],
+                {"PE": True, "crypt": ["NCryptEncrypt"]},
             ),
         ],
     )
-    def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
+    def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body, expected_extracted_buffers):
         safelist = {}
         parent_section = ResultSection("blah")
         if os.path.exists(BUFFER_PATH):
@@ -31873,56 +31886,21 @@ class TestCapeResult:
                 for value in values:
                     buffer_ioc_table.add_tag(tag, value)
             assert check_section_equality(parent_section.subsections[0], correct_result_section)
-        should_have_network_buffer = False
-        network_buffers = []
-        should_have_crypt_buffer = False
-        should_have_misc_buffer = False
-        misc_buffers = []
-        crypt_buffers = []
-        for processes in process_map.keys():
-            for field in process_map[processes].keys():
-                if field == "network_calls" or field == "decrypted_buffers":
-                    for calls in process_map[processes][field]:
-                        for call, buffer in calls.items():
-                            if call in BUFFER_API_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                                if not should_have_network_buffer:
-                                    should_have_network_buffer = True
-                                if call not in network_buffers:
-                                    network_buffers.append(call)
-
-                            if call in CRYPT_BUFFER_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                                if not should_have_crypt_buffer:
-                                    should_have_crypt_buffer = True
-                                if call not in crypt_buffers:
-                                    crypt_buffers.append(call)
-
-                            if call in MISC_BUFFER_CALLS and any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                                if not should_have_misc_buffer:
-                                    should_have_misc_buffer = True
-                                if call not in misc_buffers:
-                                    misc_buffers.append(call)
-
-        if should_have_crypt_buffer:
+        
+        APIS = []
+        if expected_extracted_buffers["PE"] :
             assert os.path.exists(BUFFER_PATH)
+            if "crypt" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["crypt"])
+            if "net" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["net"])
+            if "misc" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["misc"])
             for entry in os.scandir(BUFFER_PATH):
                 if entry.is_file():
-                    assert (
-                        all(call in entry.name for call in crypt_buffers)
-                    )
-        if should_have_network_buffer:
-            assert os.path.exists(BUFFER_PATH)
-            for entry in os.scandir(BUFFER_PATH):
-                if entry.is_file():
-                    assert (
-                        all(call in entry.name for call in network_buffers)
-                )
-        if should_have_misc_buffer:
-            assert os.path.exists(BUFFER_PATH)
-            for entry in os.scandir(BUFFER_PATH):
-                if entry.is_file():
-                    assert (
-                        all(call in entry.name for call in misc_buffers)
-                )
+                        assert (
+                            any(call in entry.name for call in APIS)
+                        )
 
     @staticmethod
     @pytest.mark.parametrize(
