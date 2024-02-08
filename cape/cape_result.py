@@ -2208,17 +2208,19 @@ def process_buffers(
             crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
             if crypt_api:
                 buffer = call[crypt_api]["buffer"]
-                if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                    hash = sha256(buffer.encode()).hexdigest()
-                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", buffer))
-                            
+                b_buffer = bytes(buffer, 'utf-8')
+                if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                    hash = sha256(b_buffer).hexdigest()
+                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer))
+     
             else:
                 misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
                 if misc_api :
                     buffer = call[misc_api]["string"]
-                    if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                        hash = sha256(buffer.encode()).hexdigest()
-                        buffers.append((f"{str(process)}-{misc_api}-{hash}", buffer))
+                    b_buffer = bytes(buffer, 'utf-8')
+                    if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(b_buffer).hexdigest()
+                        buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer))
             # Note not all calls have the key name consistent with their capemon api output
             #"CryptDecrypt" --> "buffer " Depricated but still used
             #"CryptEncrypt" --> "buffer" Depricated but still used
@@ -2288,18 +2290,19 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-                        if any(PE_indicator.decode('ascii') in buffer for PE_indicator in PE_INDICATORS):
-                            hash = sha256(buffer.encode()).hexdigest()
-                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", buffer))
+                        b_buffer = bytes(buffer, 'utf-8')
+                        if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                            hash = sha256(b_buffer).hexdigest()
+                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
 
     for filename, buffer in network_buffers:
-        with open(f"{BUFFER_PATH}/{filename}", "w") as f:
+        with open(f"{BUFFER_PATH}/{filename}", "wb") as f:
             f.write(buffer)
     for filename, buffer in buffers:
-        with open(f"{BUFFER_PATH}/{filename}", "w") as f:
+        with open(f"{BUFFER_PATH}/{filename}", "wb") as f:
             f.write(buffer)
 
     # Element in buffer_body should be extracted or scanned for carving PE

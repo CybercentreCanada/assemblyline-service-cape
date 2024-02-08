@@ -31855,8 +31855,8 @@ class TestCapeResult:
                 {"PE": False, "crypt": ["NCryptDecrypt"]},
             ),
             (
-                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ"}}]}},
-                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ"}]',
+                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ This program cannot be run in DOS mode"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ This program cannot be run in DOS mode"}]',
                 {},
                 [],
                 {"PE": True, "crypt": ["NCryptEncrypt"]},
@@ -31898,9 +31898,11 @@ class TestCapeResult:
                 APIS.extend(expected_extracted_buffers["misc"])
             for entry in os.scandir(BUFFER_PATH):
                 if entry.is_file():
-                        assert (
-                            any(call in entry.name for call in APIS)
-                        )
+                    assert (
+                        any(call in entry.name for call in APIS)
+                    )
+                    APIS.remove(entry.name.split("-")[1])
+            assert len(APIS) == 0
 
     @staticmethod
     @pytest.mark.parametrize(
