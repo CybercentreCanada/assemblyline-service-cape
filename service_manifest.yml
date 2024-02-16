@@ -15,6 +15,7 @@ disable_cache: false
 enabled: false
 is_external: false
 licence_count: 0
+privileged: true
 
 config:
   # See README for in-depth descriptions of configuration values
