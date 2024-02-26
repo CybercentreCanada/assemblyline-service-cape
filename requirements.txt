@@ -3,3 +3,4 @@ pefile
 retrying
 SetSimilaritySearch
 multidecoder
+lief
