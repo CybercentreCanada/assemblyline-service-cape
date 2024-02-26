@@ -10,6 +10,9 @@ from re import match as re_match
 from re import search, sub
 from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
+import pefile
+import lief
+from peutils import is_valid
 
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
@@ -2211,7 +2214,7 @@ def process_buffers(
                 b_buffer = bytes(buffer, 'utf-8')
                 if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                     hash = sha256(b_buffer).hexdigest()
-                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer))
+                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer, buffer))
      
             else:
                 misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
@@ -2220,7 +2223,7 @@ def process_buffers(
                     b_buffer = bytes(buffer, 'utf-8')
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
-                        buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer))
+                        buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer, buffer))
             # Note not all calls have the key name consistent with their capemon api output
             #"CryptDecrypt" --> "buffer " Depricated but still used
             #"CryptEncrypt" --> "buffer" Depricated but still used
@@ -2293,17 +2296,53 @@ def process_buffers(
                         b_buffer = bytes(buffer, 'utf-8')
                         if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                             hash = sha256(b_buffer).hexdigest()
-                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer))
+                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer, buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
 
-    for filename, buffer in network_buffers:
-        with open(f"{BUFFER_PATH}/{filename}", "wb") as f:
-            f.write(buffer)
-    for filename, buffer in buffers:
-        with open(f"{BUFFER_PATH}/{filename}", "wb") as f:
-            f.write(buffer)
+    for filename, b_buffer, buffer in network_buffers:
+        pebuffer = bytearray(b_buffer)
+        try:
+            PE_from_buffer = pefile.PE(data=pebuffer)
+            if is_valid(PE_from_buffer):
+                PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+        except Exception as E:
+            try:
+                if lief.is_pe(pebuffer):
+                    PE_from_buffer = lief.PE.parse(pebuffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                elif lief.is_pe(buffer):
+                    PE_from_buffer = lief.PE.parse(buffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                else:
+                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
+                        f.write(buffer)
+            except Exception as E:
+                continue
+    for filename, b_buffer, buffer in buffers:
+        pebuffer = bytearray(b_buffer)
+        try:
+            PE_from_buffer = pefile.PE(data=pebuffer)
+            if is_valid(PE_from_buffer):
+                PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+        except Exception as E:
+            try:
+                if lief.is_pe(pebuffer):
+                    PE_from_buffer = lief.PE.parse(pebuffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                elif lief.is_pe(buffer):
+                    PE_from_buffer = lief.PE.parse(buffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                else:
+                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
+                        f.write(pebuffer)
+            except Exception as E:
+                continue
 
     # Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:

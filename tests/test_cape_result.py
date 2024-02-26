@@ -31859,7 +31859,7 @@ class TestCapeResult:
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ This program cannot be run in DOS mode"}]',
                 {},
                 [],
-                {"PE": True, "crypt": ["NCryptEncrypt"]},
+                {"PE": False, "crypt": ["NCryptEncrypt"]},
             ),
         ],
     )
