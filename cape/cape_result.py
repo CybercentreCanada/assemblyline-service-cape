@@ -313,7 +313,9 @@ def generate_al_result(
         )
 
     if sigs:
-        is_process_martian = process_signatures(sigs, process_map, al_result, ontres, safelist)
+        is_process_martian = process_signatures(
+            sigs, process_map, al_result, ontres, safelist, uses_https_proxy_in_sandbox
+        )
 
     build_process_tree(al_result, is_process_martian, ontres, processtree_id_safelist)
 
@@ -616,6 +618,7 @@ def process_signatures(
     parent_result_section: ResultSection,
     ontres: OntologyResults,
     safelist: Dict[str, Dict[str, List[str]]],
+    uses_https_proxy_in_sandbox: bool,
 ) -> bool:
     """
     This method processes the signatures section of the CAPE report, adding anything noteworthy to the
@@ -625,6 +628,8 @@ def process_signatures(
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :param ontres: The Ontology Results class object
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :return: A boolean flag that indicates if the is_process_martian signature was raised
     """
     if len(sigs) <= 0:
@@ -664,7 +669,14 @@ def process_signatures(
             score=translated_score,
         )
         sig_res = _create_signature_result_section(
-            sig_name, sig, translated_score, ontres_sig, ontres, process_map, safelist
+            sig_name,
+            sig,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
 
         if sig_res:
@@ -834,9 +846,11 @@ def _create_network_connection_for_network_flow(
         ),
         ontology_id=nc_oid,
         session=session,
-        time_observed=epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
-        if not isinstance(network_flow["timestamp"], str)
-        else network_flow["timestamp"],
+        time_observed=(
+            epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
+            if not isinstance(network_flow["timestamp"], str)
+            else network_flow["timestamp"]
+        ),
     )
     objectid.assign_guid()
     try:
@@ -874,9 +888,11 @@ def _create_network_connection_for_network_flow(
             ),
             pid=network_flow["pid"],
             image=network_flow.get("image"),
-            start_time=epoch_to_local_with_ms(network_flow["timestamp"])
-            if not isinstance(network_flow["timestamp"], str)
-            else network_flow["timestamp"],
+            start_time=(
+                epoch_to_local_with_ms(network_flow["timestamp"])
+                if not isinstance(network_flow["timestamp"], str)
+                else network_flow["timestamp"]
+            ),
         )
     ontres.add_network_connection(nc)
 
@@ -911,6 +927,7 @@ def process_network(
     :param ontres: The Ontology Results class object
     :param inetsim_dns_servers: A list of IPs that represent the locations where INetSim is serving DNS services
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
     :return: None
     """
@@ -2490,6 +2507,7 @@ def _create_signature_result_section(
     ontres: OntologyResults,
     process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
+    uses_https_proxy_in_sandbox: bool,
 ) -> Optional[ResultMultiSection]:
     """
     This method creates a ResultMultiSection for the given signature
@@ -2500,6 +2518,8 @@ def _create_signature_result_section(
     :param ontres: The Ontology Results class object
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :return: A ResultMultiSection containing details about the signature,
              unless the signature is deemed a False Positive
     """
@@ -2546,6 +2566,7 @@ def _create_signature_result_section(
                 safelist,
                 ontres,
                 iocs_found_in_data_res_sec,
+                uses_https_proxy_in_sandbox,
             )
             if mark_body.body:
                 sig_res.add_section_part(mark_body)
@@ -2666,6 +2687,7 @@ def _handle_mark_data(
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
     iocs_found_in_data_res_sec: Optional[ResultTableSection] = None,
+    uses_https_proxy_in_sandbox: bool = False,
 ) -> None:
     """
     This method handles a mark that is "data"
@@ -2678,6 +2700,8 @@ def _handle_mark_data(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
     :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :return: None
     """
     for k, v in mark_items:
@@ -2701,7 +2725,14 @@ def _handle_mark_data(
         elif not isinstance(v, str):
             v = str(v)
         iocs_found_in_data_res_sec = _tag_mark_values(
-            sig_res, k, v, attributes, process_map, ontres, iocs_found_in_data_res_sec
+            sig_res,
+            k,
+            v,
+            attributes,
+            process_map,
+            ontres,
+            iocs_found_in_data_res_sec,
+            uses_https_proxy_in_sandbox,
         )
 
     return iocs_found_in_data_res_sec
@@ -2715,6 +2746,7 @@ def _tag_mark_values(
     process_map: Dict[int, Dict[str, Any]],
     ontres: OntologyResults,
     iocs_found_in_data_res_sec: Optional[ResultTableSection] = None,
+    uses_https_proxy_in_sandbox: bool = False,
 ) -> Optional[ResultTableSection]:
     """
     This method tags a given value accordingly by the key
@@ -2725,6 +2757,8 @@ def _tag_mark_values(
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param ontres: The Ontology Results class object
     :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
+    :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
+    decrypts and forwards HTTPS traffic
     :return: None
     """
     delimiters = [":", "->", ",", " ", "("]
@@ -2774,6 +2808,9 @@ def _tag_mark_values(
         "request",
         "http_downloadurl",
     ]:
+        if uses_https_proxy_in_sandbox:
+            # Let's try to avoid misparsed data in the signatures
+            value = convert_url_to_https(method="CONNECT", url=value)
         if add_tag(sig_res, "network.dynamic.uri", value) and attributes:
             # Determine which attribute is to be assigned the uri
             for attribute in attributes:
