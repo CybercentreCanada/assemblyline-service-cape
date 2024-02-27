@@ -2475,12 +2475,13 @@ class CAPE(ServiceBase):
         if reboot:
             requested_timeout *= 2
         service_timeout = int(self.service_attributes["timeout"])
-        if requested_timeout > service_timeout:
+        if requested_timeout > service_timeout + 60:
             invalid_timeout_res_sec = ResultTextSection("Invalid Analysis Timeout Requested")
             invalid_timeout_res_sec.add_line(
                 f"The analysis timeout requested was {requested_timeout}, which exceeds the time that Assemblyline "
                 f"will run the service ({service_timeout}). Choose an analysis timeout value < {service_timeout} and "
-                "submit the file again."
+                f"submit the file again. Note that the requested analysis timeout must let the processing some time "
+                f"to finish before the service timeout. In other words: analysis timeout + processing timeout < {service_timeout}."
             )
             parent_section.add_subsection(invalid_timeout_res_sec)
             return True
