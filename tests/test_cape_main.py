@@ -2662,7 +2662,7 @@ class TestCapeMain:
             "Invalid Analysis Timeout Requested",
             body="The analysis timeout requested was 900, which exceeds the time that "
             "Assemblyline will run the service (800). Choose an analysis timeout "
-            "value < 800 and submit the file again. Note that the requested analysis timeout must let the processing some time "
+            "value < 800 and submit the file again. Note that the requested analysis timeout must give the processing some time "
             "to finish before the service timeout. In other words: analysis timeout + processing timeout < 800.",
         )
         cape_class_instance.request = dummy_request_class(analysis_timeout_in_seconds=900)
