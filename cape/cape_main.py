@@ -2480,7 +2480,7 @@ class CAPE(ServiceBase):
             invalid_timeout_res_sec.add_line(
                 f"The analysis timeout requested was {requested_timeout}, which exceeds the time that Assemblyline "
                 f"will run the service ({service_timeout}). Choose an analysis timeout value < {service_timeout} and "
-                f"submit the file again. Note that the requested analysis timeout must let the processing some time "
+                f"submit the file again. Note that the requested analysis timeout must give the processing some time "
                 f"to finish before the service timeout. In other words: analysis timeout + processing timeout < {service_timeout}."
             )
             parent_section.add_subsection(invalid_timeout_res_sec)
