@@ -896,6 +896,7 @@ CAPE_DROPPED_SIGNATURES = [
     "antidebug_setunhandledexceptionfilter",
     "dynamic_function_loading",
     "stealth_timeout",
+    "encrypted_ioc",
 ]
 
 
