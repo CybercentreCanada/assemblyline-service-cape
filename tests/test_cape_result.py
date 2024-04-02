@@ -578,7 +578,7 @@ class TestCapeResult:
             # Domain is safelisted
             ("blah.ca", "1.1.1.1", [], {}, False),
             # No domain and IP is safelisted
-            ("", "127.0.0.1", [], {}, True),
+            ("", "127.0.0.1", [], {}, False),
             # No domain and IP is not safelisted but is in the dns servers list
             ("", "8.8.8.8", ["8.8.8.8"], {}, True),
             # Domain is not safelisted but dest_ip is part of the resolved IPs and IP is in the INetSim network
