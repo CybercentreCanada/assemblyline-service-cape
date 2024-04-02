@@ -765,7 +765,7 @@ class TestCapeResult:
                 "",
                 {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321},
                 "",
-                {"network.protocol": ["tcp"], "network.static.ip": ["127.0.0.1"], "network.port": [123, 321]},
+                {"network.protocol": ["tcp"], "network.dynamic.ip": ["127.0.0.1"], "network.port": [123, 321]},
             ),
             # Domain
             (
@@ -773,9 +773,9 @@ class TestCapeResult:
                 {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321},
                 "",
                 {
-                    "network.static.domain": ["blah.com"],
+                    "network.dynamic.domain": ["blah.com"],
                     "network.protocol": ["tcp"],
-                    "network.static.ip": ["127.0.0.1"],
+                    "network.dynamic.ip": ["127.0.0.1"],
                     "network.port": [123, 321],
                 },
             ),
@@ -793,7 +793,7 @@ class TestCapeResult:
                 "192.168.1.231",
                 {
                     "network.protocol": ["tcp"],
-                    "network.static.ip": ["192.168.1.231", "192.168.1.123"],
+                    "network.dynamic.ip": ["192.168.1.231", "192.168.1.123"],
                     "network.port": [123, 321],
                 },
             ),
