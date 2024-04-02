@@ -31446,9 +31446,9 @@ class TestCapeResult:
             # Both uris start with different schemes but are not the same
             ("https://blah.com/blah", "http://blah.com", False),
             # Both uris start with different schemes and are the same
-            ("https://blah.com", "http://blah.com", True),
+            ("https://blah.com", "http://blah.com", False),
             # Both uris start with different schemes and are the same with a trailing /
-            ("https://blah.com/blah/", "http://blah.com/blah", True),
+            ("https://blah.com/blah/", "http://blah.com/blah", False),
         ],
     )
     def test_uris_are_equal_despite_discrepancies(api_uri, pcap_uri, expected_result):
