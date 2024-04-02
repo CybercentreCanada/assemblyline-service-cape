@@ -590,8 +590,8 @@ class TestCapeResult:
     def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
         inetsim_network = IPv4Network("192.0.2.0/24")
         safelist = {
-            "match": {"network.dynamic.domain": ["blah.ca"]},
-            "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]},
+            "match": {"network.static.domain": ["blah.ca"]},
+            "regex": {"network.static.ip": ["127\.0\.0\..*"]},
         }
         assert (
             _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
@@ -765,7 +765,7 @@ class TestCapeResult:
                 "",
                 {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321},
                 "",
-                {"network.protocol": ["tcp"], "network.dynamic.ip": ["127.0.0.1"], "network.port": [123, 321]},
+                {"network.protocol": ["tcp"], "network.static.ip": ["127.0.0.1"], "network.port": [123, 321]},
             ),
             # Domain
             (
@@ -773,9 +773,9 @@ class TestCapeResult:
                 {"protocol": "tcp", "src_ip": "127.0.0.1", "dest_port": 123, "src_port": 321},
                 "",
                 {
-                    "network.dynamic.domain": ["blah.com"],
+                    "network.static.domain": ["blah.com"],
                     "network.protocol": ["tcp"],
-                    "network.dynamic.ip": ["127.0.0.1"],
+                    "network.static.ip": ["127.0.0.1"],
                     "network.port": [123, 321],
                 },
             ),
@@ -793,7 +793,7 @@ class TestCapeResult:
                 "192.168.1.231",
                 {
                     "network.protocol": ["tcp"],
-                    "network.dynamic.ip": ["192.168.1.231", "192.168.1.123"],
+                    "network.static.ip": ["192.168.1.231", "192.168.1.123"],
                     "network.port": [123, 321],
                 },
             ),
@@ -801,7 +801,7 @@ class TestCapeResult:
     )
     def test_tag_network_flow(dom, network_flow, dest_ip, expected_tags):
         netflows_sec = ResultTableSection("blah")
-        safelist = {"regex": {"network.dynamic.ip": ["192\.168\.0\..*"]}}
+        safelist = {"regex": {"network.static.ip": ["192\.168\.0\..*"]}}
         _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
         assert netflows_sec.tags == expected_tags
 
@@ -937,7 +937,7 @@ class TestCapeResult:
         safelist = {
             "match": {"file.path": []},
             "regex": {
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     ".+\\.adobe\\.com$",
                     "files\\.acrobat\\.com$",
                     "play\\.google\\.com$",
@@ -1042,7 +1042,7 @@ class TestCapeResult:
                     "upload\\.wikimedia\\.org$",
                     "ailab\\.criteo\\.com$",
                 ],
-                "network.dynamic.ip": [
+                "network.static.ip": [
                     "(^1\\.1\\.1\\.1$)|(^8\\.8\\.8\\.8$)",
                     "(?:127\\.|10\\.|192\\.168|172\\.1[6-9]\\.|172\\.2[0-9]\\.|172\\.3[01]\\.).*",
                     "255\\.255\\.255\\.255",
@@ -1053,7 +1053,7 @@ class TestCapeResult:
                     "168\\.63\\.129\\.16",
                     "192\\.0\\.2\\..*",
                 ],
-                "network.dynamic.uri": [
+                "network.static.uri": [
                     "(?:ftp|http)s?://localhost(?:$|/.*)",
                     "(?:ftp|http)s?://(?:(?:(?:10|127)(?:\\.(?:[2](?:[0-5][0-5]|[01234][6-9])|[1][0-9][0-9]|[1-9][0-9]|[0-9])){3})|(?:172\\.(?:1[6-9]|2[0-9]|3[0-1])(?:\\.(?:2[0-4][0-9]|25[0-5]|[1][0-9][0-9]|[1-9][0-9]|[0-9])){2}|(?:192\\.168(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])){2})))(?:$|/.*)",
                     "https?://schemas\\.android\\.com/apk/res(-auto|/android)",
@@ -1084,7 +1084,7 @@ class TestCapeResult:
                     "https?://code\\.jquery\\.com/.*",
                     "https?://cdnjs\\.cloudflare\\.com/.*",
                 ],
-                "network.dynamic.uri_path": ["\\/11\\/rdr\\/enu\\/win\\/nooem\\/none\\/message\\.zip"],
+                "network.static.uri_path": ["\\/11\\/rdr\\/enu\\/win\\/nooem\\/none\\/message\\.zip"],
             },
         }
 
@@ -1495,7 +1495,7 @@ class TestCapeResult:
         correct_network_result_section = ResultSection("Network Activity")
         dns_subsection = ResultTableSection(
             "Protocol: DNS",
-            tags={"network.protocol": ["dns"], "network.dynamic.domain": ["steamcommunity.com", "t.me"]},
+            tags={"network.protocol": ["dns"], "network.static.domain": ["steamcommunity.com", "t.me"]},
         )
         dns_subsection.add_row(TableRow({"domain": "steamcommunity.com", "answer": "192.0.2.214", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "t.me", "answer": "192.0.2.164", "type": "A"}))
@@ -1505,9 +1505,9 @@ class TestCapeResult:
             "TCP/UDP Network Traffic",
             tags={
                 "network.protocol": ["tcp"],
-                "network.dynamic.ip": ["95.216.164.28"],
+                "network.static.ip": ["95.216.164.28"],
                 "network.port": [80, 49764, 49763, 443, 49762, 49761, 49760, 49758, 49757, 49756],
-                "network.dynamic.domain": ["steamcommunity.com", "t.me"],
+                "network.static.domain": ["steamcommunity.com", "t.me"],
             },
         )
         tcp_udp_subsection.set_heuristic(1004)
@@ -1639,9 +1639,9 @@ class TestCapeResult:
             "Protocol: HTTP/HTTPS",
             tags={
                 "network.protocol": ["http"],
-                "network.dynamic.ip": ["95.216.164.28"],
-                "network.dynamic.uri": ["http://95.216.164.28/897", "http://95.216.164.28/package.zip"],
-                "network.dynamic.uri_path": ["/897", "/package.zip"],
+                "network.static.ip": ["95.216.164.28"],
+                "network.static.uri": ["http://95.216.164.28/897", "http://95.216.164.28/package.zip"],
+                "network.static.uri_path": ["/897", "/package.zip"],
             },
         )
         http_subsection.add_row(
@@ -1677,15 +1677,15 @@ class TestCapeResult:
             "Access Remote File",
             body="The sample attempted to download the following files:\n\thttp://95.216.164.28/package.zip",
             tags={
-                "network.dynamic.ip": ["95.216.164.28"],
-                "network.dynamic.uri": ["http://95.216.164.28/package.zip"],
-                "network.dynamic.uri_path": ["/package.zip"],
+                "network.static.ip": ["95.216.164.28"],
+                "network.static.uri": ["http://95.216.164.28/package.zip"],
+                "network.static.uri_path": ["/package.zip"],
             },
         )
         access_remote_subsection.set_heuristic(1003)
         http_subsection.add_subsection(access_remote_subsection)
         http_header_ioc_subsection = ResultTableSection(
-            "IOCs found in HTTP/HTTPS Headers", tags={"network.dynamic.ip": ["95.216.164.28"]}
+            "IOCs found in HTTP/HTTPS Headers", tags={"network.static.ip": ["95.216.164.28"]}
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "ip", "ioc": "95.216.164.28"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -1696,7 +1696,7 @@ class TestCapeResult:
         http_subsection.add_subsection(http_header_anomaly_sec)
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
-            tags={"network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
+            tags={"network.static.ip": ["95.216.164.28"], "network.static.uri": ["http://95.216.164.28"]},
         )
         unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
         unseen_subsection.set_heuristic(1013)
@@ -2567,7 +2567,7 @@ class TestCapeResult:
             "Protocol: DNS",
             tags={
                 "network.protocol": ["dns"],
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "microsoft.com",
                     "xfinity.com",
                     "linkedin.com",
@@ -2593,7 +2593,7 @@ class TestCapeResult:
             "Protocol: HTTP/HTTPS",
             tags={
                 "network.protocol": ["http"],
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "microsoft.com",
                     "xfinity.com",
                     "linkedin.com",
@@ -2603,7 +2603,7 @@ class TestCapeResult:
                     "oracle.com",
                     "cisco.com",
                 ],
-                "network.dynamic.uri": [
+                "network.static.uri": [
                     "http://microsoft.com:443",
                     "http://xfinity.com:443",
                     "http://linkedin.com:443",
@@ -2748,7 +2748,7 @@ class TestCapeResult:
         http_header_ioc_subsection = ResultTableSection(
             "IOCs found in HTTP/HTTPS Headers",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "broadcom.com",
                     "cisco.com",
                     "irs.gov",
@@ -2776,8 +2776,8 @@ class TestCapeResult:
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
             tags={
-                "network.dynamic.uri": ["https://google.com/", "https://verisign.com/"],
-                "network.dynamic.uri_path": ["/"],
+                "network.static.uri": ["https://google.com/", "https://verisign.com/"],
+                "network.static.uri_path": ["/"],
             },
         )
         for uri in ["https://google.com/", "https://verisign.com/"]:
@@ -21191,7 +21191,7 @@ class TestCapeResult:
             "Protocol: DNS",
             tags={
                 "network.protocol": ["dns"],
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "lykyvor.com",
                     "vopyrem.com",
                     "vonyjuc.com",
@@ -23200,7 +23200,7 @@ class TestCapeResult:
         tcp_udp_subsection = ResultTableSection(
             "TCP/UDP Network Traffic",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "qetyraq.com",
                     "ganyhus.com",
                     "lyvyxor.com",
@@ -24169,7 +24169,7 @@ class TestCapeResult:
             "Protocol: HTTP/HTTPS",
             tags={
                 "network.protocol": ["http"],
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "pumyxiv.com",
                     "lysyfyj.com",
                     "galyqaz.com",
@@ -24237,7 +24237,7 @@ class TestCapeResult:
                     "ganyhus.com",
                     "qetyraq.com",
                 ],
-                "network.dynamic.uri": [
+                "network.static.uri": [
                     "http://pumyxiv.com/login.php",
                     "http://lysyfyj.com/login.php",
                     "http://galyqaz.com/login.php",
@@ -24305,7 +24305,7 @@ class TestCapeResult:
                     "http://ganyhus.com/login.php",
                     "http://qetyraq.com/login.php",
                 ],
-                "network.dynamic.uri_path": ["/login.php"],
+                "network.static.uri_path": ["/login.php"],
             },
         )
 
@@ -25237,7 +25237,7 @@ class TestCapeResult:
         access_remote_subsection = ResultSection(
             "Access Remote File",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "pumyxiv.com",
                     "lysyfyj.com",
                     "galyqaz.com",
@@ -25305,7 +25305,7 @@ class TestCapeResult:
                     "ganyhus.com",
                     "qetyraq.com",
                 ],
-                "network.dynamic.uri": [
+                "network.static.uri": [
                     "http://pumyxiv.com/login.php",
                     "http://lysyfyj.com/login.php",
                     "http://galyqaz.com/login.php",
@@ -25373,7 +25373,7 @@ class TestCapeResult:
                     "http://ganyhus.com/login.php",
                     "http://qetyraq.com/login.php",
                 ],
-                "network.dynamic.uri_path": ["/login.php"],
+                "network.static.uri_path": ["/login.php"],
             },
             body="The sample attempted to download the following files:\n\thttp://pumyxiv.com/login.php\n\thttp://lysyfyj.com/login.php\n\thttp://galyqaz.com/login.php\n\thttp://vonyzuf.com/login.php\n\thttp://qedyfyq.com/login.php\n\thttp://qekyqop.com/login.php\n\thttp://lymyxid.com/login.php\n\thttp://lyryvex.com/login.php\n\thttp://gadyfuh.com/login.php\n\thttp://vopybyt.com/login.php\n\thttp://puvytuq.com/login.php\n\thttp://volyqat.com/login.php\n\thttp://vofygum.com/login.php\n\thttp://qeqyxov.com/login.php\n\thttp://vowycac.com/login.php\n\thttp://lyxywer.com/login.php\n\thttp://lygygin.com/login.php\n\thttp://gaqycos.com/login.php\n\thttp://qexyryl.com/login.php\n\thttp://vojyjof.com/login.php\n\thttp://gahyhob.com/login.php\n\thttp://qetyvep.com/login.php\n\thttp://qegyhig.com/login.php\n\thttp://vocyruk.com/login.php\n\thttp://qegyqaq.com/login.php\n\thttp://purydyv.com/login.php\n\thttp://lyvytuj.com/login.php\n\thttp://qeqysag.com/login.php\n\thttp://lyxylux.com/login.php\n\thttp://puzywel.com/login.php\n\thttp://gaqydeb.com/login.php\n\thttp://lysynur.com/login.php\n\thttp://vofymik.com/login.php\n\thttp://pufygug.com/login.php\n\thttp://puvyxil.com/login.php\n\thttp://volykyc.com/login.php\n\thttp://pujyjav.com/login.php\n\thttp://qexylup.com/login.php\n\thttp://pufymoq.com/login.php\n\thttp://qebytiq.com/login.php\n\thttp://vowydef.com/login.php\n\thttp://lykyjad.com/login.php\n\thttp://gacyryw.com/login.php\n\thttp://ganypih.com/login.php\n\thttp://pupybul.com/login.php\n\thttp://galykes.com/login.php\n\thttp://qekykev.com/login.php\n\thttp://pumypog.com/login.php\n\thttp://lygymoj.com/login.php\n\thttp://gatyvyz.com/login.php\n\thttp://gacyzuz.com/login.php\n\thttp://vonypom.com/login.php\n\thttp://lyryfyd.com/login.php\n\thttp://vocyzit.com/login.php\n\thttp://purycap.com/login.php\n\thttp://gadyniw.com/login.php\n\thttp://qedynul.com/login.php\n\thttp://lymysan.com/login.php\n\thttp://gahyqah.com/login.php\n\thttp://puzylyp.com/login.php\n\thttp://vojyqem.com/login.php\n\thttp://qetyfuv.com/login.php\n\thttp://gatyfus.com/login.php\n\thttp://lyvyxor.com/login.php\n\thttp://ganyhus.com/login.php\n\thttp://qetyraq.com/login.php",
         )
@@ -25382,7 +25382,7 @@ class TestCapeResult:
         http_header_ioc_subsection = ResultTableSection(
             "IOCs found in HTTP/HTTPS Headers",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "gacyryw.com",
                     "gacyzuz.com",
                     "gadyfuh.com",
@@ -25451,7 +25451,7 @@ class TestCapeResult:
                     "vowydef.com",
                     "www.google.com",
                 ],
-                "network.dynamic.uri": ["http://www.google.com"],
+                "network.static.uri": ["http://www.google.com"],
             },
         )
         for domain in [
@@ -26016,7 +26016,7 @@ class TestCapeResult:
         ]
 
         unseen_ioc_section = ResultTableSection(
-            "Unseen IOCs found in API calls", tags={"network.dynamic.domain": all_domains}
+            "Unseen IOCs found in API calls", tags={"network.static.domain": all_domains}
         )
         for domain in all_domains:
             unseen_ioc_section.add_row(TableRow({"ioc_type": "domain", "ioc": domain}))
@@ -29448,7 +29448,7 @@ class TestCapeResult:
             parent=correct_network_result_section,
         )
         dns_server_sec.add_line("\t-\t1.2.3.4")
-        dns_server_sec.add_tag("network.dynamic.ip", "1.2.3.4")
+        dns_server_sec.add_tag("network.static.ip", "1.2.3.4")
         process_network(
             network,
             parent_result_section,
@@ -29548,7 +29548,7 @@ class TestCapeResult:
         correct_network_result_section = ResultSection("Network Activity")
 
         dns_subsection = ResultTableSection(
-            "Protocol: DNS", tags={"network.protocol": ["dns"], "network.dynamic.domain": ["microsoft.com"]}
+            "Protocol: DNS", tags={"network.protocol": ["dns"], "network.static.domain": ["microsoft.com"]}
         )
         dns_subsection.add_row(TableRow({"domain": "microsoft.com", "answer": "192.0.2.126", "type": "A"}))
         dns_subsection.set_heuristic(1000)
@@ -29557,8 +29557,8 @@ class TestCapeResult:
             "Protocol: HTTP/HTTPS",
             tags={
                 "network.protocol": ["http"],
-                "network.dynamic.domain": ["microsoft.com"],
-                "network.dynamic.uri": ["https://microsoft.com"],
+                "network.static.domain": ["microsoft.com"],
+                "network.static.uri": ["https://microsoft.com"],
             },
         )
         http_subsection.add_row(
@@ -29580,7 +29580,7 @@ class TestCapeResult:
         http_subsection.set_heuristic(1002)
 
         http_header_ioc_subsection = ResultTableSection(
-            "IOCs found in HTTP/HTTPS Headers", tags={"network.dynamic.domain": ["microsoft.com"]}
+            "IOCs found in HTTP/HTTPS Headers", tags={"network.static.domain": ["microsoft.com"]}
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -29687,9 +29687,9 @@ class TestCapeResult:
         unseen_res = ResultTableSection(
             "Unseen IOCs found in API calls",
             tags={
-                "network.dynamic.domain": ["blah.com"],
-                "network.dynamic.uri": ["http://blah.com/blah"],
-                "network.dynamic.uri_path": ["/blah"],
+                "network.static.domain": ["blah.com"],
+                "network.static.uri": ["http://blah.com/blah"],
+                "network.static.uri_path": ["/blah"],
             },
         )
         unseen_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
@@ -29815,8 +29815,8 @@ class TestCapeResult:
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        expected_res_sec.add_tag("network.static.ip", "1.1.1.1")
+        expected_res_sec.add_tag("network.static.domain", "blah.com")
         actual_res_sec = _get_dns_sec(resolved_ips, safelist)
         assert check_section_equality(actual_res_sec, expected_res_sec)
 
@@ -29829,8 +29829,8 @@ class TestCapeResult:
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        expected_res_sec.add_tag("network.static.ip", "1.1.1.1")
+        expected_res_sec.add_tag("network.static.domain", "blah.com")
         actual_res_sec = _get_dns_sec(resolved_ips, safelist)
         assert check_section_equality(actual_res_sec, expected_res_sec)
 
@@ -29841,7 +29841,7 @@ class TestCapeResult:
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        expected_res_sec.add_tag("network.static.domain", "blah.com")
         expected_res_sec.add_subsection(
             ResultSection(
                 title_text="DNS services are down!",
@@ -29860,8 +29860,8 @@ class TestCapeResult:
         )
         expected_res_sec.set_heuristic(1000)
         expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        expected_res_sec.add_tag("network.static.ip", "1.1.1.1")
+        expected_res_sec.add_tag("network.static.domain", "blah.com")
         expected_dns_query_res_sec = ResultSection(
             "Non-Standard DNS Query Used", body="CAPE detected a non-standard DNS query being used"
         )
@@ -30369,9 +30369,9 @@ class TestCapeResult:
             # Not safelisted
             ("blah.com", {}, "http://blah.com/blah", False),
             # Host is safelisted domain
-            ("blah.com", {"match": {"network.dynamic.domain": ["blah.com"]}}, "http://blah.com/blah", True),
+            ("blah.com", {"match": {"network.static.domain": ["blah.com"]}}, "http://blah.com/blah", True),
             # URI is safelisted URI
-            ("blah.com", {"match": {"network.dynamic.uri": ["http://blah.com/blah"]}}, "http://blah.com/blah", True),
+            ("blah.com", {"match": {"network.static.uri": ["http://blah.com/blah"]}}, "http://blah.com/blah", True),
             # /wpad.dat is in URI
             ("blah.com", {}, "http://blah.com/wpad.dat", True),
             # URI is not a URI
@@ -31423,9 +31423,9 @@ class TestCapeResult:
         mocker.patch.object(default_so, "sandboxes", return_value="blah")
         safelist = {
             "regex": {
-                "network.dynamic.ip": ["(?:127\.|10\.|192\.168|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.).*"],
-                "network.dynamic.domain": [".*\.adobe\.com$"],
-                "network.dynamic.uri": ["(?:ftp|http)s?://localhost(?:$|/.*)"],
+                "network.static.ip": ["(?:127\.|10\.|192\.168|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.).*"],
+                "network.static.domain": [".*\.adobe\.com$"],
+                "network.static.uri": ["(?:ftp|http)s?://localhost(?:$|/.*)"],
             }
         }
         dns_servers = ["2.2.2.2"]
@@ -31488,10 +31488,10 @@ class TestCapeResult:
         ]
         correct_result_section = ResultSection("Non-HTTP Traffic Over HTTP Ports")
         correct_result_section.set_heuristic(1005)
-        correct_result_section.add_tag("network.dynamic.ip", "127.0.0.1")
-        correct_result_section.add_tag("network.dynamic.ip", "127.0.0.2")
-        correct_result_section.add_tag("network.dynamic.domain", "blah.com")
-        correct_result_section.add_tag("network.dynamic.domain", "blah2.com")
+        correct_result_section.add_tag("network.static.ip", "127.0.0.1")
+        correct_result_section.add_tag("network.static.ip", "127.0.0.2")
+        correct_result_section.add_tag("network.static.domain", "blah.com")
+        correct_result_section.add_tag("network.static.domain", "blah2.com")
         correct_result_section.add_tag("network.port", 80)
         correct_result_section.add_tag("network.port", 443)
         correct_result_section.set_body(json.dumps(network_flows), BODY_FORMAT.TABLE)
@@ -31636,9 +31636,9 @@ class TestCapeResult:
         )
 
         correct_ioc_table = ResultTableSection("Event Log IOCs")
-        correct_ioc_table.add_tag("network.dynamic.domain", "abc.org")
-        correct_ioc_table.add_tag("network.dynamic.domain", "blah.com")
-        correct_ioc_table.add_tag("network.dynamic.uri", "https://abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "blah.com")
+        correct_ioc_table.add_tag("network.static.uri", "https://abc.org")
         table_data = [
             {"ioc_type": "domain", "ioc": "abc.org"},
             {"ioc_type": "domain", "ioc": "blah.com"},
@@ -31769,7 +31769,7 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is too small
@@ -31783,13 +31783,13 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.com"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             (
@@ -31798,7 +31798,7 @@ class TestCapeResult:
                     2: {"name": "yaba.exe", "network_calls": [{"send": {"buffer": "blahblah.ca"}}]},
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
-                {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
+                {"network.static.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
             ),
             (
@@ -31809,7 +31809,7 @@ class TestCapeResult:
                     }
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
         ],
@@ -32308,7 +32308,7 @@ class TestCapeResult:
 
         # Case 4: False Positive Signature with False Positive mark
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}]}
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        safelist = {"match": {"network.static.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
             name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
@@ -32322,7 +32322,7 @@ class TestCapeResult:
                 {"domain": "google.ru"},
             ]
         }
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        safelist = {"match": {"network.static.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
             name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
         )
@@ -32532,7 +32532,7 @@ class TestCapeResult:
             _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
 
         # Case 7: Mark item contains a safelisted value
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
+        safelist = {"match": {"network.static.domain": ["google.com"]}}
         mark_items = [("f", "google.com")]
         ioc_res = _handle_mark_data(
             mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
@@ -32609,22 +32609,22 @@ class TestCapeResult:
             ("process", "regsrv32.exe, PID 123", {"dynamic.process.file_name": ["regsrv32.exe"]}, False),
             # Standard key for dynamic.process.command_line, nothing special with value
             ("command", "blah", {"dynamic.process.command_line": ["blah"]}, False),
-            # Standard key for network.dynamic.ip, nothing special with value
-            ("ip", "1.1.1.1", {"network.dynamic.ip": ["1.1.1.1"]}, False),
-            # Standard key for network.dynamic.ip, : in value
-            ("ip", "1.1.1.1:blah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
-            # Standard key for network.dynamic.ip, : and ( in value
-            ("ip", "1.1.1.1:blah (blahblah", {"network.dynamic.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
+            # Standard key for network.static.ip, nothing special with value
+            ("ip", "1.1.1.1", {"network.static.ip": ["1.1.1.1"]}, False),
+            # Standard key for network.static.ip, : in value
+            ("ip", "1.1.1.1:blah", {"network.static.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
+            # Standard key for network.static.ip, : and ( in value
+            ("ip", "1.1.1.1:blah (blahblah", {"network.static.ip": ["1.1.1.1"], "network.port": ["blah"]}, False),
             # Standard key for dynamic.registry_key, nothing special with value
             ("regkey", "blah", {"dynamic.registry_key": ["blah"]}, False),
-            # Standard key for network.dynamic.uri, nothing special with value
+            # Standard key for network.static.uri, nothing special with value
             (
                 "url",
                 "http://blah.com/blahblah",
                 {
-                    "network.dynamic.uri": ["http://blah.com/blahblah"],
-                    "network.dynamic.domain": ["blah.com"],
-                    "network.dynamic.uri_path": ["/blahblah"],
+                    "network.static.uri": ["http://blah.com/blahblah"],
+                    "network.static.domain": ["blah.com"],
+                    "network.static.uri_path": ["/blahblah"],
                 },
                 False
             ),
@@ -32638,14 +32638,14 @@ class TestCapeResult:
             ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}, False),
             # IOC found in data
             ("data", "Hey you I want to callout to http://blah.com", {}, False),
-            # Standard key for network.dynamic.uri, test uses_https_proxy_in_sandbox
+            # Standard key for network.static.uri, test uses_https_proxy_in_sandbox
             (
                 "url",
                 "http://blah.com/blahblah:443",
                 {
-                    "network.dynamic.uri": ["https://blah.com/blahblah"],
-                    "network.dynamic.domain": ["blah.com"],
-                    "network.dynamic.uri_path": ["/blahblah"],
+                    "network.static.uri": ["https://blah.com/blahblah"],
+                    "network.static.domain": ["blah.com"],
+                    "network.static.uri_path": ["/blahblah"],
                 },
                 True
             ),
