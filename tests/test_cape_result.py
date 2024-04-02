@@ -801,7 +801,7 @@ class TestCapeResult:
     )
     def test_tag_network_flow(dom, network_flow, dest_ip, expected_tags):
         netflows_sec = ResultTableSection("blah")
-        safelist = {"regex": {"network.static.ip": ["192\.168\.0\..*"]}}
+        safelist = {"regex": {"network.dynamic.ip": ["192\.168\.0\..*"]}}
         _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
         assert netflows_sec.tags == expected_tags
 
