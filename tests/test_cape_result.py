@@ -1495,7 +1495,7 @@ class TestCapeResult:
         correct_network_result_section = ResultSection("Network Activity")
         dns_subsection = ResultTableSection(
             "Protocol: DNS",
-            tags={"network.protocol": ["dns"], "network.static.domain": ["steamcommunity.com", "t.me"]},
+            tags={"network.protocol": ["dns"], "network.dynamic.domain": ["steamcommunity.com", "t.me"]},
         )
         dns_subsection.add_row(TableRow({"domain": "steamcommunity.com", "answer": "192.0.2.214", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "t.me", "answer": "192.0.2.164", "type": "A"}))
@@ -1505,9 +1505,9 @@ class TestCapeResult:
             "TCP/UDP Network Traffic",
             tags={
                 "network.protocol": ["tcp"],
-                "network.static.ip": ["95.216.164.28"],
+                "network.dynamic.ip": ["95.216.164.28"],
                 "network.port": [80, 49764, 49763, 443, 49762, 49761, 49760, 49758, 49757, 49756],
-                "network.static.domain": ["steamcommunity.com", "t.me"],
+                "network.dynamic.domain": ["steamcommunity.com", "t.me"],
             },
         )
         tcp_udp_subsection.set_heuristic(1004)
@@ -1639,9 +1639,9 @@ class TestCapeResult:
             "Protocol: HTTP/HTTPS",
             tags={
                 "network.protocol": ["http"],
-                "network.static.ip": ["95.216.164.28"],
-                "network.static.uri": ["http://95.216.164.28/897", "http://95.216.164.28/package.zip"],
-                "network.static.uri_path": ["/897", "/package.zip"],
+                "network.dynamic.ip": ["95.216.164.28"],
+                "network.dynamic.uri": ["http://95.216.164.28/897", "http://95.216.164.28/package.zip"],
+                "network.dynamic.uri_path": ["/897", "/package.zip"],
             },
         )
         http_subsection.add_row(
@@ -1677,15 +1677,15 @@ class TestCapeResult:
             "Access Remote File",
             body="The sample attempted to download the following files:\n\thttp://95.216.164.28/package.zip",
             tags={
-                "network.static.ip": ["95.216.164.28"],
-                "network.static.uri": ["http://95.216.164.28/package.zip"],
-                "network.static.uri_path": ["/package.zip"],
+                "network.dynamic.ip": ["95.216.164.28"],
+                "network.dynamic.uri": ["http://95.216.164.28/package.zip"],
+                "network.dynamic.uri_path": ["/package.zip"],
             },
         )
         access_remote_subsection.set_heuristic(1003)
         http_subsection.add_subsection(access_remote_subsection)
         http_header_ioc_subsection = ResultTableSection(
-            "IOCs found in HTTP/HTTPS Headers", tags={"network.static.ip": ["95.216.164.28"]}
+            "IOCs found in HTTP/HTTPS Headers", tags={"network.dynamic.ip": ["95.216.164.28"]}
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "ip", "ioc": "95.216.164.28"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -1696,7 +1696,7 @@ class TestCapeResult:
         http_subsection.add_subsection(http_header_anomaly_sec)
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
-            tags={"network.static.ip": ["95.216.164.28"], "network.static.uri": ["http://95.216.164.28"]},
+            tags={"network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
         )
         unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
         unseen_subsection.set_heuristic(1013)
