@@ -1091,7 +1091,7 @@ def process_network(
             _ = add_tag(http_sec, "network.dynamic.uri", request_uri, safelist)
 
             for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_header_sec)
+                extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
@@ -1212,7 +1212,7 @@ def _process_unseen_iocs(
                 for _, v in network_details.items():
                     if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
                         extract_iocs_from_text_blob(
-                            v, possibly_unseen_iocs_res, enforce_char_min=True, safelist=safelist
+                            v, possibly_unseen_iocs_res, enforce_char_min=True, safelist=safelist, is_network_static=True
                         )
 
     if possibly_unseen_iocs_res.body:
@@ -2079,7 +2079,7 @@ def process_all_events(
             process_seen = True
 
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
-            extract_iocs_from_text_blob(event.command_line, event_ioc_table)
+            extract_iocs_from_text_blob(event.command_line, event_ioc_table, is_network_static=True)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
                 time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
@@ -2223,7 +2223,7 @@ def process_buffers(
                 buffer = call["OutputDebugStringA"]["string"]
             if not buffer:
                 continue
-            extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True)
+            extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
             table_row = {
                 "Process": process_name_to_be_displayed,
                 "Source": "Windows API",
@@ -2244,7 +2244,7 @@ def process_buffers(
                     ):
                         continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist)
+                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True)
                     # We only want to display network buffers if an IOC is found
                     length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
