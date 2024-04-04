@@ -18,7 +18,7 @@ licence_count: 0
 privileged: true
 
 config:
-# See README for in-depth descriptions of configuration values
+  # See README for in-depth descriptions of configuration values
   # CAPE host configurations
 
   remote_host_details:

@@ -590,8 +590,8 @@ class TestCapeResult:
     def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
         inetsim_network = IPv4Network("192.0.2.0/24")
         safelist = {
-            "match": {"network.dynamic.domain": ["blah.ca"]},
-            "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]},
+            "match": {"network.static.domain": ["blah.ca"]},
+            "regex": {"network.static.ip": ["127\.0\.0\..*"]},
         }
         assert (
             _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
@@ -31636,9 +31636,9 @@ class TestCapeResult:
         )
 
         correct_ioc_table = ResultTableSection("Event Log IOCs")
-        correct_ioc_table.add_tag("network.dynamic.domain", "abc.org")
-        correct_ioc_table.add_tag("network.dynamic.domain", "blah.com")
-        correct_ioc_table.add_tag("network.dynamic.uri", "https://abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "blah.com")
+        correct_ioc_table.add_tag("network.static.uri", "https://abc.org")
         table_data = [
             {"ioc_type": "domain", "ioc": "abc.org"},
             {"ioc_type": "domain", "ioc": "blah.com"},
@@ -31769,7 +31769,7 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is too small
@@ -31783,13 +31783,13 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.com"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             (
@@ -31798,7 +31798,7 @@ class TestCapeResult:
                     2: {"name": "yaba.exe", "network_calls": [{"send": {"buffer": "blahblah.ca"}}]},
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
-                {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
+                {"network.static.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
             ),
             (
@@ -31809,7 +31809,7 @@ class TestCapeResult:
                     }
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
         ],
@@ -32660,8 +32660,8 @@ class TestCapeResult:
             correct_iocs_res = ResultTableSection("IOCs found in Signature data")
             correct_iocs_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
             correct_iocs_res.add_row(TableRow({"ioc_type": "uri", "ioc": "http://blah.com"}))
-            correct_iocs_res.add_tag("network.dynamic.domain", "blah.com")
-            correct_iocs_res.add_tag("network.dynamic.uri", "http://blah.com")
+            correct_iocs_res.add_tag("network.static.domain", "blah.com")
+            correct_iocs_res.add_tag("network.static.uri", "http://blah.com")
             assert check_section_equality(iocs_res, correct_iocs_res)
 
     @staticmethod
