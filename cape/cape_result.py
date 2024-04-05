@@ -2318,27 +2318,7 @@ def process_buffers(
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
 
-    for filename, b_buffer, buffer in network_buffers:
-        pebuffer = bytearray(b_buffer)
-        try:
-            PE_from_buffer = pefile.PE(data=pebuffer)
-            if is_valid(PE_from_buffer):
-                PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
-        except Exception as E:
-            try:
-                if lief.is_pe(pebuffer):
-                    PE_from_buffer = lief.PE.parse(pebuffer)
-                    PE_from_buffer.build()
-                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
-                elif lief.is_pe(buffer):
-                    PE_from_buffer = lief.PE.parse(buffer)
-                    PE_from_buffer.build()
-                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
-                else:
-                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
-                        f.write(buffer)
-            except Exception as E:
-                continue
+    buffers.extend(network_buffers)
     for filename, b_buffer, buffer in buffers:
         pebuffer = bytearray(b_buffer)
         try:
