@@ -576,9 +576,9 @@ class TestCapeResult:
             # Domain is not safelisted
             ("blah.com", "1.1.1.1", [], {}, False),
             # Domain is safelisted
-            ("blah.ca", "1.1.1.1", [], {}, False),
+            ("blah.ca", "1.1.1.1", [], {}, True),
             # No domain and IP is safelisted
-            ("", "127.0.0.1", [], {}, False),
+            ("", "127.0.0.1", [], {}, True),
             # No domain and IP is not safelisted but is in the dns servers list
             ("", "8.8.8.8", ["8.8.8.8"], {}, True),
             # Domain is not safelisted but dest_ip is part of the resolved IPs and IP is in the INetSim network
@@ -590,8 +590,8 @@ class TestCapeResult:
     def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
         inetsim_network = IPv4Network("192.0.2.0/24")
         safelist = {
-            "match": {"network.static.domain": ["blah.ca"]},
-            "regex": {"network.static.ip": ["127\.0\.0\..*"]},
+            "match": {"network.dynamic.domain": ["blah.ca"]},
+            "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]},
         }
         assert (
             _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
