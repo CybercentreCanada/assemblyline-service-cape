@@ -1374,7 +1374,8 @@ def _get_dns_map(
             continue
 
         # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
-        if dns_type == "PTR" and "in-addr.arpa" in request:
+        if dns_type == "PTR":
+            continue
             continue
             # Determine the ip from the ARPA request by extracting and reversing the IP from the "ip"
         #    request = request.replace(".in-addr.arpa", "")
