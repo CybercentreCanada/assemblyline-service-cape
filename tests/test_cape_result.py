@@ -1685,7 +1685,7 @@ class TestCapeResult:
         access_remote_subsection.set_heuristic(1003)
         http_subsection.add_subsection(access_remote_subsection)
         http_header_ioc_subsection = ResultTableSection(
-            "IOCs found in HTTP/HTTPS Headers", tags={"network.dynamic.ip": ["95.216.164.28"]}
+            "IOCs found in HTTP/HTTPS Headers", tags={"network.static.ip": ["95.216.164.28"]}
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "ip", "ioc": "95.216.164.28"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -2748,7 +2748,7 @@ class TestCapeResult:
         http_header_ioc_subsection = ResultTableSection(
             "IOCs found in HTTP/HTTPS Headers",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "broadcom.com",
                     "cisco.com",
                     "irs.gov",
@@ -25382,7 +25382,7 @@ class TestCapeResult:
         http_header_ioc_subsection = ResultTableSection(
             "IOCs found in HTTP/HTTPS Headers",
             tags={
-                "network.dynamic.domain": [
+                "network.static.domain": [
                     "gacyryw.com",
                     "gacyzuz.com",
                     "gadyfuh.com",
@@ -25451,7 +25451,7 @@ class TestCapeResult:
                     "vowydef.com",
                     "www.google.com",
                 ],
-                "network.dynamic.uri": ["http://www.google.com"],
+                "network.static.uri": ["http://www.google.com"],
             },
         )
         for domain in [
@@ -29580,7 +29580,7 @@ class TestCapeResult:
         http_subsection.set_heuristic(1002)
 
         http_header_ioc_subsection = ResultTableSection(
-            "IOCs found in HTTP/HTTPS Headers", tags={"network.dynamic.domain": ["microsoft.com"]}
+            "IOCs found in HTTP/HTTPS Headers", tags={"network.static.domain": ["microsoft.com"]}
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -31636,9 +31636,9 @@ class TestCapeResult:
         )
 
         correct_ioc_table = ResultTableSection("Event Log IOCs")
-        correct_ioc_table.add_tag("network.dynamic.domain", "abc.org")
-        correct_ioc_table.add_tag("network.dynamic.domain", "blah.com")
-        correct_ioc_table.add_tag("network.dynamic.uri", "https://abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "abc.org")
+        correct_ioc_table.add_tag("network.static.domain", "blah.com")
+        correct_ioc_table.add_tag("network.static.uri", "https://abc.org")
         table_data = [
             {"ioc_type": "domain", "ioc": "abc.org"},
             {"ioc_type": "domain", "ioc": "blah.com"},
@@ -31769,7 +31769,7 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is too small
@@ -31783,13 +31783,13 @@ class TestCapeResult:
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah.com"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
-                {"network.dynamic.ip": ["127.0.0.1"]},
+                {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
             ),
             (
@@ -31798,7 +31798,7 @@ class TestCapeResult:
                     2: {"name": "yaba.exe", "network_calls": [{"send": {"buffer": "blahblah.ca"}}]},
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
-                {"network.dynamic.domain": ["blah.com", "blahblah.ca"]},
+                {"network.static.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
             ),
             (
@@ -31809,7 +31809,7 @@ class TestCapeResult:
                     }
                 },
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
-                {"network.dynamic.domain": ["blah.com"]},
+                {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
             ),
         ],
