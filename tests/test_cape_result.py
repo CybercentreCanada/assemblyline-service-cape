@@ -29916,7 +29916,7 @@ class TestCapeResult:
                 [{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
                 {},
                 "Internet",
-                {"10.10.10.10": [{"domain": "answer"}]},
+                {},
             ),
             (
                 [

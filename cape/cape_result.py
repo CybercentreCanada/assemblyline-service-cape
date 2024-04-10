@@ -1374,19 +1374,7 @@ def _get_dns_map(
             continue
 
         # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
-        if dns_type == "PTR" and "in-addr.arpa" in request:
-            # Determine the ip from the ARPA request by extracting and reversing the IP from the "ip"
-            request = request.replace(".in-addr.arpa", "")
-            split_ip = request.split(".")
-            request = f"{split_ip[3]}.{split_ip[2]}.{split_ip[1]}.{split_ip[0]}"
-
-            # If PTR and A request for the same ip-domain pair, we choose the A
-            if request in resolved_ips:
-                continue
-
-            resolved_ips[request].append({"domain": answer})
-        elif dns_type == "PTR" and "ip6.arpa" in request:
-            # Drop it
+        if dns_type == "PTR":
             continue
         # Some Windows nonsense
         elif answer in dns_servers:
