@@ -10,6 +10,9 @@ from re import match as re_match
 from re import search, sub
 from typing import Any, Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
+import pefile
+import lief
+from peutils import is_valid
 
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
@@ -111,7 +114,9 @@ HTTP_API_CALLS = [
     "WinHttpConnect",
     "WSASend",
 ]
-BUFFER_API_CALLS = ["send", "WSASend"]
+BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
+CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]
+MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
     "bat",
@@ -192,7 +197,9 @@ MACHINE_NAME_REGEX = (
 )
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
+BUFFER_PATH = os.path.join("/tmp", "buffers")
 
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
 
 # noinspection PyBroadException
 def generate_al_result(
@@ -2199,16 +2206,59 @@ def process_buffers(
     buffer_res.set_column_order(["Process", "Source", "Buffer"])
     buffer_ioc_table = ResultTableSection("Buffer IOCs")
     buffer_body = []
-
+    buffers = []
     for process, process_details in process_map.items():
         count_per_source_per_process = 0
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
-            if call.get("CryptDecrypt"):
-                buffer = call["CryptDecrypt"]["buffer"]
-            elif call.get("OutputDebugStringA"):
-                buffer = call["OutputDebugStringA"]["string"]
+            
+            crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
+            if crypt_api:
+                buffer = call[crypt_api]["buffer"]
+                b_buffer = bytes(buffer, 'utf-8')
+                if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                    hash = sha256(b_buffer).hexdigest()
+                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer, buffer))
+     
+            else:
+                misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
+                if misc_api :
+                    buffer = call[misc_api]["string"]
+                    b_buffer = bytes(buffer, 'utf-8')
+                    if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(b_buffer).hexdigest()
+                        buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer, buffer))
+            # Note not all calls have the key name consistent with their capemon api output
+            #"CryptDecrypt" --> "buffer " Depricated but still used
+            #"CryptEncrypt" --> "buffer" Depricated but still used
+            # "BCryptDecrypt" --> "buffer" Key in memory
+            #"BCryptEncrypt" --> "buffer" Key in memory
+            #"NCryptDecrypt" --> "buffer"  #key in a KSP
+            #"NCryptEncrypt" --> "buffer" key in a KSP
+            #Commented out since in most cases the encryption and decryption must be done on the same computer
+            #"CryptProtectData" --> ? 
+            #"CryptUnProtectData" --> ?
+            # Commented out since no proof of requirement is there
+            #"CryptDecryptMessage" --> ?
+            #"CryptEncryptMessage" --> ?
+            #"CryptDecodeMessage" --> ?
+            # Do we want hashing as well ?
+            #"CryptHashMessage" --> ?
+
+            #"OutputDebugStringA" --> "string"
+            #"OutputDebugStringW" --> "string"
+
+            #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
+            #"CryptProtectMemory" --> ?
+            #"CryptUnprotectMemory" --> ?
+            #The need for compression/decompression buffer is probably not needed
+            #"RtlDecompressBuffer" --> ?
+            #"RtlCompressBuffer" --> ?
+
+            # Do we want hashing as well ?
+           #"CryptHashData" --> ?
+
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2220,8 +2270,8 @@ def process_buffers(
             if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
                 buffer_body.append(table_row)
                 count_per_source_per_process += 1
-
         count_per_source_per_process = 0
+        network_buffers = []
         for network_call in process_details.get("network_calls", []):
             for api_call in BUFFER_API_CALLS:
                 if api_call in network_call:
@@ -2248,7 +2298,38 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
+                        b_buffer = bytes(buffer, 'utf-8')
+                        if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                            hash = sha256(b_buffer).hexdigest()
+                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer, buffer))
 
+    if not os.path.exists(BUFFER_PATH):
+        os.mkdir(BUFFER_PATH)
+
+    buffers.extend(network_buffers)
+    for filename, b_buffer, buffer in buffers:
+        pebuffer = bytearray(b_buffer)
+        try:
+            PE_from_buffer = pefile.PE(data=pebuffer)
+            if is_valid(PE_from_buffer):
+                PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+        except Exception as E:
+            try:
+                if lief.is_pe(pebuffer):
+                    PE_from_buffer = lief.PE.parse(pebuffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                elif lief.is_pe(buffer):
+                    PE_from_buffer = lief.PE.parse(buffer)
+                    PE_from_buffer.build()
+                    PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
+                else:
+                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
+                        f.write(pebuffer)
+            except Exception as E:
+                continue
+
+    # Element in buffer_body should be extracted or scanned for carving PE
     if len(buffer_body) > 0:
         [buffer_res.add_row(TableRow(**buffer)) for buffer in buffer_body]
         if buffer_ioc_table.body:

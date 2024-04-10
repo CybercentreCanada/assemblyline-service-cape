@@ -1,4 +1,5 @@
 import json
+import shutil
 import os
 from ipaddress import IPv4Network, ip_network
 
@@ -32,6 +33,11 @@ from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
     PS1_COMMANDS_PATH,
+    BUFFER_PATH,
+    BUFFER_API_CALLS,
+    CRYPT_BUFFER_CALLS,
+    MISC_BUFFER_CALLS,
+    PE_INDICATORS,
     _add_process_context,
     _api_ioc_in_network_traffic,
     _create_network_connection_for_http_call,
@@ -31750,27 +31756,30 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "process_map, correct_buffer_body, correct_tags, correct_body",
+        "process_map, correct_buffer_body, correct_tags, correct_body, expected_extracted_buffers",
         [
-            ({0: {"decrypted_buffers": []}}, None, {}, []),
-            ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, []),
+            ({0: {"decrypted_buffers": []}}, None, {}, [], {"PE": False}),
+            ({0: {"decrypted_buffers": [{"blah": "blah"}]}}, None, {}, [], {"PE": False}),
             (
                 {0: {"decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "crypt": ["CryptDecrypt"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "blah"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
                 {},
                 [],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1"}]',
                 {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is too small
             (
@@ -31778,6 +31787,7 @@ class TestCapeResult:
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.ca"}]',
                 {},
                 [],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             # Buffer min is enforced for iocs pulled from buffers, this domain is just right
             (
@@ -31785,12 +31795,14 @@ class TestCapeResult:
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah.com"}]',
                 {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {0: {"decrypted_buffers": [{"OutputDebugStringA": {"string": "127.0.0.1:999"}}]}},
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "127.0.0.1:999"}]',
                 {"network.static.ip": ["127.0.0.1"]},
                 [{"ioc_type": "ip", "ioc": "127.0.0.1"}],
+                {"PE": False, "misc": ["OutputDebugStringA"]},
             ),
             (
                 {
@@ -31800,6 +31812,7 @@ class TestCapeResult:
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}, {"Process": "yaba.exe (2)", "Source": "Network", "Buffer": "blahblah.ca"}]',
                 {"network.static.domain": ["blah.com", "blahblah.ca"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}, {"ioc_type": "domain", "ioc": "blahblah.ca"}],
+                {"PE": False, "net": ["send"]},
             ),
             (
                 {
@@ -31811,12 +31824,50 @@ class TestCapeResult:
                 '[{"Process": "blah.exe (1)", "Source": "Network", "Buffer": "blah.com"}]',
                 {"network.static.domain": ["blah.com"]},
                 [{"ioc_type": "domain", "ioc": "blah.com"}],
+                {"PE": False, "net": ["send"]},
+            ),
+            (
+                {0: {"decrypted_buffers": [{"CryptEncrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+                {"PE": False, "crypt": ["CryptEncrypt"]},
+            ),
+            (
+                {0: {"decrypted_buffers": [{"BCryptDecrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+                {"PE": False, "crypt": ["BCryptDecrypt"]},
+            ),
+            (
+                {0: {"decrypted_buffers": [{"BCryptEncrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+                {"PE": False, "crypt": ["BCryptEncrypt"]},
+            ),
+            (
+                {0: {"decrypted_buffers": [{"NCryptDecrypt": {"buffer": "blah"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "blah"}]',
+                {},
+                [],
+                {"PE": False, "crypt": ["NCryptDecrypt"]},
+            ),
+            (
+                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ This program cannot be run in DOS mode"}}]}},
+                '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ This program cannot be run in DOS mode"}]',
+                {},
+                [],
+                {"PE": False, "crypt": ["NCryptEncrypt"]},
             ),
         ],
     )
-    def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body):
+    def test_process_buffers(process_map, correct_buffer_body, correct_tags, correct_body, expected_extracted_buffers):
         safelist = {}
         parent_section = ResultSection("blah")
+        if os.path.exists(BUFFER_PATH):
+            shutil.rmtree(BUFFER_PATH, ignore_errors=False, onerror=None)
         process_buffers(process_map, safelist, parent_section)
 
         if correct_buffer_body is None:
@@ -31835,6 +31886,23 @@ class TestCapeResult:
                 for value in values:
                     buffer_ioc_table.add_tag(tag, value)
             assert check_section_equality(parent_section.subsections[0], correct_result_section)
+        
+        APIS = []
+        if expected_extracted_buffers["PE"] :
+            assert os.path.exists(BUFFER_PATH)
+            if "crypt" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["crypt"])
+            if "net" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["net"])
+            if "misc" in expected_extracted_buffers.keys():
+                APIS.extend(expected_extracted_buffers["misc"])
+            for entry in os.scandir(BUFFER_PATH):
+                if entry.is_file():
+                    assert (
+                        any(call in entry.name for call in APIS)
+                    )
+                    APIS.remove(entry.name.split("-")[1])
+            assert len(APIS) == 0
 
     @staticmethod
     @pytest.mark.parametrize(
