@@ -1362,8 +1362,15 @@ def _get_dns_map(
     resolved_ips: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
-        if len(dns_call["answers"]) > 0:
+        if len(dns_call["answers"]) == 1:
             answer = dns_call["answers"][0]["data"]
+        elif len(dns_call["answers"]) > 1:
+            answer = None
+            for element in dns_call["answers"]:
+                if element["type"] == dns_call["type"]:
+                    answer = element["data"]
+            if answer is None:
+                answer = dns_call["answers"][0]["data"]
         else:
             # We still want these DNS calls in the resolved_ips map, so use int as unique ID
             answer = str(no_answer_count)
