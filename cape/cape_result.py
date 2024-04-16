@@ -1098,7 +1098,7 @@ def process_network(
             _ = add_tag(http_sec, "network.dynamic.uri", request_uri, safelist)
 
             for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
+                extract_iocs_from_text_blob(value, http_header_sec, enforce_char_min=True, is_network_static=True)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
@@ -2081,7 +2081,7 @@ def process_all_events(
             process_seen = True
 
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
-            extract_iocs_from_text_blob(event.command_line, event_ioc_table, is_network_static=True)
+            extract_iocs_from_text_blob(event.command_line, event_ioc_table, enforce_char_min=True, is_network_static=True)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
                 time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
@@ -2830,7 +2830,7 @@ def _tag_mark_values(
     else:
         if not iocs_found_in_data_res_sec:
             iocs_found_in_data_res_sec = ResultTableSection("IOCs found in Signature data")
-        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, is_network_static=True)
+        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, enforce_char_min=True, is_network_static=True)
         if iocs_found_in_data_res_sec.body:
             return iocs_found_in_data_res_sec
 
