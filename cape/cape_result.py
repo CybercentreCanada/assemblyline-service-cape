@@ -978,7 +978,7 @@ def process_network(
 
     for answer, requests in resolved_ips.items():
         for request in requests:
-            if answer.isdigit():
+            if answer and answer.isdigit():
                 continue
             if not request["domain"] or not request.get("type"):
                 continue
@@ -1362,18 +1362,20 @@ def _get_dns_map(
     resolved_ips: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
+        answers = None
         if len(dns_call["answers"]) == 1:
-            answer = dns_call["answers"][0]["data"]
+            if dns_call["answers"][0]["type"] == dns_call["type"]:
+                answers = dns_call["answers"][0]["data"]
         elif len(dns_call["answers"]) > 1:
-            answer = None
+            answers = []
             for element in dns_call["answers"]:
                 if element["type"] == dns_call["type"]:
-                    answer = element["data"]
-            if answer is None:
-                answer = dns_call["answers"][0]["data"]
+                    answers.append(element["data"])
+            if len(answers) == 0:
+                answers = None
         else:
             # We still want these DNS calls in the resolved_ips map, so use int as unique ID
-            answer = str(no_answer_count)
+            answers = str(no_answer_count)
             no_answer_count += 1
 
         request = dns_call.get("request")
@@ -1391,7 +1393,7 @@ def _get_dns_map(
         if dns_type == "PTR":
             continue
         # Some Windows nonsense
-        elif answer in dns_servers:
+        elif answers in dns_servers:
             continue
 
         # An 'A' record provides the IP address associated with a domain name.
@@ -1399,17 +1401,29 @@ def _get_dns_map(
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
                 first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
-
-            resolved_ips[answer].append(
-                {
-                    "domain": request,
-                    "process_id": dns_call.get("pid"),
-                    "process_name": dns_call.get("image"),
-                    "time": first_seen,
-                    "guid": dns_call.get("guid"),
-                    "type": dns_type,
-                }
-            )
+            if isinstance(answers, list):
+                for answer in answers:
+                    resolved_ips[answer].append(
+                    {
+                        "domain": request,
+                        "process_id": dns_call.get("pid"),
+                        "process_name": dns_call.get("image"),
+                        "time": first_seen,
+                        "guid": dns_call.get("guid"),
+                        "type": dns_type,
+                    }
+                )
+            else:
+                resolved_ips[answers].append(
+                    {
+                        "domain": request,
+                        "process_id": dns_call.get("pid"),
+                        "process_name": dns_call.get("image"),
+                        "time": first_seen,
+                        "guid": dns_call.get("guid"),
+                        "type": dns_type,
+                    }
+                )
 
     # now map process_name to the dns_call
     for process, process_details in process_map.items():
