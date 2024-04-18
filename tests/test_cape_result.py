@@ -29884,7 +29884,7 @@ class TestCapeResult:
             ([], {}, "", {}),
             ([{"answers": []}], {}, "", {}),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {},
                 "",
                 {
@@ -29901,7 +29901,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {},
                 "INetSim",
                 {
@@ -29917,17 +29917,17 @@ class TestCapeResult:
                     ]
                 },
             ),
-            ([{"answers": [{"data": "answer"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
+            ([{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
             (
-                [{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
+                [{"answers": [{"data": "answer", "type": "PTR"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
                 {},
                 "Internet",
                 {},
             ),
             (
                 [
-                    {"answers": [{"data": "10.10.10.10"}], "request": "answer", "type": "A"},
-                    {"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"},
+                    {"answers": [{"data": "10.10.10.10", "type": "A"}], "request": "answer", "type": "A"},
+                    {"answers": [{"data": "answer", "type": "PTR"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"},
                 ],
                 {},
                 "Internet",
@@ -29945,13 +29945,13 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}],
                 {},
                 "Internet",
                 {},
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {
@@ -29968,7 +29968,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"blah": {"hostname": "request"}}]}},
                 "",
                 {
@@ -29985,7 +29985,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30002,7 +30002,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"InternetConnectW": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30019,7 +30019,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"InternetConnectA": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30036,7 +30036,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"GetAddrInfoW": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30053,7 +30053,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30076,7 +30076,7 @@ class TestCapeResult:
                 {},
             ),
             (
-                [{"answers": [{"data": "1.1.1.1"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "1.1.1.1", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {},
