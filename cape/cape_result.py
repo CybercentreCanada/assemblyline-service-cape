@@ -978,7 +978,7 @@ def process_network(
 
     for answer, requests in resolved_ips.items():
         for request in requests:
-            if answer and answer.isdigit():
+            if answer.isdigit():
                 continue
             if not request["domain"] or not request.get("type"):
                 continue
@@ -1098,7 +1098,7 @@ def process_network(
             _ = add_tag(http_sec, "network.dynamic.uri", request_uri, safelist)
 
             for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_header_sec, enforce_char_min=True, is_network_static=True)
+                extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
@@ -1362,20 +1362,11 @@ def _get_dns_map(
     resolved_ips: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
-        answers = None
-        if len(dns_call["answers"]) == 1:
-            if dns_call["answers"][0]["type"] == dns_call["type"]:
-                answers = dns_call["answers"][0]["data"]
-        elif len(dns_call["answers"]) > 1:
-            answers = []
-            for element in dns_call["answers"]:
-                if element["type"] == dns_call["type"]:
-                    answers.append(element["data"])
-            if len(answers) == 0:
-                answers = None
+        if len(dns_call["answers"]) > 0:
+            answer = dns_call["answers"][0]["data"]
         else:
             # We still want these DNS calls in the resolved_ips map, so use int as unique ID
-            answers = str(no_answer_count)
+            answer = str(no_answer_count)
             no_answer_count += 1
 
         request = dns_call.get("request")
@@ -1393,7 +1384,7 @@ def _get_dns_map(
         if dns_type == "PTR":
             continue
         # Some Windows nonsense
-        elif answers in dns_servers:
+        elif answer in dns_servers:
             continue
 
         # An 'A' record provides the IP address associated with a domain name.
@@ -1401,29 +1392,17 @@ def _get_dns_map(
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
                 first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
-            if isinstance(answers, list):
-                for answer in answers:
-                    resolved_ips[answer].append(
-                    {
-                        "domain": request,
-                        "process_id": dns_call.get("pid"),
-                        "process_name": dns_call.get("image"),
-                        "time": first_seen,
-                        "guid": dns_call.get("guid"),
-                        "type": dns_type,
-                    }
-                )
-            else:
-                resolved_ips[answers].append(
-                    {
-                        "domain": request,
-                        "process_id": dns_call.get("pid"),
-                        "process_name": dns_call.get("image"),
-                        "time": first_seen,
-                        "guid": dns_call.get("guid"),
-                        "type": dns_type,
-                    }
-                )
+
+            resolved_ips[answer].append(
+                {
+                    "domain": request,
+                    "process_id": dns_call.get("pid"),
+                    "process_name": dns_call.get("image"),
+                    "time": first_seen,
+                    "guid": dns_call.get("guid"),
+                    "type": dns_type,
+                }
+            )
 
     # now map process_name to the dns_call
     for process, process_details in process_map.items():
@@ -2095,7 +2074,7 @@ def process_all_events(
             process_seen = True
 
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
-            extract_iocs_from_text_blob(event.command_line, event_ioc_table, enforce_char_min=True, is_network_static=True)
+            extract_iocs_from_text_blob(event.command_line, event_ioc_table, is_network_static=True)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
                 time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
@@ -2844,7 +2823,7 @@ def _tag_mark_values(
     else:
         if not iocs_found_in_data_res_sec:
             iocs_found_in_data_res_sec = ResultTableSection("IOCs found in Signature data")
-        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, enforce_char_min=True, is_network_static=True)
+        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, is_network_static=True)
         if iocs_found_in_data_res_sec.body:
             return iocs_found_in_data_res_sec
 
