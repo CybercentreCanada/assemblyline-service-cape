@@ -2060,7 +2060,7 @@ def process_all_events(
                             "protocol": event.connection_type,
                             "domain": event.dns_details.domain,
                             "lookup_type": event.dns_details.lookup_type,
-                            "dns_requests": event.dns_details.dns_requests,
+                            "dns_requests": event.dns_details.resolved_ips,
                         },
                     )
                 )
