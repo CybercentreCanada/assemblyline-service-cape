@@ -1733,6 +1733,7 @@ def _create_network_connection_for_http_call(
             "destination_port": destination_port,
             "transport_layer_protocol": NetworkConnection.TCP,
             "connection_type": NetworkConnection.HTTP,
+            "http_details.request_uri": http_call.get("request_uri"),
         }
     )
     objectid = ontres.create_objectid(
