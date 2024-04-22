@@ -58,8 +58,8 @@ from assemblyline_v4_service.common.result import (
     TableRow,
     TextSectionBody,
 )
-from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
-from cape.standard_http_headers import STANDARD_HTTP_HEADERS
+from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from standard_http_headers import STANDARD_HTTP_HEADERS
 from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
@@ -2949,7 +2949,7 @@ if __name__ == "__main__":
     from assemblyline_v4_service.common.base import ServiceBase
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
-    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+    from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
     report_path = argv[1]
     file_ext = argv[2]
@@ -3009,7 +3009,11 @@ if __name__ == "__main__":
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
     # Print the ontres
-    print(json.dumps(ontres.as_primitives(), indent=4))
+    f = open("Ontres.json","w")
+    target = json.dumps(ontres.as_primitives(), indent=4)
+    f.write(target)
+    f.close()
+    print(target)
     attach_dynamic_ontology(service, ontres)
 
     # Convert Result object to dict
