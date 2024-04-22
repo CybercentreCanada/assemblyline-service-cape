@@ -58,9 +58,9 @@ from assemblyline_v4_service.common.result import (
     TableRow,
     TextSectionBody,
 )
-from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 from cape.standard_http_headers import STANDARD_HTTP_HEADERS
-from cape.multidecoder.decoders.shell import (
+from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
     get_cmd_command,
