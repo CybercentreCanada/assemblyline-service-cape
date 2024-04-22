@@ -3026,11 +3026,7 @@ if __name__ == "__main__":
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
     # Print the ontres
-    f = open("Ontres.json","w")
-    target = json.dumps(ontres.as_primitives(), indent=4)
-    f.write(target)
-    f.close()
-    print(target)
+    print(json.dumps(ontres.as_primitives(), indent=4))
     attach_dynamic_ontology(service, ontres)
 
     # Convert Result object to dict
