@@ -739,6 +739,15 @@ def _remove_network_call(
     inetsim_network: IPv4Network,
     safelist: Dict[str, Dict[str, List[str]]],
 ) -> bool:
+    list_of_all_answers = []
+    for _, attempts in dns_requests.items():
+        for index in range(0,len(attempts)):
+            if isinstance(attempts[index]["answers"], List):
+                list_of_all_answers.extend(attempts[index]["answers"])
+            elif attempts[index]["answers"] == None:
+                continue
+            else:
+                list_of_all_answers.append(attempts[index]["answers"])
     # if domain is safe-listed
     if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
         return True
@@ -746,7 +755,7 @@ def _remove_network_call(
     elif (not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)) or dest_ip in dns_servers:
         return True
     # if dest ip is noise
-    elif dest_ip not in dns_requests.keys() and ip_address(dest_ip) in inetsim_network:
+    elif dest_ip not in list_of_all_answers and ip_address(dest_ip) in inetsim_network:
         return True
 
     return False
@@ -990,9 +999,11 @@ def process_network(
                 if answer and answer.isdigit():
                     continue
                 relevant_answer.append(answer)
-                if not request or not attempts[index].get("type"):
-                    continue
-            nd = ontres.create_network_dns(domain=request, resolved_ips=[relevant_answer], lookup_type=attempts[index].get("type"))
+            if not request or not attempts[index].get("type"):
+                continue
+            if len(relevant_answer) == 0:
+                relevant_answer.append("")
+            nd = ontres.create_network_dns(domain=request, resolved_ips=relevant_answer, lookup_type=attempts[index].get("type"))
 
             destination_ip = dns_servers[0] if dns_servers else None
             destination_port = 53
@@ -1420,16 +1431,16 @@ def _get_dns_map(
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
                 first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
-                dns_requests[request].append(
-                {
-                    "answers": answers,
-                    "process_id": dns_call.get("pid"),
-                    "process_name": dns_call.get("image"),
-                    "time": first_seen,
-                    "guid": dns_call.get("guid"),
-                    "type": dns_type,
-                }
-                )
+            dns_requests[request].append(
+            {
+                "answers": answers,
+                "process_id": dns_call.get("pid"),
+                "process_name": dns_call.get("image"),
+                "time": first_seen,
+                "guid": dns_call.get("guid"),
+                "type": dns_type,
+            }
+            )
 
     # now map process_name to the dns_call
     for process, process_details in process_map.items():
@@ -1441,8 +1452,14 @@ def _get_dns_map(
             if dns != {} and (dns.get("hostname") or dns.get("servername")):
                 for request, attempts in dns_requests.items():
                     for index in range(0,len(attempts)):
-                        for answer in attempts[index]["answers"]:
-                            if answer.isdigit() in [dns.get("hostname"), dns.get("servername")]:
+                        if isinstance(attempts[index]["answers"], List):
+                            answers = attempts[index]["answers"]
+                        elif attempts[index]["answers"] == None:
+                            continue
+                        else:
+                            answers = [attempts[index]["answers"]]
+                        for answer in answers:
+                            if not answer.isdigit() in [dns.get("hostname"), dns.get("servername")]:
                                 if not dns_requests[request][index].get("process_name"):
                                     dns_requests[request][index]["process_name"] = process_details["name"]
 
@@ -1528,7 +1545,7 @@ def _get_low_level_flows(
                             network_flow["image"] = attempts[index].get("process_name")
                         if network_flow["image"] and not network_flow["pid"]:
                             network_flow["pid"] = attempts[index]["process_id"]
-                        network_flows_table.append(network_flow)
+            network_flows_table.append(network_flow)
     return network_flows_table, netflows_sec
 
 
