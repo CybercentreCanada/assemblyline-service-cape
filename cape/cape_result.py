@@ -58,8 +58,8 @@ from assemblyline_v4_service.common.result import (
     TableRow,
     TextSectionBody,
 )
-from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
-from cape.standard_http_headers import STANDARD_HTTP_HEADERS
+from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from standard_http_headers import STANDARD_HTTP_HEADERS
 from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
@@ -985,7 +985,6 @@ def process_network(
 
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
-    
     for request, attempts in dns_requests.items():
         for index in range(0,len(attempts)):
             relevant_answer = []
@@ -1120,7 +1119,7 @@ def process_network(
             _ = add_tag(http_sec, "network.dynamic.uri", request_uri, safelist)
 
             for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_header_sec, enforce_char_min=True, is_network_static=True)
+                extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
 
             # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
             if http_call.request_method == "GET":
@@ -1392,17 +1391,8 @@ def _get_dns_map(
     dns_requests: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
-        answers = None
-        if len(dns_call["answers"]) == 1:
-            if dns_call["answers"][0]["type"] == dns_call["type"]:
-                answers = dns_call["answers"][0]["data"]
-        elif len(dns_call["answers"]) > 1:
-            answers = []
-            for element in dns_call["answers"]:
-                if element["type"] == dns_call["type"]:
-                    answers.append(element["data"])
-            if len(answers) == 0:
-                answers = None
+        if len(dns_call["answers"]) > 0:
+            answer = dns_call["answers"][0]["data"]
         else:
             # We still want these DNS calls in the dns_requests map, so use int as unique ID
             answers = str(no_answer_count)
@@ -1423,7 +1413,7 @@ def _get_dns_map(
         if dns_type == "PTR":
             continue
         # Some Windows nonsense
-        elif answers in dns_servers:
+        elif answer in dns_servers:
             continue
 
         # An 'A' record provides the IP address associated with a domain name.
@@ -2129,7 +2119,7 @@ def process_all_events(
             process_seen = True
 
             _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
-            extract_iocs_from_text_blob(event.command_line, event_ioc_table, enforce_char_min=True, is_network_static=True)
+            extract_iocs_from_text_blob(event.command_line, event_ioc_table, is_network_static=True)
             _ = add_tag(events_section, "dynamic.process.file_name", event.image)
             if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
                 time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
@@ -2878,7 +2868,7 @@ def _tag_mark_values(
     else:
         if not iocs_found_in_data_res_sec:
             iocs_found_in_data_res_sec = ResultTableSection("IOCs found in Signature data")
-        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, enforce_char_min=True, is_network_static=True)
+        extract_iocs_from_text_blob(truncate(value, 5000), iocs_found_in_data_res_sec, is_network_static=True)
         if iocs_found_in_data_res_sec.body:
             return iocs_found_in_data_res_sec
 
@@ -2983,7 +2973,7 @@ if __name__ == "__main__":
     from assemblyline_v4_service.common.base import ServiceBase
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
-    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+    from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 
     report_path = argv[1]
     file_ext = argv[2]
@@ -3043,7 +3033,11 @@ if __name__ == "__main__":
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
     # Print the ontres
-    print(json.dumps(ontres.as_primitives(), indent=4))
+    f = open("Ontres.json","w")
+    target = json.dumps(ontres.as_primitives(), indent=4)
+    f.write(target)
+    f.close()
+    print(target)
     attach_dynamic_ontology(service, ontres)
 
     # Convert Result object to dict

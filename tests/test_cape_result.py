@@ -1975,8 +1975,8 @@ class TestCapeResult:
                 {"domain": "xfinity.com", "ip": ""},
                 {"domain": "linkedin.com", "ip": ""},
                 {"domain": "broadcom.com", "ip": ""},
-                {"domain": "justice.gov", "ip": ""},
                 {"domain": "yahoo.com", "ip": ""},
+                {"domain": "irs.gov", "ip": ""},
                 {"domain": "oracle.com", "ip": ""},
                 {"domain": "verisign.com", "ip": ""},
                 {"domain": "cisco.com", "ip": ""},
@@ -2405,10 +2405,10 @@ class TestCapeResult:
                 },
                 {
                     "count": 2,
-                    "host": "justice.gov:443",
+                    "host": "irs.gov:443",
                     "port": 8080,
-                    "data": "CONNECT justice.gov:443 HTTP/1.0\r\nUser-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)\r\nHost: justice.gov:443\r\nContent-Length: 0\r\nProxy-Connection: Keep-Alive\r\nPragma: no-cache\r\n\r\n",
-                    "uri": "http://justice.gov:443",
+                    "data": "CONNECT irs.gov:443 HTTP/1.0\r\nUser-Agent: Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)\r\nHost: irs.gov:443\r\nContent-Length: 0\r\nProxy-Connection: Keep-Alive\r\nPragma: no-cache\r\n\r\n",
+                    "uri": "http://irs.gov:443",
                     "body": "",
                     "path": "",
                     "user-agent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)",
@@ -2460,7 +2460,7 @@ class TestCapeResult:
                 {"request": "linkedin.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.136"}]},
                 {"request": "broadcom.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.40"}]},
                 {"request": "yahoo.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.204"}]},
-                {"request": "justice.gov", "type": "A", "answers": [{"type": "A", "data": "192.0.2.37"}]},
+                {"request": "irs.gov", "type": "A", "answers": [{"type": "A", "data": "192.0.2.37"}]},
                 {"request": "oracle.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.166"}]},
                 {"request": "verisign.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.76"}]},
                 {"request": "cisco.com", "type": "A", "answers": [{"type": "A", "data": "192.0.2.137"}]},
@@ -2551,9 +2551,9 @@ class TestCapeResult:
                     {"InternetCrackUrlA": {"url": "https://yahoo.com:443/"}},
                     {"InternetConnectA": {"service": "3", "servername": "yahoo.com", "serverport": "443"}},
                     {"GetAddrInfoW": {"nodename": "yahoo.com"}},
-                    {"InternetCrackUrlA": {"url": "https://justice.gov:443/"}},
-                    {"InternetConnectA": {"service": "3", "servername": "justice.gov", "serverport": "443"}},
-                    {"GetAddrInfoW": {"nodename": "justice.gov"}},
+                    {"InternetCrackUrlA": {"url": "https://irs.gov:443/"}},
+                    {"InternetConnectA": {"service": "3", "servername": "irs.gov", "serverport": "443"}},
+                    {"GetAddrInfoW": {"nodename": "irs.gov"}},
                     {"InternetCrackUrlA": {"url": "https://oracle.com:443/"}},
                     {"InternetConnectA": {"service": "3", "servername": "oracle.com", "serverport": "443"}},
                     {"GetAddrInfoW": {"nodename": "oracle.com"}},
@@ -2579,7 +2579,7 @@ class TestCapeResult:
                     "linkedin.com",
                     "broadcom.com",
                     "yahoo.com",
-                    "justice.gov",
+                    "irs.gov",
                     "oracle.com",
                     "cisco.com",
                 ],
@@ -2587,10 +2587,10 @@ class TestCapeResult:
         )
         dns_subsection.add_row(TableRow({"domain": "microsoft.com", "answer": "192.0.2.126", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "xfinity.com", "answer": "192.0.2.212", "type": "A"}))
-        dns_subsection.add_row(TableRow({"domain": "justice.gov", "answer": "192.0.2.37", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "linkedin.com", "answer": "192.0.2.136", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "broadcom.com", "answer": "192.0.2.40", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "yahoo.com", "answer": "192.0.2.204", "type": "A"}))
+        dns_subsection.add_row(TableRow({"domain": "irs.gov", "answer": "192.0.2.37", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "oracle.com", "answer": "192.0.2.166", "type": "A"}))
         dns_subsection.add_row(TableRow({"domain": "cisco.com", "answer": "192.0.2.137", "type": "A"}))
         dns_subsection.set_heuristic(1000)
@@ -2605,7 +2605,7 @@ class TestCapeResult:
                     "linkedin.com",
                     "broadcom.com",
                     "yahoo.com",
-                    "justice.gov",
+                    "irs.gov",
                     "oracle.com",
                     "cisco.com",
                 ],
@@ -2615,7 +2615,7 @@ class TestCapeResult:
                     "http://linkedin.com:443",
                     "http://broadcom.com:443",
                     "http://yahoo.com:443",
-                    "http://justice.gov:443",
+                    "http://irs.gov:443",
                     "http://oracle.com:443",
                     "http://cisco.com:443",
                 ],
@@ -2708,12 +2708,12 @@ class TestCapeResult:
                     "method": "CONNECT",
                     "request": {
                         "UserAgent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)",
-                        "Host": "justice.gov:443",
+                        "Host": "irs.gov:443",
                         "ContentLength": "0",
                         "ProxyConnection": "Keep-Alive",
                         "Pragma": "no-cache",
                     },
-                    "uri": "http://justice.gov:443",
+                    "uri": "http://irs.gov:443",
                 }
             )
         )
@@ -2757,7 +2757,7 @@ class TestCapeResult:
                 "network.static.domain": [
                     "broadcom.com",
                     "cisco.com",
-                    "justice.gov",
+                    "irs.gov",
                     "linkedin.com",
                     "microsoft.com",
                     "oracle.com",
@@ -2768,10 +2768,10 @@ class TestCapeResult:
         )
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "broadcom.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "cisco.com"}))
+        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "irs.gov"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "linkedin.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "microsoft.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "oracle.com"}))
-        http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "justice.gov"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "xfinity.com"}))
         http_header_ioc_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "yahoo.com"}))
         http_subsection.add_subsection(http_header_ioc_subsection)
@@ -2967,7 +2967,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "justice.gov", "resolved_ips": ["192.0.2.37"], "lookup_type": "A"},
+                "dns_details": {"domain": "irs.gov", "resolved_ips": ["192.0.2.37"], "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -3235,11 +3235,11 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": {
-                    "request_uri": "http://justice.gov:443",
+                    "request_uri": "http://irs.gov:443",
                     "request_method": "CONNECT",
                     "request_headers": {
                         "UserAgent": "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; InfoPath.3; .NET4.0C; .NET4.0E)",
-                        "Host": "justice.gov:443",
+                        "Host": "irs.gov:443",
                         "ContentLength": "0",
                         "ProxyConnection": "Keep-Alive",
                         "Pragma": "no-cache",
@@ -3338,7 +3338,7 @@ class TestCapeResult:
             False,
             suspicious_accepted_languages,
         )
-        #assert check_section_equality(parent_result_section, correct_result_section) disabling since the order make the test fail which should not happen
+        assert check_section_equality(parent_result_section, correct_result_section)
 
         for index, netflow in enumerate(ontres.netflows):
             # Ignore guids since they are random
@@ -29884,7 +29884,7 @@ class TestCapeResult:
             ([], {}, "", {}),
             ([{"answers": []}], {}, "", {}),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {},
                 "",
                 {
@@ -29901,7 +29901,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {},
                 "INetSim",
                 {
@@ -29917,17 +29917,17 @@ class TestCapeResult:
                     ]
                 },
             ),
-            ([{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
+            ([{"answers": [{"data": "answer"}], "request": "request", "type": "PTR"}], {}, "INetSim", {}),
             (
-                [{"answers": [{"data": "answer", "type": "PTR"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
+                [{"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"}],
                 {},
                 "Internet",
                 {},
             ),
             (
                 [
-                    {"answers": [{"data": "10.10.10.10", "type": "A"}], "request": "answer", "type": "A"},
-                    {"answers": [{"data": "answer", "type": "PTR"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"},
+                    {"answers": [{"data": "10.10.10.10"}], "request": "answer", "type": "A"},
+                    {"answers": [{"data": "answer"}], "request": "10.10.10.10.in-addr.arpa", "type": "PTR"},
                 ],
                 {},
                 "Internet",
@@ -29945,13 +29945,13 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}],
+                [{"answers": [{"data": "answer"}], "request": "ya:ba:da:ba:do:oo.ip6.arpa", "type": "PTR"}],
                 {},
                 "Internet",
                 {},
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {
@@ -29968,7 +29968,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"blah": {"hostname": "request"}}]}},
                 "",
                 {
@@ -29985,7 +29985,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"getaddrinfo": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30002,7 +30002,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"InternetConnectW": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30019,7 +30019,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"InternetConnectA": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30036,7 +30036,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"GetAddrInfoW": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30053,7 +30053,7 @@ class TestCapeResult:
                 },
             ),
             (
-                [{"answers": [{"data": "answer", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "answer"}], "request": "request", "type": "dns_type"}],
                 {1: {"name": "blah", "network_calls": [{"gethostbyname": {"hostname": "request"}}]}},
                 "",
                 {
@@ -30076,7 +30076,7 @@ class TestCapeResult:
                 {},
             ),
             (
-                [{"answers": [{"data": "1.1.1.1", "type": "dns_type"}], "request": "request", "type": "dns_type"}],
+                [{"answers": [{"data": "1.1.1.1"}], "request": "request", "type": "dns_type"}],
                 {1: {"network_calls": [{"blah": {"hostname": "blah"}}]}},
                 "",
                 {},
