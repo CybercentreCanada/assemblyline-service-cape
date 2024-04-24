@@ -2,29 +2,32 @@ name: CAPE
 version: $SERVICE_TAG
 description: Provides dynamic malware analysis through sandboxing.
 
-accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml|onenote)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta|vbe)|shortcut/windows|archive/(chm|iso|rar|vhd|udf|zip)|text/windows/registry|audiovisual/flash
+accepts: (executable/(windows|linux)|java|audiovisual|meta)/.*|document/(installer/windows|office/(excel|ole|powerpoint|rtf|unknown|word|mhtml|onenote)|pdf$)|code/(javascript|jscript|python|vbs|wsf|html|ps1|batch|hta|vbe|a3x)|shortcut/windows|archive/(chm|iso|rar|vhd|udf|zip|7-zip)|text/windows/registry|audiovisual/flash
 rejects: empty|metadata/.*
 
 stage: CORE
 category: Dynamic Analysis
 
 file_required: true
-timeout: 1200
-disable_cache: true
+timeout: 800
+disable_cache: false
 
 enabled: false
 is_external: false
 licence_count: 0
+privileged: true
 
 config:
-# See README for in-depth descriptions of configuration values
+  # See README for in-depth descriptions of configuration values
   # CAPE host configurations
 
   remote_host_details:
     hosts:
-      - ip: "10.163.20.4"
+      - ip: "127.0.0.1"
         port: 8000
-        token: "ff6538ed93e245fece7d1ef891b4946d25542bea"
+        token: "sample_token"
+        internet_connected: false
+        inetsim_connected: false
 
   # REST API Timeouts and Attempts
   connection_timeout_in_seconds: 30
@@ -35,18 +38,18 @@ config:
   uwsgi_with_recycle: false
 
   # CAPE victim configurations
-  allowed_images: [win10x64,ub20x64]
+  allowed_images: []
   # This is used if the "auto" specific image will select multiple images and you want to override it with less images
   auto_architecture:
     win:
-      x64: [win10x64]
-      x86: [win10x64]
+      x64: []
+      x86: []
     ub:
-      x64: [ub20x64]
-      x86: [ub20x64]
+      x64: []
+      x86: []
 
   # CAPE analysis configurations
-  default_analysis_timeout_in_seconds: 900
+  default_analysis_timeout_in_seconds: 150
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
   reboot_supported: false
@@ -131,10 +134,10 @@ submission_params:
     type: str
     value: ""
 
-  - default: "full-logs=1"
+  - default: ""
     name: custom_options
     type: str
-    value: "full-logs=1"
+    value: ""
 
   - default: ""
     name: clock
@@ -158,10 +161,10 @@ submission_params:
     list: ["none", "windows", "linux"]
 
   # https://capev2.readthedocs.io/en/latest/installation/host/routing.html?highlight=per-analysis
-  - default: "inetsim"
+  - default: "none"
     name: routing
     type: list
-    value: "inetsim"
+    value: "none"
     list: ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
   - default: false
