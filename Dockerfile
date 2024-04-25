@@ -13,7 +13,9 @@ USER assemblyline
 
 # Install python dependencies
 COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir --user --requirement requirements.txt && rm -rf ~/.cache/pip
+RUN bash -c "if [[ $branch == latest ]]; then \
+    pip install --no-cache-dir --user --requirement requirements.txt --pre && rm -rf ~/.cache/pip; else \
+    pip install --no-cache-dir --user --requirement requirements.txt && rm -rf ~/.cache/pip; fi"
 
 # Copy CAPE service code
 WORKDIR /opt/al_service
