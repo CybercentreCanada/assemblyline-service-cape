@@ -1,6 +1,6 @@
 {
     "editor.codeActionsOnSave": {
-        "source.organizeImports": true,
+        "source.organizeImports": "explicit"
     },
     "editor.formatOnSave": true,
     "editor.rulers": [
@@ -29,4 +29,9 @@
         //Added the ignore of E203 for now : https://github.com/PyCQA/pycodestyle/issues/373
         "--ignore=E203,W503"
     ],
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
 }

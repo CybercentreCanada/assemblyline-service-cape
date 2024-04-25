@@ -115,8 +115,29 @@ HTTP_API_CALLS = [
     "WinHttpConnect",
     "WSASend",
 ]
-BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
-CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]
+BUFFER_API_CALLS = [
+    "send",
+    "sendto",
+    "recv",
+    "recvfrom",
+    "WSARecv",
+    "WSARecvFrom",
+    "WSASend",
+    "WSASendTo",
+    "WSASendMsg",
+    "SslEncryptPacket",
+    "SslDecryptPacket",
+    "InternetReadFile",
+    "InternetWriteFile",
+]
+CRYPT_BUFFER_CALLS = [
+    "CryptDecrypt",
+    "CryptEncrypt",
+    "BCryptDecrypt",
+    "BCryptEncrypt",
+    "NCryptDecrypt",
+    "NCryptEncrypt",
+]
 MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
@@ -201,6 +222,7 @@ PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
 
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
+
 
 # noinspection PyBroadException
 def generate_al_result(
@@ -741,13 +763,13 @@ def _remove_network_call(
 ) -> bool:
     list_of_all_answers = []
     for _, attempts in dns_requests.items():
-        for index in range(0,len(attempts)):
-            if isinstance(attempts[index]["answers"], List):
-                list_of_all_answers.extend(attempts[index]["answers"])
-            elif attempts[index]["answers"] == None:
+        for attempt in attempts:
+            if isinstance(attempt["answers"], List):
+                list_of_all_answers.extend(attempt["answers"])
+            elif attempt["answers"] == None:
                 continue
             else:
-                list_of_all_answers.append(attempts[index]["answers"])
+                list_of_all_answers.append(attempt["answers"])
     # if domain is safe-listed
     if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
         return True
@@ -844,7 +866,7 @@ def _create_network_connection_for_network_flow(
             "destination_ip": network_flow["dest_ip"],
             "destination_port": network_flow["dest_port"],
             "transport_layer_protocol": network_flow["protocol"],
-            "connection_type": None,  # TODO: HTTP or DNS
+            # "connection_type": None,  # TODO: HTTP or DNS
         }
     )
     objectid = ontres.create_objectid(
@@ -986,23 +1008,25 @@ def process_network(
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
     for request, attempts in dns_requests.items():
-        for index in range(0,len(attempts)):
+        for attempt in attempts:
             relevant_answer = []
-            if isinstance(attempts[index]["answers"], List):
-                answers = attempts[index]["answers"]
-            elif attempts[index]["answers"] == None:
+            if isinstance(attempt["answers"], List):
+                answers = attempt["answers"]
+            elif attempt["answers"] == None:
                 continue
             else:
-                answers = [attempts[index]["answers"]]
+                answers = [attempt["answers"]]
             for answer in answers:
                 if answer and answer.isdigit():
                     continue
                 relevant_answer.append(answer)
-            if not request or not attempts[index].get("type"):
+            if not request or not attempt.get("type"):
                 continue
             if len(relevant_answer) == 0:
                 relevant_answer.append("")
-            nd = ontres.create_network_dns(domain=request, resolved_ips=relevant_answer, lookup_type=attempts[index].get("type"))
+            nd = ontres.create_network_dns(
+                domain=request, resolved_ips=relevant_answer, lookup_type=attempt.get("type")
+            )
 
             destination_ip = dns_servers[0] if dns_servers else None
             destination_port = 53
@@ -1014,7 +1038,7 @@ def process_network(
                     "destination_port": destination_port,
                     "transport_layer_protocol": transport_layer_protocol,
                     "connection_type": NetworkConnection.DNS,
-                    'dns_details.domain': request,
+                    "dns_details": {"domain": request},
                 }
             )
             objectid = ontres.create_objectid(
@@ -1026,7 +1050,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=attempts[index]["time"],
+                time_observed=attempt["time"],
             )
             objectid.assign_guid()
             try:
@@ -1048,9 +1072,9 @@ def process_network(
                     f"transport_layer_protocol={transport_layer_protocol}"
                 )
                 continue
-            p = ontres.get_process_by_guid(attempts[index]["guid"])
+            p = ontres.get_process_by_guid(attempt["guid"])
             if not p:
-                p = ontres.get_process_by_pid_and_time(attempts[index]["process_id"], nc.objectid.time_observed)
+                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
             if p:
                 nc.set_process(p)
             ontres.add_network_connection(nc)
@@ -1240,7 +1264,11 @@ def _process_unseen_iocs(
                 for _, v in network_details.items():
                     if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
                         extract_iocs_from_text_blob(
-                            v, possibly_unseen_iocs_res, enforce_char_min=True, safelist=safelist, is_network_static=True
+                            v,
+                            possibly_unseen_iocs_res,
+                            enforce_char_min=True,
+                            safelist=safelist,
+                            is_network_static=True,
                         )
 
     if possibly_unseen_iocs_res.body:
@@ -1326,30 +1354,29 @@ def _get_dns_sec(
     dns_body: List[Dict[str, str]] = []
     _ = add_tag(dns_res_sec, "network.protocol", "dns")
 
-
     for request, attempts in dns_requests.items():
-        for index in range(0,len(attempts)):
-            request_type = attempts[index].get("type")
-            if isinstance(attempts[index]["answers"], List):
-                answers = attempts[index]["answers"]
-            elif attempts[index]["answers"] == None:
+        for attempt in attempts:
+            request_type = attempt.get("type")
+            if isinstance(attempt["answers"], List):
+                answers = attempt["answers"]
+            elif attempt["answers"] == None:
                 continue
             else:
-                answers = [attempts[index]["answers"]]
+                answers = [attempt["answers"]]
             for answer in answers:
                 _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
                 if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
                     if answer.isdigit():
                         dns_request = {
-                        "domain": request,
-                        "type": request_type,
+                            "domain": request,
+                            "type": request_type,
                         }
                     else:
                         # If there is only UDP and no TCP traffic, then we need to tag the domains here:
                         dns_request = {
-                        "domain": request,
-                        "answer": answer,
-                        "type": request_type,
+                            "domain": request,
+                            "answer": answer,
+                            "type": request_type,
                         }
                     dns_body.append(dns_request)
                 answer_exists = True
@@ -1392,10 +1419,10 @@ def _get_dns_map(
     no_answer_count = 0
     for dns_call in dns_calls:
         if len(dns_call["answers"]) > 0:
-            answer = dns_call["answers"][0]["data"]
+            answers = [i["data"] for i in dns_call["answers"]]
         else:
             # We still want these DNS calls in the dns_requests map, so use int as unique ID
-            answers = str(no_answer_count)
+            answers = [str(no_answer_count)]
             no_answer_count += 1
 
         request = dns_call.get("request")
@@ -1408,12 +1435,12 @@ def _get_dns_map(
         # DNS cache, and that chance increases the smaller the size of the random network space
         if routing.lower() in [INETSIM.lower(), "none"] and dns_type == "PTR":
             continue
+        # Some Windows nonsense
+        if set(answers).intersection(set(dns_servers)):
+            continue
 
         # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
         if dns_type == "PTR":
-            continue
-        # Some Windows nonsense
-        elif answer in dns_servers:
             continue
 
         # An 'A' record provides the IP address associated with a domain name.
@@ -1422,14 +1449,14 @@ def _get_dns_map(
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
                 first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
             dns_requests[request].append(
-            {
-                "answers": answers,
-                "process_id": dns_call.get("pid"),
-                "process_name": dns_call.get("image"),
-                "time": first_seen,
-                "guid": dns_call.get("guid"),
-                "type": dns_type,
-            }
+                {
+                    "answers": answers,
+                    "process_id": dns_call.get("pid"),
+                    "process_name": dns_call.get("image"),
+                    "time": first_seen,
+                    "guid": dns_call.get("guid"),
+                    "type": dns_type,
+                }
             )
 
     # now map process_name to the dns_call
@@ -1441,13 +1468,9 @@ def _get_dns_map(
             )
             if dns != {} and (dns.get("hostname") or dns.get("servername")):
                 for request, attempts in dns_requests.items():
-                    for index in range(0,len(attempts)):
-                        if isinstance(attempts[index]["answers"], List):
-                            answers = attempts[index]["answers"]
-                        elif attempts[index]["answers"] == None:
-                            continue
-                        else:
-                            answers = [attempts[index]["answers"]]
+                    for index, attempt in enumerate(attempts):
+                        answers = attempt["answers"]
+
                         for answer in answers:
                             if not answer.isdigit() in [dns.get("hostname"), dns.get("servername")]:
                                 if not dns_requests[request][index].get("process_name"):
@@ -1457,7 +1480,6 @@ def _get_dns_map(
                                 dns_requests[request][index]["process_id"] = process
                         else:
                             continue
-                
     return dict(dns_requests)
 
 
@@ -1519,22 +1541,22 @@ def _get_low_level_flows(
                 "guid": network_call.get("guid"),
             }
             for request, attempts in dns_requests.items():
-                for index in range(0,len(attempts)):
-                    if isinstance(attempts[index]["answers"], List):
-                        answers = attempts[index]["answers"]
-                    elif attempts[index]["answers"] == None:
+                for attempt in attempts:
+                    if isinstance(attempt["answers"], List):
+                        answers = attempt["answers"]
+                    elif attempt["answers"] == None:
                         continue
                     else:
-                        answers = [attempts[index]["answers"]]
+                        answers = [attempt["answers"]]
                     if dst in answers:
                         if dst.isdigit():
                             continue
                         # We have no way of knowing which domain the underlying connection was made to, so just go with the first one
                         network_flow["domain"] = request
                         if not network_flow["image"]:
-                            network_flow["image"] = attempts[index].get("process_name")
+                            network_flow["image"] = attempt.get("process_name")
                         if network_flow["image"] and not network_flow["pid"]:
-                            network_flow["pid"] = attempts[index]["process_id"]
+                            network_flow["pid"] = attempt["process_id"]
             network_flows_table.append(network_flow)
     return network_flows_table, netflows_sec
 
@@ -1568,23 +1590,21 @@ def _massage_http_ex_data(
     uri = f"{http_call['protocol']}://{host}{path}"
 
     # The dst could be the nest IP, so we want to replace this
-    if http_call["dst"] in dns_servers and any(
-        host == item for item in dns_requests.keys()
-    ):
+    if http_call["dst"] in dns_servers and any(host == item for item in dns_requests.keys()):
         for request, attempts in dns_requests.items():
-            for index in range(0,len(attempts)):
-                if isinstance(attempts[index]["answers"], List):
-                    answers = attempts[index]["answers"]
-                elif attempts[index]["answers"] == None:
+            for attempt in attempts:
+                if isinstance(attempt["answers"], List):
+                    answers = attempt["answers"]
+                elif attempt["answers"] == None:
                     continue
                 else:
-                    answers = [attempts[index]["answers"]]
+                    answers = [attempt["answers"]]
                 for answer in answers:
                     if answer.isdigit():
                         continue
                     if request == host:
                         http_call["dst"] = answer
-                        break 
+                        break
 
     return uri, http_call
 
@@ -2257,52 +2277,52 @@ def process_buffers(
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
-            
+
             crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
             if crypt_api:
                 buffer = call[crypt_api]["buffer"]
-                b_buffer = bytes(buffer, 'utf-8')
+                b_buffer = bytes(buffer, "utf-8")
                 if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                     hash = sha256(b_buffer).hexdigest()
                     buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer, buffer))
-     
+
             else:
                 misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
-                if misc_api :
+                if misc_api:
                     buffer = call[misc_api]["string"]
-                    b_buffer = bytes(buffer, 'utf-8')
+                    b_buffer = bytes(buffer, "utf-8")
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
                         buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer, buffer))
             # Note not all calls have the key name consistent with their capemon api output
-            #"CryptDecrypt" --> "buffer " Depricated but still used
-            #"CryptEncrypt" --> "buffer" Depricated but still used
+            # "CryptDecrypt" --> "buffer " Depricated but still used
+            # "CryptEncrypt" --> "buffer" Depricated but still used
             # "BCryptDecrypt" --> "buffer" Key in memory
-            #"BCryptEncrypt" --> "buffer" Key in memory
-            #"NCryptDecrypt" --> "buffer"  #key in a KSP
-            #"NCryptEncrypt" --> "buffer" key in a KSP
-            #Commented out since in most cases the encryption and decryption must be done on the same computer
-            #"CryptProtectData" --> ? 
-            #"CryptUnProtectData" --> ?
+            # "BCryptEncrypt" --> "buffer" Key in memory
+            # "NCryptDecrypt" --> "buffer"  #key in a KSP
+            # "NCryptEncrypt" --> "buffer" key in a KSP
+            # Commented out since in most cases the encryption and decryption must be done on the same computer
+            # "CryptProtectData" --> ?
+            # "CryptUnProtectData" --> ?
             # Commented out since no proof of requirement is there
-            #"CryptDecryptMessage" --> ?
-            #"CryptEncryptMessage" --> ?
-            #"CryptDecodeMessage" --> ?
+            # "CryptDecryptMessage" --> ?
+            # "CryptEncryptMessage" --> ?
+            # "CryptDecodeMessage" --> ?
             # Do we want hashing as well ?
-            #"CryptHashMessage" --> ?
+            # "CryptHashMessage" --> ?
 
-            #"OutputDebugStringA" --> "string"
-            #"OutputDebugStringW" --> "string"
+            # "OutputDebugStringA" --> "string"
+            # "OutputDebugStringW" --> "string"
 
-            #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
-            #"CryptProtectMemory" --> ?
-            #"CryptUnprotectMemory" --> ?
-            #The need for compression/decompression buffer is probably not needed
-            #"RtlDecompressBuffer" --> ?
-            #"RtlCompressBuffer" --> ?
+            # do we want those since it's in memory and probably going to be picked up elsewhere in dumps?
+            # "CryptProtectMemory" --> ?
+            # "CryptUnprotectMemory" --> ?
+            # The need for compression/decompression buffer is probably not needed
+            # "RtlDecompressBuffer" --> ?
+            # "RtlCompressBuffer" --> ?
 
             # Do we want hashing as well ?
-           #"CryptHashData" --> ?
+            # "CryptHashData" --> ?
 
             if not buffer:
                 continue
@@ -2327,7 +2347,9 @@ def process_buffers(
                     ):
                         continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True)
+                    extract_iocs_from_text_blob(
+                        buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True
+                    )
                     # We only want to display network buffers if an IOC is found
                     length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
@@ -2343,7 +2365,7 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-                        b_buffer = bytes(buffer, 'utf-8')
+                        b_buffer = bytes(buffer, "utf-8")
                         if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                             hash = sha256(b_buffer).hexdigest()
                             network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer, buffer))
@@ -2369,7 +2391,7 @@ def process_buffers(
                     PE_from_buffer.build()
                     PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
                 else:
-                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
+                    with open(f"{BUFFER_PATH}/{filename}", "wb+") as f:
                         f.write(pebuffer)
             except Exception as E:
                 continue

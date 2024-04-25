@@ -834,7 +834,7 @@ class TestCapeResult:
                     "dns_details": None,
                     "http_details": None,
                     "objectid": {
-                        "ontology_id": "network_4p0lE7W5orzqpCKTulbgBV",
+                        "ontology_id": "network_7hKNdOVlLWYVZUUVUNbDgs",
                         "processtree": None,
                         "service_name": "CAPE",
                         "session": "blah",
@@ -867,7 +867,7 @@ class TestCapeResult:
                     "dns_details": None,
                     "http_details": None,
                     "objectid": {
-                        "ontology_id": "network_4p0lE7W5orzqpCKTulbgBV",
+                        "ontology_id": "network_7hKNdOVlLWYVZUUVUNbDgs",
                         "processtree": None,
                         "service_name": "CAPE",
                         "session": "blah",
@@ -901,7 +901,7 @@ class TestCapeResult:
                     "dns_details": None,
                     "http_details": None,
                     "objectid": {
-                        "ontology_id": "network_4p0lE7W5orzqpCKTulbgBV",
+                        "ontology_id": "network_7hKNdOVlLWYVZUUVUNbDgs",
                         "processtree": None,
                         "service_name": "CAPE",
                         "session": "blah",
@@ -1713,7 +1713,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "95.216.164.28:80",
-                    "ontology_id": "network_38TDsS68GMg2PeRDtxjfBc",
+                    "ontology_id": "network_nVxpq7pEoHUB2klPW635C",
                     "service_name": "blah",
                     "guid": "{D108591A-BD96-46EB-A2BC-EC9515A67509}",
                     "treeid": None,
@@ -1746,7 +1746,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "95.216.164.28:80",
-                    "ontology_id": "network_7c8KXNGyDDyQUQQcLXlvUC",
+                    "ontology_id": "network_38NX6IQ0fRInDC8oJj8Wcn",
                     "service_name": "blah",
                     "guid": "{482EA9DA-0D43-4020-8FB2-423CB56E8593}",
                     "treeid": None,
@@ -1768,7 +1768,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_6DNfxq934oRyWlbVUavBaS",
+                    "ontology_id": "network_1NMBizTw6LVscAQk6AzSa3",
                     "service_name": "blah",
                     "guid": "{8C74A811-3385-41AB-AABA-16F76E54D975}",
                     "treeid": None,
@@ -1790,7 +1790,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_7ZxL2hsjQE2ERtWUqOHKBh",
+                    "ontology_id": "network_42ZYGeRxVdlLMX1tkygMgT",
                     "service_name": "blah",
                     "guid": "{551CAC81-8453-496E-87A2-62E80F908693}",
                     "treeid": None,
@@ -1812,7 +1812,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_6lhqp2AFrGPwtntdL3bWAC",
+                    "ontology_id": "network_5AXmSU6EMjdmMVSlhli1wt",
                     "service_name": "blah",
                     "guid": "{4EBCA6D1-CA3C-43CE-BCBB-E16584CE9131}",
                     "treeid": None,
@@ -1834,7 +1834,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_4CLCtG9Ev9f59It8r9vhd",
+                    "ontology_id": "network_974wSt1tqtBKhh6wfVJR0",
                     "service_name": "blah",
                     "guid": "{6489BEA9-36AF-43D0-A42A-EB7D4F7BFB56}",
                     "treeid": None,
@@ -1856,7 +1856,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_4IWordP1JnlRrA6GyIu7cU",
+                    "ontology_id": "network_6dF5xejdde84vtwKjhOfnN",
                     "service_name": "blah",
                     "guid": "{A2DD66EE-F7B6-4978-A88A-567B0D147AA3}",
                     "treeid": None,
@@ -1878,7 +1878,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_3b4xYOrrztHVmjkc6wKdsX",
+                    "ontology_id": "network_1BWIArDQYnvlvMpkfHkwrm",
                     "service_name": "blah",
                     "guid": "{A17304BF-B11E-4AB1-B6F7-07E179CF90D8}",
                     "treeid": None,
@@ -1900,7 +1900,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_10rqzNRgEXvSiseaH9v2yC",
+                    "ontology_id": "network_dns_6nCwm5ifeQDGWoXk0t7EYZ",
                     "service_name": "blah",
                     "guid": "{6345E36D-688C-4B90-9CE8-BBBCA611C05E}",
                     "treeid": None,
@@ -1922,7 +1922,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_1Xrg2p0r4TZBlXKvZ3ppRH",
+                    "ontology_id": "network_dns_4HOfKT1iI5lqRyGVrKjUrn",
                     "service_name": "blah",
                     "guid": "{E3F55ED1-FC55-40B0-8C0C-CA55A74FACCD}",
                     "treeid": None,
@@ -2797,7 +2797,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4LABiKsNi03CNBx16v8vCV",
+                    "ontology_id": "network_dns_DrEKLpSbdphKzocz4jEbm",
                     "service_name": "blah",
                     "guid": "{3622D059-774A-4EF9-B0C8-532FC23E6F50}",
                     "treeid": None,
@@ -2819,7 +2819,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_5jh8RBPGLMvRCqX5X0c4c5",
+                    "ontology_id": "network_dns_20CQlmKCrlbRuz1XTbpZfB",
                     "service_name": "blah",
                     "guid": "{E100429A-B64B-4FE5-92C4-422F1F762228}",
                     "treeid": None,
@@ -2841,7 +2841,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_3PbJY8HBOzCKihRwD2IoYy",
+                    "ontology_id": "network_dns_1CLI7LQ3gYvGYhQ8RMlrrH",
                     "service_name": "blah",
                     "guid": "{34B30464-218E-4479-A15E-FF5E44A267B6}",
                     "treeid": None,
@@ -2863,7 +2863,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_2UT8GwLhrolk87hBugFNKq",
+                    "ontology_id": "network_dns_6Rj3V5uYulfpMF8tpaixXy",
                     "service_name": "blah",
                     "guid": "{FEDF2594-1B2A-44D1-B7B3-A9449D5C3648}",
                     "treeid": None,
@@ -2885,7 +2885,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_5E1Bqpk9T6wrHJ8qyqXB5h",
+                    "ontology_id": "network_dns_6KIVvVC3vsOHSKbaPzJYgC",
                     "service_name": "blah",
                     "guid": "{02ECC30A-4B95-4FE6-906B-16C41D64D045}",
                     "treeid": None,
@@ -2907,7 +2907,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_YKJ9ZiUTNAzbZWUCtEt7C",
+                    "ontology_id": "network_dns_1LfuWN4wCjqBcOAKeD0Wk7",
                     "service_name": "blah",
                     "guid": "{7F8677C6-EB9F-4606-ABBA-AE35D1CD4A9A}",
                     "treeid": None,
@@ -2929,7 +2929,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_6cav2Rjwz3CfAMzqnGeD5b",
+                    "ontology_id": "network_dns_2eoJm6ChttpRAQIwQipUbO",
                     "service_name": "blah",
                     "guid": "{BA39A4D8-E129-467C-B07A-128DDB22A6DC}",
                     "treeid": None,
@@ -2951,7 +2951,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_6TGckydw9RwayZXTT4cqB2",
+                    "ontology_id": "network_dns_3DvkqfAqrTq7fPbhYfiO2N",
                     "service_name": "blah",
                     "guid": "{31D4685B-5B60-409E-BC3B-E45DEDB22F3D}",
                     "treeid": None,
@@ -2973,7 +2973,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4jo5BXyIp9SjpK8JFWPl4U",
+                    "ontology_id": "network_dns_4aTdZA6xehlgONUQqoGdVM",
                     "service_name": "blah",
                     "guid": "{2FEE8808-8B2E-4281-A52C-6AE2DF9478D1}",
                     "treeid": None,
@@ -2995,7 +2995,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_16abrLX1qwu4EBCKl5Ld7J",
+                    "ontology_id": "network_dns_43H6KNJYCRUBLCWTf4VMsB",
                     "service_name": "blah",
                     "guid": "{4DF101B4-83E0-4482-8FA6-89A12B9DDE72}",
                     "treeid": None,
@@ -3017,7 +3017,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4Pd8sCUbAUSaiBx940r0Bl",
+                    "ontology_id": "network_dns_25pIJPbtvkENONqWOsRyld",
                     "service_name": "blah",
                     "guid": "{4080F751-56B4-4F64-916C-E22CA60A6A6D}",
                     "treeid": None,
@@ -3039,7 +3039,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.126:8080",
-                    "ontology_id": "network_http_3sBrwzHmmPKDULJyLoIiEM",
+                    "ontology_id": "network_http_4H172oneeo3f2iJAkE3o01",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3075,7 +3075,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.212:8080",
-                    "ontology_id": "network_http_1w5bakSeMtzI5FehkSNG7o",
+                    "ontology_id": "network_http_5eYEj0thuCMAym4wVLUcYf",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3111,7 +3111,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.136:8080",
-                    "ontology_id": "network_http_5vFhajHe1T6kqG6SteIy60",
+                    "ontology_id": "network_http_4JagwRt8w9yWVMwdxXHnPS",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3147,7 +3147,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.40:8080",
-                    "ontology_id": "network_http_riLyzr3LcIomDGnAItGw4",
+                    "ontology_id": "network_http_2dhZkahgVRo6cklZDvDg2z",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3183,7 +3183,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.204:8080",
-                    "ontology_id": "network_http_2bR7mHNgNfZOdTda8z9LKa",
+                    "ontology_id": "network_http_3kWh9ROdmdVYjYQInI1yXG",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3219,7 +3219,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.37:8080",
-                    "ontology_id": "network_http_r61CheB6MBJOu9E04EAtY",
+                    "ontology_id": "network_http_aW7lgOGKUjbuIKkDUyOLo",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3255,7 +3255,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.166:8080",
-                    "ontology_id": "network_http_7gYrlrUSdEZIa55kWmYcLu",
+                    "ontology_id": "network_http_Yl0rpHbIsqGS2QOV5JApo",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3291,7 +3291,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.137:8080",
-                    "ontology_id": "network_http_6CMxPotrGGqSVz6i80NJx6",
+                    "ontology_id": "network_http_S7dZqOSnnMm1H1hkvapws",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -29424,9 +29424,9 @@ class TestCapeResult:
             False,
             suspicious_accepted_languages,
         )
-        #assert check_section_equality(parent_result_section, correct_result_section) doesn't account for different order
+        # assert check_section_equality(parent_result_section, correct_result_section) doesn't account for different order
 
-        #for index, netflow in enumerate(ontres.netflows): need to change the ontology_id to new value
+        # for index, netflow in enumerate(ontres.netflows): need to change the ontology_id to new value
         #    # Ignore guids since they are random
         #    netflow_as_prims = netflow.as_primitives()
         #    _ = netflow_as_prims["objectid"].pop("guid")
@@ -29669,7 +29669,7 @@ class TestCapeResult:
             True,
             suspicious_accepted_languages,
         )
-        #assert check_section_equality(parent_result_section, correct_result_section) need to change the ontology_id to new value
+        # assert check_section_equality(parent_result_section, correct_result_section) need to change the ontology_id to new value
 
     @staticmethod
     def test_process_unseen_iocs():
@@ -29841,21 +29841,21 @@ class TestCapeResult:
         assert check_section_equality(actual_res_sec, expected_res_sec)
 
         # No answer test --> Disabling since seem prone to FP of saying the DNS is down when it's not.
-        #resolved_ips = {"blah.com": [{"answers": "0"}]}
-        #expected_res_sec = ResultSection(
+        # resolved_ips = {"blah.com": [{"answers": ["0"]}]}
+        # expected_res_sec = ResultSection(
         #    "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=json.dumps([{"domain": "blah.com", "type": None}])
-        #)
-        #expected_res_sec.set_heuristic(1000)
-        #expected_res_sec.add_tag("network.protocol", "dns")
-        #expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
-        #expected_res_sec.add_subsection(
+        # )
+        # expected_res_sec.set_heuristic(1000)
+        # expected_res_sec.add_tag("network.protocol", "dns")
+        # expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
+        # expected_res_sec.add_subsection(
         #    ResultSection(
         #        title_text="DNS services are down!",
         #        body="Contact the CAPE administrator for details.",
         #    )
-        #)
-        #actual_res_sec = _get_dns_sec(resolved_ips, safelist)
-        #assert check_section_equality(actual_res_sec, expected_res_sec)
+        # )
+        # actual_res_sec = _get_dns_sec(resolved_ips, safelist)
+        # assert check_section_equality(actual_res_sec, expected_res_sec)
 
         # Non-standard DNS query
         resolved_ips = {"blah.com": [{"answers": "1.1.1.1", "type": "TXT"}]}
@@ -29890,7 +29890,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "guid": None,
                             "process_id": None,
                             "process_name": None,
@@ -29907,7 +29907,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "guid": None,
                             "process_id": None,
                             "process_name": None,
@@ -29934,7 +29934,7 @@ class TestCapeResult:
                 {
                     "answer": [
                         {
-                            "answers": "10.10.10.10",
+                            "answers": ["10.10.10.10"],
                             "guid": None,
                             "process_id": None,
                             "process_name": None,
@@ -29957,7 +29957,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "guid": None,
                             "process_id": None,
                             "process_name": None,
@@ -29974,7 +29974,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "guid": None,
                             "process_id": None,
                             "process_name": None,
@@ -29991,7 +29991,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "process_id": 1,
                             "process_name": "blah",
                             "guid": None,
@@ -30008,7 +30008,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "process_id": 1,
                             "process_name": "blah",
                             "guid": None,
@@ -30025,7 +30025,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "process_id": 1,
                             "process_name": "blah",
                             "guid": None,
@@ -30042,7 +30042,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "process_id": 1,
                             "process_name": "blah",
                             "guid": None,
@@ -30059,7 +30059,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "answer",
+                            "answers": ["answer"],
                             "process_id": 1,
                             "process_name": "blah",
                             "guid": None,
@@ -30088,7 +30088,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "0",
+                            "answers": ["0"],
                             "guid": None,
                             "process_id": 1,
                             "process_name": "blah",
@@ -30106,7 +30106,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "0",
+                            "answers": ["0"],
                             "guid": None,
                             "process_id": 1,
                             "process_name": "blah",
@@ -30124,7 +30124,7 @@ class TestCapeResult:
                 {
                     "request": [
                         {
-                            "answers": "0",
+                            "answers": ["0"],
                             "guid": None,
                             "process_id": 1,
                             "process_name": "blah",
@@ -30308,7 +30308,7 @@ class TestCapeResult:
             (
                 "blah.com",
                 ["127.0.0.1"],
-                {"blah.com": [{"answers": "1.1.1.1"}], "1": [{"answers": "blah"}]},
+                {"blah.com": [{"answers": ["1.1.1.1"]}], "1": [{"answers": "blah"}]},
                 {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
                 "http://blah.com/blah",
                 {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"},
@@ -30558,7 +30558,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_4UyDtZ5U9UqawRstAJYQcp",
+                        "ontology_id": "network_http_1Ad42MQWJCv2o6aiJZGgrR",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
@@ -30594,7 +30594,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_1b1fZkQx3D9zc1olLJr85e",
+                        "ontology_id": "network_http_MEdHfBfbd7vVzsbFF1Ooo",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
@@ -30656,7 +30656,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_4UyDtZ5U9UqawRstAJYQcp",
+                        "ontology_id": "network_http_1Ad42MQWJCv2o6aiJZGgrR",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
@@ -31791,7 +31791,13 @@ class TestCapeResult:
                 {"PE": False, "crypt": ["NCryptDecrypt"]},
             ),
             (
-                {0: {"decrypted_buffers": [{"NCryptEncrypt": {"buffer": "MZ This program cannot be run in DOS mode"}}]}},
+                {
+                    0: {
+                        "decrypted_buffers": [
+                            {"NCryptEncrypt": {"buffer": "MZ This program cannot be run in DOS mode"}}
+                        ]
+                    }
+                },
                 '[{"Process": "None (0)", "Source": "Windows API", "Buffer": "MZ This program cannot be run in DOS mode"}]',
                 {},
                 [],
@@ -31822,9 +31828,9 @@ class TestCapeResult:
                 for value in values:
                     buffer_ioc_table.add_tag(tag, value)
             assert check_section_equality(parent_section.subsections[0], correct_result_section)
-        
+
         APIS = []
-        if expected_extracted_buffers["PE"] :
+        if expected_extracted_buffers["PE"]:
             assert os.path.exists(BUFFER_PATH)
             if "crypt" in expected_extracted_buffers.keys():
                 APIS.extend(expected_extracted_buffers["crypt"])
@@ -31834,9 +31840,7 @@ class TestCapeResult:
                 APIS.extend(expected_extracted_buffers["misc"])
             for entry in os.scandir(BUFFER_PATH):
                 if entry.is_file():
-                    assert (
-                        any(call in entry.name for call in APIS)
-                    )
+                    assert any(call in entry.name for call in APIS)
                     APIS.remove(entry.name.split("-")[1])
             assert len(APIS) == 0
 
@@ -31856,48 +31860,59 @@ class TestCapeResult:
                 [
                     {"sha256": "blah", "pid": 1, "is_yara_hit": True},
                     {"sha256": "blahblah", "pid": 2, "is_yara_hit": False},
-                ], None
+                ],
+                None,
             ),
             # With configs
-            ({
-                "payloads": [
+            (
+                {
+                    "payloads": [
+                        {
+                            "sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b",
+                            "yara": [
+                                [
+                                    {"name": "INDICATOR_EXE_Packed_GEN01", "meta": {}, "strings": [], "addresses": {}},
+                                    {
+                                        "name": "INDICATOR_SUSPICIOUS_EXE_VaultSchemaGUID",
+                                        "meta": {},
+                                        "strings": [],
+                                        "addresses": {},
+                                    },
+                                ]
+                            ],
+                            "cape_yara": [{"name": "AgentTeslaV3", "meta": {}, "strings": [], "addresses": {}}],
+                            "pid": 5256,
+                        }
+                    ],
+                    "configs": [
+                        {
+                            "AgentTesla": {
+                                "Protocol": ["SMTP"],
+                                "C2": ["mail.asiaparadisehotel.com"],
+                            },
+                            "_associated_config_hashes": [
+                                {"sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b"}
+                            ],
+                            "_associated_analysis_hashes": {
+                                "sha256": "fc72fd6a4fdc1440d122d98d90279ff898193f68a63180da90eb5ec2495062d1"
+                            },
+                        }
+                    ],
+                },
+                [
                     {
                         "sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b",
-                        "yara": [
-                            [
-                                {"name": "INDICATOR_EXE_Packed_GEN01", "meta": {}, "strings": [], "addresses": {}},
-                                {
-                                    "name": "INDICATOR_SUSPICIOUS_EXE_VaultSchemaGUID",
-                                    "meta": {},
-                                    "strings": [],
-                                    "addresses": {},
-                                },
-                            ]
-                        ],
-                        "cape_yara": [{"name": "AgentTeslaV3", "meta": {}, "strings": [], "addresses": {}}],
                         "pid": 5256,
+                        "is_yara_hit": True,
                     }
                 ],
-                "configs": [
-                    {
-                        "AgentTesla": {
-                            "Protocol": ["SMTP"],
-                            "C2": ["mail.asiaparadisehotel.com"],
-                        },
-                        "_associated_config_hashes": [
-                            {"sha256": "b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b"}
-                        ],
-                        "_associated_analysis_hashes": {
-                            "sha256": "fc72fd6a4fdc1440d122d98d90279ff898193f68a63180da90eb5ec2495062d1"
-                        },
-                    }
-                ],
-            },
-                [{'sha256': 'b79209db3dcaca9db718fc16aff1cc31eb641f21edfabcb952d2642e4f09279b', 'pid': 5256, 'is_yara_hit': True}],
-                {"name": "AgentTesla Config", "rows": [
-                    {"type": "Protocol", "config_value": ["SMTP"]},
-                    {"type": "C2", "config_value": ["mail.asiaparadisehotel.com"]},
-                ]}
+                {
+                    "name": "AgentTesla Config",
+                    "rows": [
+                        {"type": "Protocol", "config_value": ["SMTP"]},
+                        {"type": "C2", "config_value": ["mail.asiaparadisehotel.com"]},
+                    ],
+                },
             ),
         ],
     )
@@ -32208,7 +32223,14 @@ class TestCapeResult:
         safelist = {}
         uses_https_proxy_in_sandbox = False
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
 
         assert actual_res_sec.title_text == "Signature: blah"
@@ -32251,7 +32273,14 @@ class TestCapeResult:
             ]
         }
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
         assert (
             actual_res_sec.body
@@ -32286,7 +32315,14 @@ class TestCapeResult:
         ontres.add_process(p)
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}]}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
         attr_as_primitives = ontres_sig.attributes[0].as_primitives()
@@ -32314,7 +32350,14 @@ class TestCapeResult:
         signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}]}
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec is None
 
@@ -32328,7 +32371,14 @@ class TestCapeResult:
         }
         safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
         actual_res_sec = _create_signature_result_section(
-            name, signature, translated_score, ontres_sig, ontres, process_map, safelist, uses_https_proxy_in_sandbox,
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
         )
         assert (
             actual_res_sec.body
@@ -32630,7 +32680,7 @@ class TestCapeResult:
                     "network.dynamic.domain": ["blah.com"],
                     "network.dynamic.uri_path": ["/blahblah"],
                 },
-                False
+                False,
             ),
             # Standard key for file.pe.exports.function_name, nothing special with value
             ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}, False),
@@ -32651,7 +32701,7 @@ class TestCapeResult:
                     "network.dynamic.domain": ["blah.com"],
                     "network.dynamic.uri_path": ["/blahblah"],
                 },
-                True
+                True,
             ),
         ],
     )
