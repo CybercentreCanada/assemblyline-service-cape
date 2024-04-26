@@ -1470,7 +1470,8 @@ def _get_dns_map(
                 for request, attempts in dns_requests.items():
                     for index, attempt in enumerate(attempts):
                         answers = attempt["answers"]
-
+                        if answers == None:
+                            continue
                         for answer in answers:
                             if not answer.isdigit() in [dns.get("hostname"), dns.get("servername")]:
                                 if not dns_requests[request][index].get("process_name"):
