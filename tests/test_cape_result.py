@@ -1713,7 +1713,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "95.216.164.28:80",
-                    "ontology_id": "network_nVxpq7pEoHUB2klPW635C",
+                    "ontology_id": "network_http_5zMzJNVSZE68OppDfT3c5U",
                     "service_name": "blah",
                     "guid": "{D108591A-BD96-46EB-A2BC-EC9515A67509}",
                     "treeid": None,
@@ -1746,7 +1746,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "95.216.164.28:80",
-                    "ontology_id": "network_38NX6IQ0fRInDC8oJj8Wcn",
+                    "ontology_id": "network_http_6UMz7UtidlQG3k0LZULDSm",
                     "service_name": "blah",
                     "guid": "{482EA9DA-0D43-4020-8FB2-423CB56E8593}",
                     "treeid": None,
@@ -1768,7 +1768,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_1NMBizTw6LVscAQk6AzSa3",
+                    "ontology_id": "network_http_3hTc1koi2iuQBgPdv7PuT",
                     "service_name": "blah",
                     "guid": "{8C74A811-3385-41AB-AABA-16F76E54D975}",
                     "treeid": None,
@@ -1790,7 +1790,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_42ZYGeRxVdlLMX1tkygMgT",
+                    "ontology_id": "network_http_d6J5SFIpF3y35oWDxcwgr",
                     "service_name": "blah",
                     "guid": "{551CAC81-8453-496E-87A2-62E80F908693}",
                     "treeid": None,
@@ -1812,7 +1812,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.214:443",
-                    "ontology_id": "network_5AXmSU6EMjdmMVSlhli1wt",
+                    "ontology_id": "network_http_6g7TdwUxLIydXrJvKj0m2d",
                     "service_name": "blah",
                     "guid": "{4EBCA6D1-CA3C-43CE-BCBB-E16584CE9131}",
                     "treeid": None,
@@ -1834,7 +1834,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_974wSt1tqtBKhh6wfVJR0",
+                    "ontology_id": "network_http_3FAO3UcaREBhSFJ1jSjJ6g",
                     "service_name": "blah",
                     "guid": "{6489BEA9-36AF-43D0-A42A-EB7D4F7BFB56}",
                     "treeid": None,
@@ -1856,7 +1856,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_6dF5xejdde84vtwKjhOfnN",
+                    "ontology_id": "network_http_2p9SxkFFgDArbTpsQbs0gT",
                     "service_name": "blah",
                     "guid": "{A2DD66EE-F7B6-4978-A88A-567B0D147AA3}",
                     "treeid": None,
@@ -1878,7 +1878,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.164:443",
-                    "ontology_id": "network_1BWIArDQYnvlvMpkfHkwrm",
+                    "ontology_id": "network_http_6kkjRkRPMW3lb5Eq2mE0Ta",
                     "service_name": "blah",
                     "guid": "{A17304BF-B11E-4AB1-B6F7-07E179CF90D8}",
                     "treeid": None,

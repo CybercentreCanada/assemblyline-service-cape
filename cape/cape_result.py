@@ -859,6 +859,12 @@ def _tag_network_flow(
 def _create_network_connection_for_network_flow(
     network_flow: Dict[str, Any], session: str, ontres: OntologyResults
 ) -> bool:
+    if network_flow["dest_port"] in [80, 443]:
+        connection_type = NetworkConnection.HTTP
+    elif network_flow["dest_port"] in [53]:
+        connection_type = NetworkConnection.DNS
+    else:
+        connection_type = None
     nc_oid = NetworkConnectionModel.get_oid(
         {
             "source_ip": network_flow["src_ip"],
@@ -866,7 +872,7 @@ def _create_network_connection_for_network_flow(
             "destination_ip": network_flow["dest_ip"],
             "destination_port": network_flow["dest_port"],
             "transport_layer_protocol": network_flow["protocol"],
-            # "connection_type": None,  # TODO: HTTP or DNS
+            "connection_type": connection_type,  
         }
     )
     objectid = ontres.create_objectid(
