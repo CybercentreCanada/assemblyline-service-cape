@@ -3039,7 +3039,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.126:8080",
-                    "ontology_id": "network_http_4H172oneeo3f2iJAkE3o01",
+                    "ontology_id": "network_http_50MavtIkktLMb3PDFEMAqG",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3075,7 +3075,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.212:8080",
-                    "ontology_id": "network_http_5eYEj0thuCMAym4wVLUcYf",
+                    "ontology_id": "network_http_6bK3DH5EY1YDuFXfSzBUxn",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3111,7 +3111,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.136:8080",
-                    "ontology_id": "network_http_4JagwRt8w9yWVMwdxXHnPS",
+                    "ontology_id": "network_http_143Fi0KSevbeaOFXbGUwKK",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3147,7 +3147,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.40:8080",
-                    "ontology_id": "network_http_2dhZkahgVRo6cklZDvDg2z",
+                    "ontology_id": "network_http_1BljUBqWozxMBOsVrj0wEg",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3183,7 +3183,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.204:8080",
-                    "ontology_id": "network_http_3kWh9ROdmdVYjYQInI1yXG",
+                    "ontology_id": "network_http_3Zh246m95NfnKNteVrVlfU",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3219,7 +3219,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.37:8080",
-                    "ontology_id": "network_http_aW7lgOGKUjbuIKkDUyOLo",
+                    "ontology_id": "network_http_6B2q12qn1rgUJUP5iidWMv",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3255,7 +3255,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.166:8080",
-                    "ontology_id": "network_http_Yl0rpHbIsqGS2QOV5JApo",
+                    "ontology_id": "network_http_76vwkCp19tDzLCQV3zc272",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -3291,7 +3291,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.0.2.137:8080",
-                    "ontology_id": "network_http_S7dZqOSnnMm1H1hkvapws",
+                    "ontology_id": "network_http_iE9Asn2k5Kqlj3zpGeO6M",
                     "service_name": "blah",
                     "guid": None,
                     "treeid": None,
@@ -30558,7 +30558,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_1Ad42MQWJCv2o6aiJZGgrR",
+                        "ontology_id": "network_http_2aYE9AQoYvRmYHrorTmETw",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
@@ -30594,7 +30594,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_MEdHfBfbd7vVzsbFF1Ooo",
+                        "ontology_id": "network_http_5JKYqWSPzDSn2OnZra0Z7D",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
@@ -30656,7 +30656,7 @@ class TestCapeResult:
                     },
                     "objectid": {
                         "guid": None,
-                        "ontology_id": "network_http_1Ad42MQWJCv2o6aiJZGgrR",
+                        "ontology_id": "network_http_2aYE9AQoYvRmYHrorTmETw",
                         "processtree": None,
                         "service_name": "blah",
                         "session": None,
