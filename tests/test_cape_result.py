@@ -1900,7 +1900,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_6nCwm5ifeQDGWoXk0t7EYZ",
+                    "ontology_id": "network_dns_7dE4yHLmEMPDGFVHVHC9yL",
                     "service_name": "blah",
                     "guid": "{6345E36D-688C-4B90-9CE8-BBBCA611C05E}",
                     "treeid": None,
@@ -1922,7 +1922,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4HOfKT1iI5lqRyGVrKjUrn",
+                    "ontology_id": "network_dns_kxv6saRCL4Soe0VgwhzOp",
                     "service_name": "blah",
                     "guid": "{E3F55ED1-FC55-40B0-8C0C-CA55A74FACCD}",
                     "treeid": None,
@@ -2797,7 +2797,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_DrEKLpSbdphKzocz4jEbm",
+                    "ontology_id": "network_dns_5k3lJGnVOdAsCHIq8WjiQL",
                     "service_name": "blah",
                     "guid": "{3622D059-774A-4EF9-B0C8-532FC23E6F50}",
                     "treeid": None,
@@ -2819,7 +2819,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_20CQlmKCrlbRuz1XTbpZfB",
+                    "ontology_id": "network_dns_1kWPAWYK4r9cF7b76Z3NIk",
                     "service_name": "blah",
                     "guid": "{E100429A-B64B-4FE5-92C4-422F1F762228}",
                     "treeid": None,
@@ -2841,7 +2841,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_1CLI7LQ3gYvGYhQ8RMlrrH",
+                    "ontology_id": "network_dns_4U8y0TkZq1Z4BLTWJxiDee",
                     "service_name": "blah",
                     "guid": "{34B30464-218E-4479-A15E-FF5E44A267B6}",
                     "treeid": None,
@@ -2863,7 +2863,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_6Rj3V5uYulfpMF8tpaixXy",
+                    "ontology_id": "network_dns_7RIeViAuXM0irVHW02A4Ee",
                     "service_name": "blah",
                     "guid": "{FEDF2594-1B2A-44D1-B7B3-A9449D5C3648}",
                     "treeid": None,
@@ -2885,7 +2885,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_6KIVvVC3vsOHSKbaPzJYgC",
+                    "ontology_id": "network_dns_39XxwW76sHXfT3JaIpgAqm",
                     "service_name": "blah",
                     "guid": "{02ECC30A-4B95-4FE6-906B-16C41D64D045}",
                     "treeid": None,
@@ -2907,7 +2907,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_1LfuWN4wCjqBcOAKeD0Wk7",
+                    "ontology_id": "network_dns_6UUbcOj3hVkA1Psth3MRcp",
                     "service_name": "blah",
                     "guid": "{7F8677C6-EB9F-4606-ABBA-AE35D1CD4A9A}",
                     "treeid": None,
@@ -2929,7 +2929,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_2eoJm6ChttpRAQIwQipUbO",
+                    "ontology_id": "network_dns_5Rr88lHs3Rtxg9hS5lVtnA",
                     "service_name": "blah",
                     "guid": "{BA39A4D8-E129-467C-B07A-128DDB22A6DC}",
                     "treeid": None,
@@ -2951,7 +2951,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_3DvkqfAqrTq7fPbhYfiO2N",
+                    "ontology_id": "network_dns_7g0iAONUhvcDVLEn89ymSF",
                     "service_name": "blah",
                     "guid": "{31D4685B-5B60-409E-BC3B-E45DEDB22F3D}",
                     "treeid": None,
@@ -2973,7 +2973,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4aTdZA6xehlgONUQqoGdVM",
+                    "ontology_id": "network_dns_5EjTydsmG5ZjUKeuuDbUAr",
                     "service_name": "blah",
                     "guid": "{2FEE8808-8B2E-4281-A52C-6AE2DF9478D1}",
                     "treeid": None,
@@ -2995,7 +2995,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_43H6KNJYCRUBLCWTf4VMsB",
+                    "ontology_id": "network_dns_spazsBgo3CZqiC3QfUDEn",
                     "service_name": "blah",
                     "guid": "{4DF101B4-83E0-4482-8FA6-89A12B9DDE72}",
                     "treeid": None,
@@ -3017,7 +3017,7 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_25pIJPbtvkENONqWOsRyld",
+                    "ontology_id": "network_dns_7BNXZu9XaizzDGb5dDCnBl",
                     "service_name": "blah",
                     "guid": "{4080F751-56B4-4F64-916C-E22CA60A6A6D}",
                     "treeid": None,
