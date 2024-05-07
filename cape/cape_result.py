@@ -74,6 +74,7 @@ global_safelist: Optional[Dict[str, Dict[str, List[str]]]] = None
 # Custom regex for finding uris in a text blob
 UNIQUE_IP_LIMIT = 100
 SCORE_TRANSLATION = {
+    0: 0,
     1: 10,
     2: 30,
     3: 50,
@@ -94,7 +95,9 @@ CONNECT_API_CALLS = [
     "InternetConnectA",
     "WSAConnect",
     "InternetOpenUrlA",
+    "InternetOpenUrlW",
     "WinHttpConnect",
+    "WSAConnectByNameW",
 ]
 DNS_API_CALLS = [
     "getaddrinfo",
@@ -102,6 +105,9 @@ DNS_API_CALLS = [
     "InternetConnectA",
     "GetAddrInfoW",
     "gethostbyname",
+    "DnsQuery_A",
+    "DnsQuery_UTF8",
+    "DnsQuery_W",
 ]
 HTTP_API_CALLS = [
     "send",
@@ -111,11 +117,34 @@ HTTP_API_CALLS = [
     "InternetCrackUrlA",
     "InternetCrackUrlW",
     "InternetOpenUrlA",
+    "InternetOpenUrlW",
     "WinHttpConnect",
     "WSASend",
+    "URLDownloadToCacheFileW",
 ]
-BUFFER_API_CALLS = ["send", "sendto", "recv", "recvfrom", "WSARecv", "WSARecvFrom", "WSASend", "WSASendTo", "WSASendMsg", "SslEncryptPacket", "SslDecryptPacket", "InternetReadFile", "InternetWriteFile"]
-CRYPT_BUFFER_CALLS = ["CryptDecrypt", "CryptEncrypt", "BCryptDecrypt", "BCryptEncrypt", "NCryptDecrypt", "NCryptEncrypt"]
+BUFFER_API_CALLS = [
+    "send",
+    "sendto",
+    "recv",
+    "recvfrom",
+    "WSARecv",
+    "WSARecvFrom",
+    "WSASend",
+    "WSASendTo",
+    "WSASendMsg",
+    "SslEncryptPacket",
+    "SslDecryptPacket",
+    "InternetReadFile",
+    "InternetWriteFile",
+]
+CRYPT_BUFFER_CALLS = [
+    "CryptDecrypt",
+    "CryptEncrypt",
+    "BCryptDecrypt",
+    "BCryptEncrypt",
+    "NCryptDecrypt",
+    "NCryptEncrypt",
+]
 MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
@@ -200,6 +229,7 @@ PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
 
 PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
+
 
 # noinspection PyBroadException
 def generate_al_result(
@@ -734,10 +764,19 @@ def _remove_network_call(
     dom: str,
     dest_ip: str,
     dns_servers: List[str],
-    resolved_ips: Dict[str, List[Dict[str, Any]]],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
     inetsim_network: IPv4Network,
     safelist: Dict[str, Dict[str, List[str]]],
 ) -> bool:
+    list_of_all_answers = []
+    for _, attempts in dns_requests.items():
+        for attempt in attempts:
+            if isinstance(attempt["answers"], List):
+                list_of_all_answers.extend(attempt["answers"])
+            elif attempt["answers"] == None:
+                continue
+            else:
+                list_of_all_answers.append(attempt["answers"])
     # if domain is safe-listed
     if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
         return True
@@ -745,7 +784,7 @@ def _remove_network_call(
     elif (not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)) or dest_ip in dns_servers:
         return True
     # if dest ip is noise
-    elif dest_ip not in resolved_ips and ip_address(dest_ip) in inetsim_network:
+    elif dest_ip not in list_of_all_answers and ip_address(dest_ip) in inetsim_network:
         return True
 
     return False
@@ -827,6 +866,12 @@ def _tag_network_flow(
 def _create_network_connection_for_network_flow(
     network_flow: Dict[str, Any], session: str, ontres: OntologyResults
 ) -> bool:
+    if network_flow["dest_port"] in [80, 443]:
+        connection_type = NetworkConnection.HTTP
+    elif network_flow["dest_port"] in [53]:
+        connection_type = NetworkConnection.DNS
+    else:
+        connection_type = None
     nc_oid = NetworkConnectionModel.get_oid(
         {
             "source_ip": network_flow["src_ip"],
@@ -834,7 +879,7 @@ def _create_network_connection_for_network_flow(
             "destination_ip": network_flow["dest_ip"],
             "destination_port": network_flow["dest_port"],
             "transport_layer_protocol": network_flow["protocol"],
-            "connection_type": None,  # TODO: HTTP or DNS
+            "connection_type": connection_type,  
         }
     )
     objectid = ontres.create_objectid(
@@ -952,14 +997,14 @@ def process_network(
     if dns_server_hit:
         network_res.add_subsection(dns_server_sec)
 
-    resolved_ips: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
+    dns_requests: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
         network.get("dns", []), process_map, routing, dns_servers
     )
-    dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(resolved_ips, safelist)
+    dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table, netflows_sec = _get_low_level_flows(resolved_ips, low_level_flows)
+    network_flows_table, netflows_sec = _get_low_level_flows(dns_requests, low_level_flows)
 
     # We have to copy the network table so that we can iterate through the copy
     # and remove items from the real one at the same time
@@ -967,7 +1012,7 @@ def process_network(
         dom = network_flow["domain"]
         dest_ip = network_flow["dest_ip"]
 
-        if _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist):
+        if _remove_network_call(dom, dest_ip, dns_servers, dns_requests, inetsim_network, safelist):
             network_flows_table.remove(network_flow)
         else:
             network_flow = _link_flow_with_process(network_flow, process_map, ontres)
@@ -975,14 +1020,26 @@ def process_network(
 
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
-
-    for answer, requests in resolved_ips.items():
-        for request in requests:
-            if answer.isdigit():
+    for request, attempts in dns_requests.items():
+        for attempt in attempts:
+            relevant_answer = []
+            if isinstance(attempt["answers"], List):
+                answers = attempt["answers"]
+            elif attempt["answers"] == None:
                 continue
-            if not request["domain"] or not request.get("type"):
+            else:
+                answers = [attempt["answers"]]
+            for answer in answers:
+                if answer and answer.isdigit():
+                    continue
+                relevant_answer.append(answer)
+            if not request or not attempt.get("type"):
                 continue
-            nd = ontres.create_network_dns(domain=request["domain"], resolved_ips=[answer], lookup_type=request["type"])
+            if len(relevant_answer) == 0:
+                relevant_answer.append("")
+            nd = ontres.create_network_dns(
+                domain=request, resolved_ips=relevant_answer, lookup_type=attempt.get("type")
+            )
 
             destination_ip = dns_servers[0] if dns_servers else None
             destination_port = 53
@@ -994,6 +1051,8 @@ def process_network(
                     "destination_port": destination_port,
                     "transport_layer_protocol": transport_layer_protocol,
                     "connection_type": NetworkConnection.DNS,
+                    "dns_details": {"domain": request},
+                    "lookup_type": attempt.get("type")
                 }
             )
             objectid = ontres.create_objectid(
@@ -1005,7 +1064,7 @@ def process_network(
                 ),
                 ontology_id=nc_oid,
                 session=session,
-                time_observed=request["time"],
+                time_observed=attempt["time"],
             )
             objectid.assign_guid()
             try:
@@ -1027,9 +1086,9 @@ def process_network(
                     f"transport_layer_protocol={transport_layer_protocol}"
                 )
                 continue
-            p = ontres.get_process_by_guid(request["guid"])
+            p = ontres.get_process_by_guid(attempt["guid"])
             if not p:
-                p = ontres.get_process_by_pid_and_time(request["process_id"], nc.objectid.time_observed)
+                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
             if p:
                 nc.set_process(p)
             ontres.add_network_connection(nc)
@@ -1071,7 +1130,7 @@ def process_network(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    _process_http_calls(http_level_flows, process_map, dns_servers, resolved_ips, safelist, ontres)
+    _process_http_calls(http_level_flows, process_map, dns_servers, dns_requests, safelist, ontres)
     http_calls = ontres.get_network_http()
     if len(http_calls) > 0:
         normalized_headers = [header.replace("-", "") for header in STANDARD_HTTP_HEADERS]
@@ -1219,7 +1278,11 @@ def _process_unseen_iocs(
                 for _, v in network_details.items():
                     if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
                         extract_iocs_from_text_blob(
-                            v, possibly_unseen_iocs_res, enforce_char_min=True, safelist=safelist, is_network_static=True
+                            v,
+                            possibly_unseen_iocs_res,
+                            enforce_char_min=True,
+                            safelist=safelist,
+                            is_network_static=True,
                         )
 
     if possibly_unseen_iocs_res.body:
@@ -1287,45 +1350,52 @@ def _api_ioc_in_network_traffic(ioc: str, ioc_list: List[str]) -> bool:
 
 
 def _get_dns_sec(
-    resolved_ips: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
+    dns_requests: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
 ) -> ResultTableSection:
     """
     This method creates the result section for DNS traffic
-    :param resolved_ips: the mapping of resolved IPs and their corresponding domains
+    :param dns_requests: the mapping of resolved IPs and their corresponding domains
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :return: the result section containing details that we care about
     """
     answer_exists = False
     non_standard_dns_query_types: Set[str] = set()
-    if len(resolved_ips.keys()) == 0:
+    if len(dns_requests.keys()) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
     dns_res_sec.set_column_order(["domain", "answer", "type"])
     dns_res_sec.set_heuristic(1000)
     dns_body: List[Dict[str, str]] = []
     _ = add_tag(dns_res_sec, "network.protocol", "dns")
-    for answer, request_dicts in resolved_ips.items():
-        for request_dict in request_dicts:
-            request = request_dict["domain"]
-            _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
-            request_type = request_dict.get("type")
+
+    for request, attempts in dns_requests.items():
+        for attempt in attempts:
+            request_type = attempt.get("type")
+            if isinstance(attempt["answers"], List):
+                answers = attempt["answers"]
+            elif attempt["answers"] == None:
+                continue
+            else:
+                answers = [attempt["answers"]]
+            for answer in answers:
+                _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
+                if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
+                    if answer.isdigit():
+                        dns_request = {
+                            "domain": request,
+                            "type": request_type,
+                        }
+                    else:
+                        # If there is only UDP and no TCP traffic, then we need to tag the domains here:
+                        dns_request = {
+                            "domain": request,
+                            "answer": answer,
+                            "type": request_type,
+                        }
+                    dns_body.append(dns_request)
+                answer_exists = True
             if request_type and request_type not in ["PTR", "A", "AAAA"]:
                 non_standard_dns_query_types.add(request_type)
-            if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
-                if answer.isdigit():
-                    dns_request = {
-                        "domain": request,
-                        "type": request_type,
-                    }
-                else:
-                    # If there is only UDP and no TCP traffic, then we need to tag the domains here:
-                    dns_request = {
-                        "domain": request,
-                        "answer": answer,
-                        "type": request_type,
-                    }
-                    answer_exists = True
-                dns_body.append(dns_request)
     [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
 
     if not answer_exists:
@@ -1359,14 +1429,14 @@ def _get_dns_map(
     :param dns_servers: A list of DNS servers
     :return: the mapping of resolved IPs and their corresponding domains
     """
-    resolved_ips: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    dns_requests: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     no_answer_count = 0
     for dns_call in dns_calls:
         if len(dns_call["answers"]) > 0:
-            answer = dns_call["answers"][0]["data"]
+            answers = [i["data"] for i in dns_call["answers"]]
         else:
-            # We still want these DNS calls in the resolved_ips map, so use int as unique ID
-            answer = str(no_answer_count)
+            # We still want these DNS calls in the dns_requests map, so use int as unique ID
+            answers = [str(no_answer_count)]
             no_answer_count += 1
 
         request = dns_call.get("request")
@@ -1379,12 +1449,12 @@ def _get_dns_map(
         # DNS cache, and that chance increases the smaller the size of the random network space
         if routing.lower() in [INETSIM.lower(), "none"] and dns_type == "PTR":
             continue
+        # Some Windows nonsense
+        if set(answers).intersection(set(dns_servers)):
+            continue
 
         # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
         if dns_type == "PTR":
-            continue
-        # Some Windows nonsense
-        elif answer in dns_servers:
             continue
 
         # An 'A' record provides the IP address associated with a domain name.
@@ -1392,10 +1462,9 @@ def _get_dns_map(
             first_seen = dns_call.get("first_seen")
             if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
                 first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
-
-            resolved_ips[answer].append(
+            dns_requests[request].append(
                 {
-                    "domain": request,
+                    "answers": answers,
                     "process_id": dns_call.get("pid"),
                     "process_name": dns_call.get("image"),
                     "time": first_seen,
@@ -1411,34 +1480,31 @@ def _get_dns_map(
                 (network_call[api_call] for api_call in DNS_API_CALLS if api_call in network_call),
                 {},
             )
-            if dns != {} and (dns.get("hostname") or dns.get("servername")):
-                ip_mapped_to_host, index = next(
-                    (
-                        (ip, index)
-                        for ip, details in resolved_ips.items()
-                        for index, detail in enumerate(details)
-                        if detail["domain"] and not ip.isdigit() in [dns.get("hostname"), dns.get("servername")]
-                    ),
-                    (None, None),
-                )
-                if not ip_mapped_to_host:
-                    continue
+            if dns != {} and (dns.get("hostname") or dns.get("servername") or dns.get("nodename")):
+                for request, attempts in dns_requests.items():
+                    for index, attempt in enumerate(attempts):
+                        answers = attempt["answers"]
+                        if answers == None:
+                            continue
+                        for answer in answers:
+                            if not answer.isdigit() in [dns.get("hostname"), dns.get("servername", dns.get("nodename"))]:
+                                if not dns_requests[request][index].get("process_name"):
+                                    dns_requests[request][index]["process_name"] = process_details["name"]
 
-                if not resolved_ips[ip_mapped_to_host][index].get("process_name"):
-                    resolved_ips[ip_mapped_to_host][index]["process_name"] = process_details["name"]
-
-                if not resolved_ips[ip_mapped_to_host][index].get("process_id"):
-                    resolved_ips[ip_mapped_to_host][index]["process_id"] = process
-    return dict(resolved_ips)
+                            if not dns_requests[request][index].get("process_id"):
+                                dns_requests[request][index]["process_id"] = process
+                        else:
+                            continue
+    return dict(dns_requests)
 
 
 def _get_low_level_flows(
-    resolved_ips: Dict[str, List[Dict[str, Any]]],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
     flows: Dict[str, List[Dict[str, Any]]],
 ) -> Tuple[List[Dict[str, Any]], ResultTableSection]:
     """
     This method converts low level network calls to a general format
-    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
     :param flows: UDP and TCP flows from CAPE's analysis
     :return: Returns a table of low level network calls, and a result section for the table
     """
@@ -1489,15 +1555,23 @@ def _get_low_level_flows(
                 "pid": network_call.get("pid"),
                 "guid": network_call.get("guid"),
             }
-            if dst in resolved_ips.keys():
-                if dst.isdigit():
-                    continue
-                # We have no way of knowing which domain the underlying connection was made to, so just go with the first one
-                network_flow["domain"] = resolved_ips[dst][0]["domain"]
-                if not network_flow["image"]:
-                    network_flow["image"] = resolved_ips[dst][0].get("process_name")
-                if network_flow["image"] and not network_flow["pid"]:
-                    network_flow["pid"] = resolved_ips[dst][0]["process_id"]
+            for request, attempts in dns_requests.items():
+                for attempt in attempts:
+                    if isinstance(attempt["answers"], List):
+                        answers = attempt["answers"]
+                    elif attempt["answers"] == None:
+                        continue
+                    else:
+                        answers = [attempt["answers"]]
+                    if dst in answers:
+                        if dst.isdigit():
+                            continue
+                        # We have no way of knowing which domain the underlying connection was made to, so just go with the first one
+                        network_flow["domain"] = request
+                        if not network_flow["image"]:
+                            network_flow["image"] = attempt.get("process_name")
+                        if network_flow["image"] and not network_flow["pid"]:
+                            network_flow["pid"] = attempt["process_id"]
             network_flows_table.append(network_flow)
     return network_flows_table, netflows_sec
 
@@ -1514,13 +1588,13 @@ def _massage_host_data(host: str) -> str:
 
 
 def _massage_http_ex_data(
-    host: str, dns_servers: List[str], resolved_ips: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]
+    host: str, dns_servers: List[str], dns_requests: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]
 ) -> Tuple[str, str, str, Dict[str, Any]]:
     """
     This method extracts key details from the parsed <http(s)>_ex protocol data
     :param host: The actual host
     :param dns_servers: A list of DNS servers
-    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
     :param http_call: The parsed HTTP call data
     :return: A tuple of the URI reached out to, and the potentially modified parsed HTTP call data
     """
@@ -1531,16 +1605,21 @@ def _massage_http_ex_data(
     uri = f"{http_call['protocol']}://{host}{path}"
 
     # The dst could be the nest IP, so we want to replace this
-    if http_call["dst"] in dns_servers and any(
-        host == item["domain"] for items in resolved_ips.values() for item in items
-    ):
-        for ip, details in resolved_ips.items():
-            for detail in details:
-                if ip.isdigit():
+    if http_call["dst"] in dns_servers and any(host == item for item in dns_requests.keys()):
+        for request, attempts in dns_requests.items():
+            for attempt in attempts:
+                if isinstance(attempt["answers"], List):
+                    answers = attempt["answers"]
+                elif attempt["answers"] == None:
                     continue
-                if detail["domain"] == host:
-                    http_call["dst"] = ip
-                    break
+                else:
+                    answers = [attempt["answers"]]
+                for answer in answers:
+                    if answer.isdigit():
+                        continue
+                    if request == host:
+                        http_call["dst"] = answer
+                        break
 
     return uri, http_call
 
@@ -1549,7 +1628,7 @@ def _get_important_fields_from_http_call(
     protocol: str,
     host: str,
     dns_servers: List[str],
-    resolved_ips: Dict[str, List[Dict[str, Any]]],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
     http_call: Dict[str, Any],
 ) -> Tuple[str, int, str, Dict[str, Any]]:
     """
@@ -1557,13 +1636,13 @@ def _get_important_fields_from_http_call(
     :param
     :param host: The actual host
     :param dns_servers: A list of DNS servers
-    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
     :param http_call: The parsed HTTP call data
     :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
     """
     # <protocol>_ex data is weird and requires special parsing
     if "ex" in protocol:
-        uri, http_call = _massage_http_ex_data(host, dns_servers, resolved_ips, http_call)
+        uri, http_call = _massage_http_ex_data(host, dns_servers, dns_requests, http_call)
         request = http_call["request"]
         port = http_call["dport"]
     else:
@@ -1696,6 +1775,7 @@ def _create_network_connection_for_http_call(
             "destination_port": destination_port,
             "transport_layer_protocol": NetworkConnection.TCP,
             "connection_type": NetworkConnection.HTTP,
+            "http_details.request_uri": http_call.get("request_uri"),
         }
     )
     objectid = ontres.create_objectid(
@@ -1835,7 +1915,7 @@ def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
     process_map: Dict[int, Dict[str, Any]],
     dns_servers: List[str],
-    resolved_ips: Dict[str, List[Dict[str, Any]]],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
 ) -> None:
@@ -1844,7 +1924,7 @@ def _process_http_calls(
     :param http_level_flows: A list of flows that represent HTTP calls
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
     :param dns_servers: A list of DNS servers
-    :param resolved_ips: A map of process IDs to process names, network calls, and decrypted buffers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param ontres: The Ontology Results class object
     :return: None
@@ -1864,7 +1944,7 @@ def _process_http_calls(
 
             # request, port and uri are the main fields that we want to have as separate variables
             request, port, uri, http_call = _get_important_fields_from_http_call(
-                protocol, host, dns_servers, resolved_ips, http_call
+                protocol, host, dns_servers, dns_requests, http_call
             )
 
             # Now that we've massaged the data, let's confirm that this uri is not safelisted
@@ -2022,7 +2102,7 @@ def process_all_events(
                             "protocol": event.connection_type,
                             "domain": event.dns_details.domain,
                             "lookup_type": event.dns_details.lookup_type,
-                            "resolved_ips": event.dns_details.resolved_ips,
+                            "dns_requests": event.dns_details.resolved_ips,
                         },
                     )
                 )
@@ -2212,52 +2292,52 @@ def process_buffers(
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
         for call in process_details.get("decrypted_buffers", []):
             buffer = ""
-            
+
             crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
             if crypt_api:
                 buffer = call[crypt_api]["buffer"]
-                b_buffer = bytes(buffer, 'utf-8')
+                b_buffer = bytes(buffer, "utf-8")
                 if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                     hash = sha256(b_buffer).hexdigest()
                     buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer, buffer))
-     
+
             else:
                 misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
-                if misc_api :
+                if misc_api:
                     buffer = call[misc_api]["string"]
-                    b_buffer = bytes(buffer, 'utf-8')
+                    b_buffer = bytes(buffer, "utf-8")
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
                         buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer, buffer))
             # Note not all calls have the key name consistent with their capemon api output
-            #"CryptDecrypt" --> "buffer " Depricated but still used
-            #"CryptEncrypt" --> "buffer" Depricated but still used
+            # "CryptDecrypt" --> "buffer " Depricated but still used
+            # "CryptEncrypt" --> "buffer" Depricated but still used
             # "BCryptDecrypt" --> "buffer" Key in memory
-            #"BCryptEncrypt" --> "buffer" Key in memory
-            #"NCryptDecrypt" --> "buffer"  #key in a KSP
-            #"NCryptEncrypt" --> "buffer" key in a KSP
-            #Commented out since in most cases the encryption and decryption must be done on the same computer
-            #"CryptProtectData" --> ? 
-            #"CryptUnProtectData" --> ?
+            # "BCryptEncrypt" --> "buffer" Key in memory
+            # "NCryptDecrypt" --> "buffer"  #key in a KSP
+            # "NCryptEncrypt" --> "buffer" key in a KSP
+            # Commented out since in most cases the encryption and decryption must be done on the same computer
+            # "CryptProtectData" --> ?
+            # "CryptUnProtectData" --> ?
             # Commented out since no proof of requirement is there
-            #"CryptDecryptMessage" --> ?
-            #"CryptEncryptMessage" --> ?
-            #"CryptDecodeMessage" --> ?
+            # "CryptDecryptMessage" --> ?
+            # "CryptEncryptMessage" --> ?
+            # "CryptDecodeMessage" --> ?
             # Do we want hashing as well ?
-            #"CryptHashMessage" --> ?
+            # "CryptHashMessage" --> ?
 
-            #"OutputDebugStringA" --> "string"
-            #"OutputDebugStringW" --> "string"
+            # "OutputDebugStringA" --> "string"
+            # "OutputDebugStringW" --> "string"
 
-            #do we want those since it's in memory and probably going to be picked up elsewhere in dumps? 
-            #"CryptProtectMemory" --> ?
-            #"CryptUnprotectMemory" --> ?
-            #The need for compression/decompression buffer is probably not needed
-            #"RtlDecompressBuffer" --> ?
-            #"RtlCompressBuffer" --> ?
+            # do we want those since it's in memory and probably going to be picked up elsewhere in dumps?
+            # "CryptProtectMemory" --> ?
+            # "CryptUnprotectMemory" --> ?
+            # The need for compression/decompression buffer is probably not needed
+            # "RtlDecompressBuffer" --> ?
+            # "RtlCompressBuffer" --> ?
 
             # Do we want hashing as well ?
-           #"CryptHashData" --> ?
+            # "CryptHashData" --> ?
 
             if not buffer:
                 continue
@@ -2282,7 +2362,9 @@ def process_buffers(
                     ):
                         continue
                     length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True)
+                    extract_iocs_from_text_blob(
+                        buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True
+                    )
                     # We only want to display network buffers if an IOC is found
                     length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
                     if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
@@ -2298,7 +2380,7 @@ def process_buffers(
                     ):
                         buffer_body.append(table_row)
                         count_per_source_per_process += 1
-                        b_buffer = bytes(buffer, 'utf-8')
+                        b_buffer = bytes(buffer, "utf-8")
                         if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                             hash = sha256(b_buffer).hexdigest()
                             network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer, buffer))
@@ -2324,7 +2406,7 @@ def process_buffers(
                     PE_from_buffer.build()
                     PE_from_buffer.write(f"{BUFFER_PATH}/{filename}")
                 else:
-                    with open(f"{BUFFER_PATH}/{filename}", "wb+")as f:
+                    with open(f"{BUFFER_PATH}/{filename}", "wb+") as f:
                         f.write(pebuffer)
             except Exception as E:
                 continue
