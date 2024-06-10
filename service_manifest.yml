@@ -546,7 +546,7 @@ heuristics:
       zgrat: 0
       procmem_yara: 0
     filetype: "*"
-    description: CAPE yara hit wrapper
+    description: A Yara rule in CAPE was raised
 
   - heur_id: 1000
     name: Domain detected
