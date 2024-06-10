@@ -148,9 +148,10 @@ The options available for submissions to the CAPE service via REST API are not t
 
 * **analysis_timeout_in_seconds** - [default: 0] Maximum amount of time to wait for analysis to complete. NB: The analysis job may complete faster
 than this if the process being monitored exits. If the value is 0, then the analysis will default to use the value of the service parameter `default_analysis_timeout_in_seconds`.
-* **specific_image** - [default: [auto, auto_all, all]] List of available images and options to send the file to (selected option is attached as tag to the task).
+* **specific_image** - [default: [auto, auto_all, all]] List of available images and options to send the file to (selected option is attached as `tag` to the CAPE task).
   * In terms of selecting a victim for detonation, this option has the third highest priority, but is the most popular with analysts.
   * This list should contain all available images, as well as the three options `auto`, `auto_all` and `all`:
+    * The string representing an available image is a `tag` in machineries such as KVM, QEMU, etc., or `pool_tag` in machineries such as Azure. When declaring your machines/scale sets in your machinery configuration file in CAPE, you can include specific details about that entry in the `tags` field, such as "win10", "winxp" or "office2016". By including these items also in "specific_image" list in the Assemblyline CAPE service, you can submit files directly to these machines based on the tag.
     * `auto` will automatically select the image(s) that a file will be detonated on, determined by its file type. If you have a lot of images that a file can be detonated on, use the `auto_architecture` service parameter to be more specific.
     * `auto_all` will ignore the `auto_architecture` service parameter, and will send the file to all images that can detonate the file type.
     * `all` will send the file to all images in `allowed_images`.
