@@ -433,15 +433,6 @@ heuristics:
   - heur_id: 38
     name: Malware
     score: 1000
-    signature_score_map:
-      # The following signatures are "nested" within the procmem_yara signature
-      # If the score is 0, they are signatures that have the tendency to be a false positive
-      # These signature names have to be lower-cased to survive the YAML parsing
-      embedded_pe: 0
-      embedded_win_api: 0
-      shellcode_get_eip: 0
-      shellcode_patterns: 0
-      upx: 0
     filetype: "*"
     description: The file uses techniques associated with malicious software.
 
@@ -534,6 +525,28 @@ heuristics:
     score: 0
     filetype: "*"
     description: Malicious software program.
+
+  - heur_id: 55
+    name: CAPE Yara Hit
+    score: 0
+    signature_score_map:
+      # The following signatures are "nested" within the procmem_yara signature
+      # If the score is 0, they are signatures that have the tendency to be a false positive
+      # These signature names have to be lower-cased to survive the YAML parsing
+      # deprecated rules
+      formbook: 0
+      grum: 0
+      lummastealer: 0
+      metastealer: 0
+      embedded_pe: 0
+      embedded_win_api: 0
+      shellcode_get_eip: 0
+      shellcode_patterns: 0
+      upx: 0
+      zgrat: 0
+      procmem_yara: 0
+    filetype: "*"
+    description: CAPE yara hit wrapper
 
   - heur_id: 1000
     name: Domain detected

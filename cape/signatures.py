@@ -502,7 +502,7 @@ CAPE_SIGNATURES = {
     "process_creation_suspicious_location": "Execution",
     "process_interest": "Generic",
     "process_needed": "Generic",
-    "procmem_yara": "Malware",
+    "procmem_yara": "CAPE Yara Hit",
     "protonbot_mutexes": "Loader",
     "punch_plus_plus_pcres": "Network",
     "purplewave_mutexes": "Infostealer",
@@ -888,6 +888,7 @@ CAPE_SIGNATURE_CATEGORIES = {
         "description": "Presents itself as legitimate in attempt to infiltrate a system.",
     },
     "Virus": {"id": 54, "description": "Malicious software program."},
+    "CAPE Yara Hit": {"id": 55, "description": "CAPE yara signature hit"},
 }
 
 # These are too noisy to be considered useful.

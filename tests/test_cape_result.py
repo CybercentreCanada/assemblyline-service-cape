@@ -32385,6 +32385,35 @@ class TestCapeResult:
             == '[["TEXT", "No description for signature.", {}], ["KEY_VALUE", {"domain": "google.ru"}, {}]]'
         )
 
+        # Case 6: Procmem_yara signature special case
+        name = "procmem_yara"
+        signature = {
+            'name': 'procmem_yara', 
+            'description': 'Yara detections observed in process dumps, payloads or dropped files', 
+            'severity': 4, 
+            'weight': 1, 
+            'confidence': 100, 
+            'references': [], 
+            'data': [{'Hit': "PID  trigged the Yara rule 'embedded_win_api'"}, {'Hit': "PID 4876 trigged the Yara rule 'INDICATOR_EXE_Packed_GEN01'"}], 
+            'new_data': [], 
+            'alert': False, 
+            'families': []
+        }
+        translated_score = 500
+        actual_res_sec = _create_signature_result_section(
+            name,
+            signature,
+            translated_score,
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
+        )
+        assert actual_res_sec.heuristic.score == 500
+        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
+
+
     @staticmethod
     def test_set_heuristic_signature():
         # Case 1: Unknown signature with 0 score
@@ -32406,6 +32435,16 @@ class TestCapeResult:
         assert sig_res.heuristic.heur_id == 41
         assert sig_res.heuristic.signatures == {name: 1}
         assert sig_res.heuristic.score == 100
+
+        # Case 3: Known signature exception "procmem_yara"
+        name = "procmem_yara"
+        signature = {"procmem_yara": "anything"} 
+        sig_res = ResultMultiSection("blah")
+        translated_score = 0
+        _set_heuristic_signature(name, signature, sig_res, translated_score)
+        assert sig_res.heuristic.heur_id == 55
+        assert sig_res.heuristic.signatures == {name: 1}
+        assert sig_res.heuristic.score == 0
 
     @staticmethod
     def test_set_attack_ids():
