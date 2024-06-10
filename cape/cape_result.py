@@ -2896,9 +2896,6 @@ def _tag_mark_values(
             rule_name = reg_match.group(2)
             _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{rule_name}")
             if sig_res.heuristic:
-                #if sig_res.title_text == "Signature: procmem_yara":
-                #    sig_res.heuristic.add_signature_id(rule_name.lower(), 500)
-                #else:
                 sig_res.heuristic.add_signature_id(rule_name.lower(), 500)
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
