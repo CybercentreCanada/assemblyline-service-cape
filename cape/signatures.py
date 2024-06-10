@@ -888,7 +888,7 @@ CAPE_SIGNATURE_CATEGORIES = {
         "description": "Presents itself as legitimate in attempt to infiltrate a system.",
     },
     "Virus": {"id": 54, "description": "Malicious software program."},
-    "CAPE Yara Hit": {"id": 55, "description": "CAPE yara signature hit"},
+    "CAPE Yara Hit": {"id": 55, "description": "A Yara rule in CAPE was raised"},
 }
 
 # These are too noisy to be considered useful.

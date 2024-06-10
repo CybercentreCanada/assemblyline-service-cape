@@ -533,7 +533,8 @@ heuristics:
       # The following signatures are "nested" within the procmem_yara signature
       # If the score is 0, they are signatures that have the tendency to be a false positive
       # These signature names have to be lower-cased to survive the YAML parsing
-      # deprecated rules
+
+      # Deprecated rules
       formbook: 0
       grum: 0
       lummastealer: 0
@@ -544,6 +545,7 @@ heuristics:
       shellcode_patterns: 0
       upx: 0
       zgrat: 0
+      # The main signature that wraps these Yara rules must have its score set to 0
       procmem_yara: 0
     filetype: "*"
     description: A Yara rule in CAPE was raised
