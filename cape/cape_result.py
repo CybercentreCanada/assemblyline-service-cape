@@ -2576,7 +2576,6 @@ def _create_signature_result_section(
     sig_res = ResultMultiSection(f"Signature: {name}")
     description = signature.get("description", "No description for signature.")
     sig_res.add_section_part(TextSectionBody(body=description))
-
     _set_heuristic_signature(name, signature, sig_res, translated_score)
     _set_attack_ids(signature.get("ttp", {}), sig_res, ontres_sig)
     _set_families(signature.get("families", []), sig_res, ontres_sig)
@@ -2897,7 +2896,7 @@ def _tag_mark_values(
             rule_name = reg_match.group(2)
             _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{rule_name}")
             if sig_res.heuristic:
-                sig_res.heuristic.add_signature_id(rule_name.lower())
+                sig_res.heuristic.add_signature_id(rule_name.lower(), 500)
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 
