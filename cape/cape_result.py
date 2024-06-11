@@ -95,7 +95,9 @@ CONNECT_API_CALLS = [
     "InternetConnectA",
     "WSAConnect",
     "InternetOpenUrlA",
+    "InternetOpenUrlW",
     "WinHttpConnect",
+    "WSAConnectByNameW",
 ]
 DNS_API_CALLS = [
     "getaddrinfo",
@@ -103,6 +105,9 @@ DNS_API_CALLS = [
     "InternetConnectA",
     "GetAddrInfoW",
     "gethostbyname",
+    "DnsQuery_A",
+    "DnsQuery_UTF8",
+    "DnsQuery_W",
 ]
 HTTP_API_CALLS = [
     "send",
@@ -112,8 +117,10 @@ HTTP_API_CALLS = [
     "InternetCrackUrlA",
     "InternetCrackUrlW",
     "InternetOpenUrlA",
+    "InternetOpenUrlW",
     "WinHttpConnect",
     "WSASend",
+    "URLDownloadToCacheFileW",
 ]
 BUFFER_API_CALLS = [
     "send",
@@ -1045,6 +1052,7 @@ def process_network(
                     "transport_layer_protocol": transport_layer_protocol,
                     "connection_type": NetworkConnection.DNS,
                     "dns_details": {"domain": request},
+                    "lookup_type": attempt.get("type")
                 }
             )
             objectid = ontres.create_objectid(
@@ -1472,14 +1480,14 @@ def _get_dns_map(
                 (network_call[api_call] for api_call in DNS_API_CALLS if api_call in network_call),
                 {},
             )
-            if dns != {} and (dns.get("hostname") or dns.get("servername")):
+            if dns != {} and (dns.get("hostname") or dns.get("servername") or dns.get("nodename")):
                 for request, attempts in dns_requests.items():
                     for index, attempt in enumerate(attempts):
                         answers = attempt["answers"]
                         if answers == None:
                             continue
                         for answer in answers:
-                            if not answer.isdigit() in [dns.get("hostname"), dns.get("servername")]:
+                            if not answer.isdigit() in [dns.get("hostname"), dns.get("servername", dns.get("nodename"))]:
                                 if not dns_requests[request][index].get("process_name"):
                                     dns_requests[request][index]["process_name"] = process_details["name"]
 
@@ -2568,7 +2576,6 @@ def _create_signature_result_section(
     sig_res = ResultMultiSection(f"Signature: {name}")
     description = signature.get("description", "No description for signature.")
     sig_res.add_section_part(TextSectionBody(body=description))
-
     _set_heuristic_signature(name, signature, sig_res, translated_score)
     _set_attack_ids(signature.get("ttp", {}), sig_res, ontres_sig)
     _set_families(signature.get("families", []), sig_res, ontres_sig)
@@ -2889,7 +2896,7 @@ def _tag_mark_values(
             rule_name = reg_match.group(2)
             _ = add_tag(sig_res, "file.rule.yara", f"CAPE.{rule_name}")
             if sig_res.heuristic:
-                sig_res.heuristic.add_signature_id(rule_name.lower())
+                sig_res.heuristic.add_signature_id(rule_name.lower(), 500)
     elif key.lower() in ["domain"]:
         _ = add_tag(sig_res, "network.dynamic.domain", value)
 

@@ -1,5 +1,7 @@
 # CAPEv2 service
 
+**Important**: CAPE Service currently works with version up to 20.05.2024 features and commit [9a543e7]https://github.com/kevoreilly/CAPEv2/commit/9a543e7513c8c1bc62573af041bdc9f87b206f79"
+
 This repository is an Assemblyline service that submits a file to a CAPEv2 deployment, waits for the submission to
 complete, and then parses the report returned.
 
