@@ -545,6 +545,7 @@ heuristics:
       shellcode_patterns: 0
       upx: 0
       zgrat: 0
+      Script_in_LNK: 0
       # The main signature that wraps these Yara rules must have its score set to 0
       procmem_yara: 0
     filetype: "*"
