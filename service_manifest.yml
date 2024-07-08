@@ -17,6 +17,8 @@ is_external: false
 licence_count: 0
 privileged: true
 
+recursion_prevention: ["Dynamic Analysis"]
+
 config:
   # See README for in-depth descriptions of configuration values
   # CAPE host configurations
