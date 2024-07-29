@@ -11,7 +11,7 @@ from threading import Thread
 from time import sleep, time
 from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
-from yara_modules import *
+from cape.yara_modules import *
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
