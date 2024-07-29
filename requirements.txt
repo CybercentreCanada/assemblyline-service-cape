@@ -4,3 +4,4 @@ retrying
 SetSimilaritySearch
 multidecoder
 lief
+plyara

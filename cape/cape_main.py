@@ -11,6 +11,7 @@ from threading import Thread
 from time import sleep, time
 from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
+from cape.yara_modules import *
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
@@ -433,6 +434,45 @@ class CAPE(ServiceBase):
         if "free=yes" in kwargs.get("options", ""):
             parent_section.title_text += " (with monitor disabled)"
 
+        if "prescript_detection" in kwargs.get("options", ""):
+            errors = self.yara_errors
+            prescipt_detection_section = ResultSection("Prescript Detection")
+            error_section = ResultSection("Yara errors")
+            error_section.add_line(f"{errors}")
+            prescipt_detection_section.add_subsection(error_section) #Crashing here
+            kv_section = ResultKeyValueSection("Matched rules")
+            try:
+                if self.yara_sigs is not None:
+                    matches = yara_scan(self.yara_sigs, self.request.file_contents)
+                    option_passed = f"pre_script_args= --actions"
+                    for match in matches:
+                        strings = match.strings
+                        rule_name = match.rule
+                        kv_section.set_item(rule_name, strings)
+                        for key in match.meta.keys():
+                            if key.startswith("al_cape"):
+                                params = match.meta[key]
+                                action = key.replace("al_cape_", "")
+                                action = ''.join(i for i in action if not i.isdigit())
+                                if action.lower() in LIST_OF_VALID_ACTIONS:
+                                #The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\' 
+                                    parsed_param = loads(params.replace("'", "\""))
+                                    option_passed +=f" {action}"
+                                    for param_key in ACTIONS_PARAMETERS[action]:
+                                        if parsed_param[param_key] == "":
+                                            parsed_param[param_key] = "None"
+                                        if isinstance(parsed_param[param_key], str) and "\"" in parsed_param[param_key]:
+                                            parsed_param[param_key] = parsed_param[param_key].replace("\"", "\\\"")
+                                    option_passed += f" {parsed_param[param_key]}"
+                else:
+                    option_passed = ""
+            except Exception as e:
+                self.log.error(repr(e))
+                print(e)
+                option_passed = ""
+            kwargs["options"] += ",".join(option_passed)
+            prescipt_detection_section.add_subsection(kv_section)
+            self.file_res.add_section(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
         if parent_task_id:
