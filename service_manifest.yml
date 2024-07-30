@@ -647,9 +647,9 @@ dependencies:
   updates:
     container:
       allow_internet_access: true
-      command: ["python", "-m", "update_server"]
+      command: ["python", "-m", "cape.update_server"]
       sync: true
-      image: ${REGISTRY}testing/assemblyline-service-cape:latest
+      image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
       ports: ["5003"]
       # Overwrite the UPDATER_DIR variables to point to your persisted mountpoint
       environment:
@@ -682,5 +682,6 @@ update_config:
       sync: true
   # interval in seconds at which the updater dependency runs
   update_interval_seconds: 86400 # 24 hours
+  signature_delimiter: "file"
   # Should the downloaded files be used to create signatures in the system
   wait_for_update: false

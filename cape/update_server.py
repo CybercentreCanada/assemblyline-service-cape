@@ -101,6 +101,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                     validate = YaraValidator(externals=self.externals, logger=self.log)
                     validate.validate_rules(compiled_file.name)
                 except Exception as e:
+                    self.log.error(f"Error validating {compiled_file.name}: {e}")
                     raise e
                 yara_importer.import_file(
                     compiled_file.name, source_name, default_classification=default_classification
