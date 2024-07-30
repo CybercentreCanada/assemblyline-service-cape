@@ -645,7 +645,7 @@ dependencies:
   updates:
     container:
       allow_internet_access: true
-      command: ["python", "-m", "update_server"]
+      command: ["python", "-m", "cape.update_server"]
       sync: true
       image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
       ports: ["5003"]
