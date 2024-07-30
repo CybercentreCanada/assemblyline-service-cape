@@ -647,7 +647,7 @@ dependencies:
       allow_internet_access: true
       command: ["python", "-m", "update_server"]
       sync: true
-      image: ${REGISTRY}testing/assemblyline-service-cape:latest
+      image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
       ports: ["5003"]
       # Overwrite the UPDATER_DIR variables to point to your persisted mountpoint
       environment:
