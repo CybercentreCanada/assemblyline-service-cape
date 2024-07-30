@@ -680,5 +680,6 @@ update_config:
       sync: true
   # interval in seconds at which the updater dependency runs
   update_interval_seconds: 86400 # 24 hours
+  signature_delimiter: "file"
   # Should the downloaded files be used to create signatures in the system
   wait_for_update: false
