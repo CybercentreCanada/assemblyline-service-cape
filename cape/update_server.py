@@ -53,61 +53,78 @@ class CapeYaraUpdateServer(ServiceUpdater):
 
         # Organize files by source
         processed_files: set[str] = set()
+        parser = Plyara()
+        parser.STRING_ESCAPE_CHARS.add("r")
         if source_name in ["internal-cape-yara", "internal-cape-community-yara"]:
-            return
-        with tempfile.NamedTemporaryFile(mode="a+", suffix=source_name) as compiled_file:
-            # Aggregate files into one major source file
+            upload_list = []
             for file, _ in files_sha256:
-                # File has already been processed before, skip it to avoid duplication of rules
-                if file in processed_files:
-                    continue
-                if os.path.splitext(file)[1] not in  [".yar", ".yara"]:
-                    continue
-
                 self.log.info(f"Processing file: {file}")
-
-                file_dirname = os.path.dirname(file)
-                processed_files.add(os.path.normpath(file))
-                with open(file, "r", errors="surrogateescape") as f:
-                    f_lines = f.readlines()
-
-                temp_lines: list[str] = []
-                for _, f_line in enumerate(f_lines):
-                    if f_line.startswith("include"):
-                        lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
-                        temp_lines.extend(lines)
-                    else:
-                        temp_lines.append(f_line)
-
-                # guess the type of files that we have in the current file
-                parser = Plyara()
-                parser.STRING_ESCAPE_CHARS.add("r")
-                # Try parsing the ruleset; on fail, move onto next set
                 try:
-                    signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
-
-                    # Save all rules from source into single file
-                    for s in signatures:
-                        # Fix imports and remove cuckoo
-                        s["imports"] = utils.detect_imports(s)
-                        compiled_file.write(utils.rebuild_yara_rule(s))
+                    valid = validate_rule(file)
                 except Exception as e:
-                    self.log.error(f"Problem parsing {file}: {e}")
-                    continue
-            yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
-            try:
-                compiled_file.seek(0)
-                try:
-                    validate = YaraValidator(externals=self.externals, logger=self.log)
-                    validate.validate_rules(compiled_file.name)
-                except Exception as e:
-                    self.log.error(f"Error validating {compiled_file.name}: {e}")
+                    self.log.error(f"Error validating {file}: {e}")
                     raise e
-                yara_importer.import_file(
-                    compiled_file.name, source_name, default_classification=default_classification
-                )
-            except Exception as e:
-                raise e
+                if valid:
+                    with open(file, 'r') as fh:
+                        upload_list.append(parser.parse_string(fh))
+                else:
+                    self.log.info(f"Invalid file {file}")
+            yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
+            yara_importer._save_signatures(signatures=upload_list, source=source_name)
+        else:
+            with tempfile.NamedTemporaryFile(mode="a+", suffix=source_name) as compiled_file:
+                # Aggregate files into one major source file
+                for file, _ in files_sha256:
+                    # File has already been processed before, skip it to avoid duplication of rules
+                    if file in processed_files:
+                        continue
+                    if os.path.splitext(file)[1] not in  [".yar", ".yara"]:
+                        continue
+
+                    self.log.info(f"Processing file: {file}")
+
+                    file_dirname = os.path.dirname(file)
+                    processed_files.add(os.path.normpath(file))
+                    with open(file, "r", errors="surrogateescape") as f:
+                        f_lines = f.readlines()
+
+                    temp_lines: list[str] = []
+                    for _, f_line in enumerate(f_lines):
+                        if f_line.startswith("include"):
+                            lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
+                            temp_lines.extend(lines)
+                        else:
+                            temp_lines.append(f_line)
+
+                    # guess the type of files that we have in the current file
+                    parser = Plyara()
+                    parser.STRING_ESCAPE_CHARS.add("r")
+                    # Try parsing the ruleset; on fail, move onto next set
+                    try:
+                        signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
+
+                        # Save all rules from source into single file
+                        for s in signatures:
+                            # Fix imports and remove cuckoo
+                            s["imports"] = utils.detect_imports(s)
+                            compiled_file.write(utils.rebuild_yara_rule(s))
+                    except Exception as e:
+                        self.log.error(f"Problem parsing {file}: {e}")
+                        continue
+                yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
+                try:
+                    compiled_file.seek(0)
+                    try:
+                        validate = YaraValidator(externals=self.externals, logger=self.log)
+                        validate.validate_rules(compiled_file.name)
+                    except Exception as e:
+                        self.log.error(f"Error validating {compiled_file.name}: {e}")
+                        raise e
+                    yara_importer.import_file(
+                        compiled_file.name, source_name, default_classification=default_classification
+                    )
+                except Exception as e:
+                    raise e
 
 
     def is_valid(self, file_path) -> bool:
