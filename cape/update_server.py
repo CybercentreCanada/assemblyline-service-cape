@@ -6,7 +6,7 @@ from assemblyline.odm.models.signature import Signature
 from assemblyline_v4_service.updater.updater import ServiceUpdater
 from assemblyline.common import forge
 from cape.yara_modules import *
-
+log = logging.getLogger(__name__)
 classification = forge.get_classification()
 
 def replace_include(include, dirname, processed_files: set[str], cur_logger: logging.Logger):
@@ -39,6 +39,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
     def __init__(self, *args, externals: dict[str, str], **kwargs):
         super().__init__(*args, **kwargs)
         self.externals = externals
+        self.log = log
 
     def import_update(self, files_sha256, source_name: str, default_classification=classification.UNRESTRICTED) -> None:
         # Purpose:  Used to import a set of signatures from a source into a reserved directory
