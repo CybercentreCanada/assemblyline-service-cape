@@ -7,6 +7,10 @@ from assemblyline_v4_service.updater.updater import ServiceUpdater
 from assemblyline.common import forge
 from cape.yara_modules import *
 log = logging.getLogger(__name__)
+#level = logging.DEBUG
+#log.setLevel(level)
+logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
+
 classification = forge.get_classification()
 
 def replace_include(include, dirname, processed_files: set[str], cur_logger: logging.Logger):
