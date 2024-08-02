@@ -54,10 +54,10 @@ def validate_rule(rulefile):
         return valid
     except yara.SyntaxError as e:
         error = str(e)
-        e_message = error.split("): ", 1)[1]
+        e_message = error.split("): ", 1)
         if "identifier" in error:
             # Problem with a rule associated to the identifier (unknown, duplicated)
-            invalid_rule_name = e_message.split('"')[1]
+            invalid_rule_name = e_message.split('"')
         else:
             invalid_rule_name = ""
         return f"Invalid rule: {invalid_rule_name}"
@@ -272,22 +272,13 @@ class YaraValidator(object):
 
             # If something goes wrong, clean rules until valid file given
             except yara.SyntaxError as e:
-                error = str(e)
-                e_line = int(error.split("):", 1)[0].split("(", -1)[1])
-                e_message = error.split("): ", 1)[1]
-                if "identifier" in error:
-                    # Problem with a rule associated to the identifier (unknown, duplicated)
-                    invalid_rule_name = e_message.split('"')[1]
-                else:
-                    invalid_rule_name = ""
                 try:
-                    invalid_rule_name = self.clean(rulefile, e_line, e_message, invalid_rule_name)
                     if al_client:
                         # Disable offending rule from Signatures API
                         sig_id = al_client.datastore.signature.search(
-                            f"type:yara AND source:{os.path.basename(rulefile)} AND name:{invalid_rule_name}",
+                            f"type:yara AND source:{os.path.basename(rulefile)} AND name:{rulefile}",
                             rows=1, fl="id", as_obj=False)['items'][0]["id"]
-                        self.log.warning(f"Disabling rule with signature_id {sig_id} because of: {error}")
+                        self.log.warning(f"Disabling rule with signature_id {sig_id} because of: {e}")
                         al_client.signature.change_status(sig_id, "DISABLED")
                 except Exception as ve:
                     raise ve
