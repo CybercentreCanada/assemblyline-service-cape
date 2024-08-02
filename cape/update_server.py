@@ -62,6 +62,10 @@ class CapeYaraUpdateServer(ServiceUpdater):
         parser.STRING_ESCAPE_CHARS.add("r")
         dest_dir = os.path.join(self.latest_updates_dir, source_name)
         os.makedirs(dest_dir, dirs_exist_ok=True)
+        dest_file = os.path.join(dest_dir, os.path.basename("test.txt"))
+        with open("test.txt", "w+") as f:
+            f.write(source_name)
+        shutil.move(file, dest_file)
         if source_name in ["internal-cape-yara", "internal-cape-community-yara"]:
             upload_list = []
             for file, _ in files_sha256:
@@ -89,7 +93,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                     # File has already been processed before, skip it to avoid duplication of rules
                     if file in processed_files:
                         continue
-                    if os.path.splitext(file)[1] not in  [".yar", ".yara"]:
+                    if file.endwith(".yar") or file.endwith(".yara"):
                         continue
 
                     self.log.info(f"Processing file: {file}")
