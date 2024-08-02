@@ -66,7 +66,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
             upload_list = []
             for file, _ in files_sha256:
                 self.log.info(f"Processing file: {file}")
-                if os.path.splitext(file)[1] not in  [".yar", ".yara"]:
+                if file.endwith(".yar") or file.endwith(".yara"):
                     continue
                 try:
                     valid = validate_rule(file)
