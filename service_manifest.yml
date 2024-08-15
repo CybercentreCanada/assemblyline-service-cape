@@ -666,7 +666,7 @@ update_config:
   generates_signatures: true
   # list of source object from where to fetch files for update and what will be the name of those files on disk
   sources:
-    - uri: https://github.com/cccs-mog/assemblyline-service-cape-yara-rules.git
+    - uri: https://github.com/CybercentreCanada/assemblyline-service-cape-yara-rules.git
       pattern: .*/.yar
       name: assemblyline-service-cape-yara-rules
       sync: true
