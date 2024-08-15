@@ -1,7 +1,7 @@
 import os
-from email.header import decode_header
-from json import JSONDecodeError, loads
 import shutil
+from email.header import decode_header
+from json import JSONDecodeError, dumps, loads
 from math import ceil, floor
 from random import choice, random
 from re import compile, match
@@ -11,7 +11,6 @@ from threading import Thread
 from time import sleep, time
 from typing import Any, Dict, List, Optional, Set, Tuple
 from zipfile import ZipFile
-from cape.yara_modules import *
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
@@ -25,6 +24,7 @@ from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import (
+    BODY_FORMAT,
     ImageSectionBody,
     Result,
     ResultKeyValueSection,
@@ -37,13 +37,13 @@ from assemblyline_v4_service.common.task import PARENT_RELATION
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
+    BUFFER_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
-    PS1_COMMANDS_PATH,
-    BUFFER_PATH,
     PE_INDICATORS,
+    PS1_COMMANDS_PATH,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
@@ -53,6 +53,7 @@ from cape.cape_result import (
     x86_IMAGE_SUFFIX,
 )
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+from cape.yara_modules import *
 from pefile import PE, PEFormatError
 from retrying import RetryError, retry
 from SetSimilaritySearch import SearchIndex
@@ -392,6 +393,48 @@ class CAPE(ServiceBase):
         self.log.debug("Attaching the ontological result")
         attach_dynamic_ontology(self, ontres)
 
+    def _load_rules(self, path):
+        # Generate root directory for yara rules.
+        yara_root = path
+        if yara_root is None:
+            return (None, {"Updater_Error": "No valid updater directory set"})
+        rules, indexed = {}, []
+        for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
+            for filename in filenames:
+                if not filename.endswith((".yar", ".yara")):
+                    continue
+                filepath = os.path.join(yara_root, filename)
+                if validate_rule(filepath):
+                    rules[f"rule_{len(rules)}"] = filepath
+                    indexed.append(filename)
+
+                # Need to define each external variable that will be used in the
+            # future. Otherwise Yara will complain.
+            externals = {"filename": ""}
+        errors = {}
+        while True:
+            try:
+                yara_rules = yara.compile(filepaths=rules, externals=externals)
+                return (yara_rules, errors)
+            except yara.SyntaxError as e:
+
+                bad_rule = str(e).split('.yar', 1)[0]
+
+                if os.path.basename(bad_rule) not in indexed:
+                    break
+                for k, v in rules.items():
+                    if v == bad_rule:
+                        del rules[k]
+                        indexed.remove(os.path.basename(bad_rule))
+                        print(f"Broken yara rule: {bad_rule}")
+                        errors[bad_rule] = "Broken yara rule"
+                        break
+            except yara.Error as e:
+                self.log.error("There was a syntax error in one or more Yara rules: %s", e)
+                print("There was a syntax error in one or more Yara rules: %s", e)
+                errors["Error"] = "There was a syntax error in one or more Yara rules: %s" % e
+                break
+
     def _general_flow(
         self,
         kwargs: Dict[str, Any],
@@ -435,14 +478,18 @@ class CAPE(ServiceBase):
             parent_section.title_text += " (with monitor disabled)"
 
         if "prescript_detection" in kwargs.get("options", ""):
-            errors = self.yara_errors
-            prescipt_detection_section = ResultSection("Prescript Detection")
-            error_section = ResultSection("Yara errors")
-            error_section.add_line(f"{errors}")
-            prescipt_detection_section.add_subsection(error_section) #Crashing here
-            kv_section = ResultKeyValueSection("Matched rules")
+            #self.rules_list would be the list of loaded signatures not the ones in the folder
+            rules_dir = os.path.join(self.rules_directory, "assemblyline-service-cape-yara-rules")
+            rules_file = os.path.join(rules_dir, "assemblyline-service-cape-yara-rules.yar")
+            self.yara_sigs, errors = self._load_rules(rules_file)
+            #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
+            prescipt_detection_section = ResultMultiSection("Prescript Detection")
+            if errors is not None:
+                error_section = TextSectionBody(body=dumps(errors))
+                prescipt_detection_section.add_section_part(error_section)
             try:
                 if self.yara_sigs is not None:
+                    kv_section = ResultKeyValueSection("Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions"
                     for match in matches:
@@ -455,7 +502,7 @@ class CAPE(ServiceBase):
                                 action = key.replace("al_cape_", "")
                                 action = ''.join(i for i in action if not i.isdigit())
                                 if action.lower() in LIST_OF_VALID_ACTIONS:
-                                #The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\' 
+                                #The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
                                     parsed_param = loads(params.replace("'", "\""))
                                     option_passed +=f" {action}"
                                     for param_key in ACTIONS_PARAMETERS[action]:
@@ -466,12 +513,15 @@ class CAPE(ServiceBase):
                                     option_passed += f" {parsed_param[param_key]}"
                 else:
                     option_passed = ""
+                    matches = []
             except Exception as e:
                 self.log.error(repr(e))
                 print(e)
                 option_passed = ""
+                matches = []
             kwargs["options"] += ",".join(option_passed)
-            prescipt_detection_section.add_subsection(kv_section)
+            if len(matches) > 0:
+                prescipt_detection_section.add_section_part(kv_section)
             self.file_res.add_section(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
