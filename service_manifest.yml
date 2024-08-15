@@ -667,15 +667,15 @@ update_config:
   # list of source object from where to fetch files for update and what will be the name of those files on disk
   sources:
     - uri: https://github.com/CybercentreCanada/assemblyline-service-cape-yara-rules.git
-      pattern: .*/.yar
+      pattern: .*\.yar
       name: assemblyline-service-cape-yara-rules
       sync: true
     - uri: https://github.com/kevoreilly/CAPEv2.git
-      pattern: .*/.yar
+      pattern: .*\.yar
       name: internal-cape-yara
       sync: true
     - uri: https://github.com/CAPESandbox/community.git
-      pattern: .*/.yar
+      pattern: .*\.yar
       name: internal-cape-community-yara
       sync: true
   # interval in seconds at which the updater dependency runs
