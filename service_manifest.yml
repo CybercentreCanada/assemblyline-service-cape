@@ -658,7 +658,7 @@ dependencies:
       updates:
         mount_path: /mnt/persistent_updates/
         capacity: 5242880
-        storage_class: default
+        storage_class: mystorageclass
     run_as_core: True
 
 # Update configuration block
@@ -671,11 +671,11 @@ update_config:
       name: assemblyline-service-cape-yara-rules
       sync: true
     - uri: https://github.com/kevoreilly/CAPEv2.git
-      pattern: .*/data/yara/$
+      pattern: .*/.yar
       name: internal-cape-yara
       sync: true
     - uri: https://github.com/CAPESandbox/community.git
-      pattern: .*/data/yara/$
+      pattern: .*/.yar
       name: internal-cape-community-yara
       sync: true
   # interval in seconds at which the updater dependency runs
