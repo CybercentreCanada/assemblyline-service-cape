@@ -1,12 +1,12 @@
-import yara
-import os
 import logging
+import os
 import re
+
+import yara
 from assemblyline.common import forge
 from assemblyline.odm.models.signature import Signature
 from assemblyline_v4_service.updater.client import UpdaterClient
 from plyara import Plyara, utils
-
 
 yara.set_config(max_strings_per_rule=40000, stack_size=65536)
 
@@ -39,7 +39,7 @@ ACTIONS_PARAMETERS = {
 }
 
 def yara_scan(rules, raw_data):
-    #Add fast mode for possible error ? 
+    #Add fast mode for possible error ?
     rules_matched = []
     matches = rules.match(data=raw_data)
     for match in matches:
@@ -54,10 +54,10 @@ def validate_rule(rulefile):
         return valid
     except yara.SyntaxError as e:
         error = str(e)
-        e_message = error.split("): ", 1)
+        e_message = error
         if "identifier" in error:
             # Problem with a rule associated to the identifier (unknown, duplicated)
-            invalid_rule_name = e_message.split('"')
+            invalid_rule_name = e_message
         else:
             invalid_rule_name = ""
         return f"Invalid rule: {invalid_rule_name}"
