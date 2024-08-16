@@ -9,9 +9,9 @@ from assemblyline_v4_service.updater.updater import ServiceUpdater
 from cape.yara_modules import *
 
 log = logging.getLogger(__name__)
-#level = logging.DEBUG
-#log.setLevel(level)
-logging.basicConfig(filename='example.log', encoding='utf-8', level=logging.DEBUG)
+level = logging.DEBUG
+log.setLevel(level)
+
 
 classification = forge.get_classification()
 
