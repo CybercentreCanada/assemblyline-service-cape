@@ -658,7 +658,7 @@ dependencies:
       updates:
         mount_path: /mnt/persistent_updates/
         capacity: 5242880
-        storage_class: mystorageclass
+        storage_class: default
     run_as_core: True
 
 # Update configuration block
