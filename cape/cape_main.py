@@ -393,7 +393,7 @@ class CAPE(ServiceBase):
         self.log.debug("Attaching the ontological result")
         attach_dynamic_ontology(self, ontres)
 
-    def _load_rules(self, path):
+    def load_rules(self, path):
         # Generate root directory for yara rules.
         yara_root = path
         if yara_root is None:
@@ -481,7 +481,7 @@ class CAPE(ServiceBase):
             #self.rules_list would be the list of loaded signatures not the ones in the folder
             rules_dir = os.path.join(self.rules_directory, "assemblyline-service-cape-yara-rules")
             rules_file = os.path.join(rules_dir, "assemblyline-service-cape-yara-rules.yar")
-            self.yara_sigs, errors = self._load_rules(rules_file)
+            self.yara_sigs, errors = self.load_rules(rules_file)
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
             if errors is not None:
