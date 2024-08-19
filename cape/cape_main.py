@@ -416,7 +416,7 @@ class CAPE(ServiceBase):
         errors = {}
         while True:
             try:
-                yara_rules = yara.compile(filepaths=rules, externals=externals)
+                yara_rules = yara.compile(filepaths=rules, externals=YARA_EXTERNALS)
                 return (yara_rules, errors)
             except yara.SyntaxError as e:
 
