@@ -481,7 +481,7 @@ class CAPE(ServiceBase):
 
         if "prescript_detection" in kwargs.get("options", ""):
             #self.rules_list would be the list of loaded signatures not the ones in the folder
-            self.yara_sigs, errors = self.load_rules()
+            self.yara_sigs, errors = self._load_rules()
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
             if errors is not None:
