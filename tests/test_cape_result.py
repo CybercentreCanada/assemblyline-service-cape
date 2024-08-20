@@ -32725,10 +32725,10 @@ class TestCapeResult:
             ("dynamicloader", "blah", {"file.pe.exports.function_name": ["blah"]}, False),
             # Key that ends in _exe for file.pe.exports.function_name, nothing special with value
             ("wscript_exe", "blah", {"dynamic.process.file_name": ["wscript.exe"]}, False),
-            # Standard key for file.rule.yara, nothing special with value
-            ("hit", "blah blah blah 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}, False),
-            # Standard key for file.rule.yara, value has PID in it
-            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.yara": ["CAPE.iwantthis"]}, False),
+            # Standard key for file.rule.cape, nothing special with value
+            ("hit", "blah blah blah 'iwantthis'", {"file.rule.cape": ["CAPE.iwantthis"]}, False),
+            # Standard key for file.rule.cape, value has PID in it
+            ("hit", "PID 2392 trigged the Yara rule 'iwantthis'", {"file.rule.cape": ["CAPE.iwantthis"]}, False),
             # IOC found in data
             ("data", "Hey you I want to callout to http://blah.com", {}, False),
             # Standard key for network.dynamic.uri, test uses_https_proxy_in_sandbox
