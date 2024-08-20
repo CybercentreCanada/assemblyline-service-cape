@@ -479,7 +479,7 @@ class CAPE(ServiceBase):
         if "free=yes" in kwargs.get("options", ""):
             parent_section.title_text += " (with monitor disabled)"
 
-        if "prescript_detection" in kwargs.get("options", ""):
+        if "prescript_detection=yes" in kwargs.get("options", ""):
             #self.rules_list would be the list of loaded signatures not the ones in the folder
             self.yara_sigs, errors = self._load_rules()
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
