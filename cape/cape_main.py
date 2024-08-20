@@ -522,6 +522,9 @@ class CAPE(ServiceBase):
             kwargs["options"] += ",".join(option_passed)
             if len(matches) > 0:
                 prescipt_detection_section.add_section_part(kv_section)
+            else:
+                info_section = TextSectionBody(body="No matching rules, ran CAPE as default")
+                prescipt_detection_section.add_section_part(info_section)
             self.file_res.add_section(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
