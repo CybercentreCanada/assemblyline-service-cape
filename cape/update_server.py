@@ -79,7 +79,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                 else:
                     self.log.info(f"Invalid file {file}")
             yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
-            yara_importer._save_signatures(signatures=upload_list, source=source_name)
+            yara_importer._save_signatures(signatures=upload_list, source="CAPE")
         else:
             with tempfile.NamedTemporaryFile(mode="a+", suffix=source_name) as compiled_file:
                 # Aggregate files into one major source file
