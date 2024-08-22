@@ -518,6 +518,8 @@ class CAPE(ServiceBase):
             except Exception as e:
                 self.log.error(repr(e))
                 print(e)
+                exception_section = TextSectionBody(body=e)
+                prescipt_detection_section.add_section_part(exception_section)
                 option_passed = ""
                 matches = []
             kwargs["options"] += ",".join(option_passed)
