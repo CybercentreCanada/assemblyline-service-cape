@@ -526,7 +526,7 @@ class CAPE(ServiceBase):
             else:
                 info_section = TextSectionBody(body="No matching rules, ran CAPE as default")
                 prescipt_detection_section.add_section_part(info_section)
-            parent_section.add_section(prescipt_detection_section)
+            parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
         if parent_task_id:
