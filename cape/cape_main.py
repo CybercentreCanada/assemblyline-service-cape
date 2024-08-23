@@ -490,6 +490,8 @@ class CAPE(ServiceBase):
                 prescipt_detection_section.add_section_part(error_section)
             try:
                 if self.yara_sigs is not None:
+                    test_section = TextSectionBody(body=self.yara_sigs)
+                    prescipt_detection_section.add_section_part(test_section)
                     kv_section = ResultKeyValueSection("Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions"
