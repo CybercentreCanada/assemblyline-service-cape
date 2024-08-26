@@ -492,8 +492,9 @@ class CAPE(ServiceBase):
                 if self.yara_sigs is not None:
                     kv_section = ResultKeyValueSection("Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
+                    fake_matches = yara_scan(self.yara_sigs, " fobar example")
                     option_passed = f"pre_script_args= --actions"
-                    for match in matches:
+                    for match in fake_matches:
                         strings = match.strings
                         rule_name = match.rule
                         _ = add_tag(prescipt_detection_section, "file.rule.prescript.yara", rule_name) 
