@@ -492,7 +492,7 @@ class CAPE(ServiceBase):
                 if self.yara_sigs is not None:
                     kv_section = ResultKeyValueSection("Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
-                    fake_matches = yara_scan(self.yara_sigs, " fobar example")
+                    fake_matches = yara_scan(self.yara_sigs, " foobar example")
                     option_passed = f"pre_script_args= --actions"
                     for match in fake_matches:
                         strings = match.strings
@@ -520,7 +520,8 @@ class CAPE(ServiceBase):
             except Exception as e:
                 self.log.error(repr(e))
                 print(e)
-                exception_section = TextSectionBody(body=e)
+                e_message = f"Exception {e}" 
+                exception_section = TextSectionBody(body=e_message)
                 prescipt_detection_section.add_section_part(exception_section)
                 option_passed = ""
                 matches = []
