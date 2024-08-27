@@ -402,6 +402,7 @@ class CAPE(ServiceBase):
             return (None, {"Updater_Error": "No valid updater directory set"})
         rules, indexed = {}, []
         filepaths = []
+        filepaths.append(self.rules_directory)
         for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
             for filename in filenames:
                 if not filename.endswith((".yar", ".yara")):
