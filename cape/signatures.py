@@ -552,6 +552,7 @@ CAPE_SIGNATURES = {
     "purplewave_mutexes": "Infostealer",
     "purplewave_network_activity": "Infostealer",
     "pysa_mutexes": "Ransomware",
+    "queries_keyboard_layout": "Discovery",
     "quilclipper_behavior": "Infostealer",
     "quilclipper_mutexes": "Infostealer",
     "qulab_files": "Infostealer",
