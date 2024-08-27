@@ -397,7 +397,7 @@ class CAPE(ServiceBase):
         # Generate root directory for yara rules.
         rules_dir = os.path.join(self.rules_directory, "assemblyline-service-cape-yara-rules")
         rules_file = os.path.join(rules_dir, "assemblyline-service-cape-yara-rules.yar")
-        yara_root = rules_file
+        yara_root = rules_dir
         if yara_root is None:
             return (None, {"Updater_Error": "No valid updater directory set"})
         rules, indexed = {}, []
@@ -492,9 +492,8 @@ class CAPE(ServiceBase):
                 if self.yara_sigs is not None:
                     kv_section = ResultKeyValueSection("Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
-                    fake_matches = yara_scan(self.yara_sigs, " foobar example")
                     option_passed = f"pre_script_args= --actions"
-                    for match in fake_matches:
+                    for match in matches:
                         strings = match.strings
                         rule_name = match.rule
                         _ = add_tag(prescipt_detection_section, "file.rule.prescript.yara", rule_name) 
