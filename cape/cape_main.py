@@ -497,7 +497,7 @@ class CAPE(ServiceBase):
                         matched_strings = ""
                         for matched_string in strings:
                             for matched_instance in matched_string.instances:
-                                matched_strings += matched_instance.matched_data
+                                matched_strings += matched_instance.plaintext()
                         kv_section_body.set_item(rule_name, matched_strings)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
