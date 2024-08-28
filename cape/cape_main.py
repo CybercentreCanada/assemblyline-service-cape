@@ -494,7 +494,11 @@ class CAPE(ServiceBase):
                         strings = match.strings
                         rule_name = match.rule
                         _ = add_tag(prescipt_detection_section, "file.rule.prescript.yara", rule_name) 
-                        kv_section_body.set_item(rule_name, strings)
+                        matched_strings = ""
+                        for matched_string in strings:
+                            for matched_instance in matched_string.instances
+                                matched_strings += matched_instance.matched_data
+                        kv_section_body.set_item(rule_name, matched_strings)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
