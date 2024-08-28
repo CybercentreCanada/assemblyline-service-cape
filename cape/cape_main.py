@@ -27,6 +27,7 @@ from assemblyline_v4_service.common.result import (
     BODY_FORMAT,
     ImageSectionBody,
     Result,
+    KVSectionBody,
     ResultKeyValueSection,
     ResultMultiSection,
     ResultSection,
@@ -399,11 +400,9 @@ class CAPE(ServiceBase):
         if yara_root is None:
             return (None, {"Updater_Error": "No valid updater directory set"})
         rules, indexed = {}, []
-        filepaths = []
         for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
             for filename in filenames:
                 filepath = os.path.join(yara_root, filename)
-                filepaths.append(filepath)
                 if validate_rule(filepath):
                     rules[f"rule_{len(rules)}"] = filepath
                     indexed.append(filename)
@@ -415,7 +414,7 @@ class CAPE(ServiceBase):
         while True:
             try:
                 yara_rules = yara.compile(filepaths=rules, externals=YARA_EXTERNALS)
-                return (yara_rules, filepaths, errors)
+                return (yara_rules, errors)
             except yara.SyntaxError as e:
 
                 bad_rule = str(e).split('.yar', 1)[0]
@@ -480,7 +479,7 @@ class CAPE(ServiceBase):
         if "prescript_detection=yes" in kwargs.get("options", ""):
             parent_section.title_text += " (with prescript detection)"
             #self.rules_list would be the list of loaded signatures not the ones in the folder
-            self.yara_sigs, filepaths, errors = self._load_rules()
+            self.yara_sigs, errors = self._load_rules()
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
             if errors is not None:
@@ -530,11 +529,6 @@ class CAPE(ServiceBase):
             else:
                 info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default")
                 prescipt_detection_section.add_section_part(info_section_body)
-                list_of_rules = ""
-                for filepath in filepaths:
-                    list_of_rules += f"{filepath} "
-                rules_section_body = TextSectionBody(body=list_of_rules)
-                prescipt_detection_section.add_section_part(rules_section_body)
             parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
