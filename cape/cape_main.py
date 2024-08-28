@@ -484,18 +484,18 @@ class CAPE(ServiceBase):
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
             if errors is not None:
-                error_section = TextSectionBody(body=dumps(errors))
-                prescipt_detection_section.add_section_part(error_section)
+                error_section_body = TextSectionBody(body=dumps(errors))
+                prescipt_detection_section.add_section_part(error_section_body)
             try:
                 if self.yara_sigs is not None:
-                    kv_section = ResultKeyValueSection("Matched rules")
+                    kv_section_body = KVSectionBody(section_name="Matched rules")
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions"
                     for match in matches:
                         strings = match.strings
                         rule_name = match.rule
                         _ = add_tag(prescipt_detection_section, "file.rule.prescript.yara", rule_name) 
-                        kv_section.set_item(rule_name, strings)
+                        kv_section_body.add_item(rule_name, strings)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
@@ -518,23 +518,23 @@ class CAPE(ServiceBase):
                 self.log.error(repr(e))
                 print(e)
                 e_message = f"Exception {e}" 
-                exception_section = TextSectionBody(body=e_message)
-                prescipt_detection_section.add_section_part(exception_section)
+                exception_section_body = TextSectionBody(body=e_message)
+                prescipt_detection_section.add_section_part(exception_section_body)
                 option_passed = ""
                 matches = []
             kwargs["options"] += ",".join(option_passed)
             if len(matches) > 0:
-                prescipt_detection_section.add_section_part(kv_section)
-                instructions_section = TextSectionBody(body=option_passed)
-                prescipt_detection_section.add_section_part(instructions_section)
+                prescipt_detection_section.add_section_part(kv_section_body)
+                instructions_section_body = TextSectionBody(body=option_passed)
+                prescipt_detection_section.add_section_part(instructions_section_body)
             else:
-                info_section = TextSectionBody(body="No matching rules, ran CAPE as default")
-                prescipt_detection_section.add_section_part(info_section)
+                info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default")
+                prescipt_detection_section.add_section_part(info_section_body)
                 list_of_rules = ""
                 for filepath in filepaths:
                     list_of_rules += f"{filepath} "
-                rules_section = TextSectionBody(body=list_of_rules)
-                prescipt_detection_section.add_section_part(rules_section)
+                rules_section_body = TextSectionBody(body=list_of_rules)
+                prescipt_detection_section.add_section_part(rules_section_body)
             parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
 
