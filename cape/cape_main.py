@@ -28,6 +28,7 @@ from assemblyline_v4_service.common.result import (
     ImageSectionBody,
     Result,
     KVSectionBody,
+    ResultKeyValueSection,
     ResultMultiSection,
     ResultSection,
     ResultTextSection,
