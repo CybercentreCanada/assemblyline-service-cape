@@ -482,12 +482,12 @@ class CAPE(ServiceBase):
             self.yara_sigs, errors = self._load_rules()
             #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
-            if errors is not None:
+            if errors is not None and errors:
                 error_section_body = TextSectionBody(body=dumps(errors))
                 prescipt_detection_section.add_section_part(error_section_body)
             try:
                 if self.yara_sigs is not None:
-                    kv_section_body = KVSectionBody(section_name="Matched rules")
+                    kv_section_body = KVSectionBody()
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions"
                     for match in matches:
