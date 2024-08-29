@@ -493,7 +493,7 @@ class CAPE(ServiceBase):
                     for match in matches:
                         strings = match.strings
                         rule_name = match.rule
-                        _ = add_tag(prescipt_detection_section, "file.rule.prescript.yara", rule_name) 
+                        _ = add_tag(prescipt_detection_section, "rule.yara.prescript", rule_name) 
                         matched_strings = ""
                         for matched_string in strings:
                             for matched_instance in matched_string.instances:
@@ -516,7 +516,7 @@ class CAPE(ServiceBase):
                                             parsed_param[param_key] = "None"
                                         if isinstance(parsed_param[param_key], str) and "\"" in parsed_param[param_key]:
                                             parsed_param[param_key] = parsed_param[param_key].replace("\"", "\\\"")
-                                    option_passed += f" {parsed_param[param_key]}"
+                                        option_passed += f" {parsed_param[param_key]}"
                 else:
                     option_passed = ""
                     matches = []
