@@ -134,7 +134,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                     except Exception as e:
                         self.log.error(f"Error validating {compiled_file.name}: {e}")
                         raise e
-                    yara_importer._save_signatures(signatures=upload_list, source=source_name)
+                    yara_importer._save_signatures(signatures=upload_list, source="prescript_cape")
                     dest_dir = os.path.join(self.latest_updates_dir, source_name)
                     os.makedirs(dest_dir, exist_ok=True)
                     dest_file = os.path.join(dest_dir, f"{source_name}.yar")
