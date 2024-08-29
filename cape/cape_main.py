@@ -489,7 +489,7 @@ class CAPE(ServiceBase):
                 if self.yara_sigs is not None:
                     kv_section_body = KVSectionBody()
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
-                    option_passed = f"pre_script_args= --actions"
+                    option_passed = f"pre_script_args= --actions "
                     for match in matches:
                         strings = match.strings
                         rule_name = match.rule
@@ -528,8 +528,8 @@ class CAPE(ServiceBase):
                 prescipt_detection_section.add_section_part(exception_section_body)
                 option_passed = ""
                 matches = []
-            kwargs["options"] += ",".join(option_passed)
             if len(matches) > 0:
+                kwargs["options"] += ",".join(option_passed)
                 prescipt_detection_section.add_section_part(kv_section_body)
                 instructions_section_body = TextSectionBody(body=option_passed)
                 prescipt_detection_section.add_section_part(instructions_section_body)
