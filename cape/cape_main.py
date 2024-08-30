@@ -396,7 +396,7 @@ class CAPE(ServiceBase):
 
     def _load_rules(self):
         # Generate root directory for yara rules.
-        yara_root = os.path.join(self.rules_directory, "cape/assemblyline-service-cape-yara-rules")
+        yara_root = os.path.join(self.rules_directory, "cape/prescript_cape")
         if yara_root is None:
             return (None, {"Updater_Error": "No valid updater directory set"})
         rules, indexed = {}, []
