@@ -642,3 +642,46 @@ docker_config:
   image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
   cpu_cores: 1
   ram_mb: 2000
+
+dependencies:
+  updates:
+    container:
+      allow_internet_access: true
+      command: ["python", "-m", "cape.update_server"]
+      sync: true
+      image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
+      ports: ["5003"]
+      # Overwrite the UPDATER_DIR variables to point to your persisted mountpoint
+      environment:
+        - name: UPDATER_DIR
+          value: /mnt/persistent_updates/
+    # Allocate a storage volume and mount it to your updater's filesystem
+    volumes:
+      updates:
+        mount_path: /mnt/persistent_updates/
+        capacity: 5242880
+        storage_class: default
+    run_as_core: True
+
+# Update configuration block
+update_config:
+  generates_signatures: true
+  # list of source object from where to fetch files for update and what will be the name of those files on disk
+  sources:
+    - uri: https://github.com/CybercentreCanada/assemblyline-service-cape-yara-rules.git
+      pattern: .*\.yar
+      name: assemblyline-service-cape-yara-rules
+      sync: true
+    - uri: https://github.com/kevoreilly/CAPEv2.git
+      pattern: .*\.yar
+      name: internal-cape-yara
+      sync: true
+    - uri: https://github.com/CAPESandbox/community.git
+      pattern: .*\.yar
+      name: internal-cape-community-yara
+      sync: true
+  # interval in seconds at which the updater dependency runs
+  update_interval_seconds: 86400 # 24 hours
+  signature_delimiter: "file"
+  # Should the downloaded files be used to create signatures in the system
+  wait_for_update: false
