@@ -493,7 +493,7 @@ class CAPE(ServiceBase):
                     for match in matches:
                         strings = match.strings
                         rule_name = match.rule
-                        _ = add_tag(prescipt_detection_section, "file.rule.prescript", f"prescript_cape.{rule_name}") 
+                        _ = add_tag(prescipt_detection_section, "file.rule.prescript_cape", f"prescript_cape.{rule_name}") 
                         matched_strings = ""
                         for matched_string in strings:
                             for matched_instance in matched_string.instances:
