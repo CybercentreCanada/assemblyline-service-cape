@@ -245,6 +245,7 @@ def generate_al_result(
     inetsim_dns_servers: List[str],
     uses_https_proxy_in_sandbox: bool,
     suspicious_accepted_languages: List[str],
+    signature_map: Dict[str, Dict[str, Any]] = {},
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -262,6 +263,7 @@ def generate_al_result(
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
     :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
+    :param signature_map: A map of all YARA signatures processed by Assemblyline and their current properties
     :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
              the initial process and the process name
     """
@@ -344,7 +346,7 @@ def generate_al_result(
 
     if sigs:
         is_process_martian = process_signatures(
-            sigs, process_map, al_result, ontres, safelist, uses_https_proxy_in_sandbox
+            sigs, process_map, al_result, ontres, safelist, uses_https_proxy_in_sandbox, signature_map
         )
 
     build_process_tree(al_result, is_process_martian, ontres, processtree_id_safelist)
@@ -649,6 +651,7 @@ def process_signatures(
     ontres: OntologyResults,
     safelist: Dict[str, Dict[str, List[str]]],
     uses_https_proxy_in_sandbox: bool,
+    signature_map: Dict[str, Dict[str, Any]] = {},
 ) -> bool:
     """
     This method processes the signatures section of the CAPE report, adding anything noteworthy to the
@@ -660,6 +663,7 @@ def process_signatures(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
+    :param signature_map: A map of all YARA signatures processed by Assemblyline and their current properties
     :return: A boolean flag that indicates if the is_process_martian signature was raised
     """
     if len(sigs) <= 0:
@@ -707,6 +711,7 @@ def process_signatures(
             process_map,
             safelist,
             uses_https_proxy_in_sandbox,
+            signature_map,
         )
 
         if sig_res:
@@ -879,7 +884,7 @@ def _create_network_connection_for_network_flow(
             "destination_ip": network_flow["dest_ip"],
             "destination_port": network_flow["dest_port"],
             "transport_layer_protocol": network_flow["protocol"],
-            "connection_type": connection_type,  
+            "connection_type": connection_type,
         }
     )
     objectid = ontres.create_objectid(
@@ -1052,7 +1057,7 @@ def process_network(
                     "transport_layer_protocol": transport_layer_protocol,
                     "connection_type": NetworkConnection.DNS,
                     "dns_details": {"domain": request},
-                    "lookup_type": attempt.get("type")
+                    "lookup_type": attempt.get("type"),
                 }
             )
             objectid = ontres.create_objectid(
@@ -1487,7 +1492,10 @@ def _get_dns_map(
                         if answers == None:
                             continue
                         for answer in answers:
-                            if not answer.isdigit() in [dns.get("hostname"), dns.get("servername", dns.get("nodename"))]:
+                            if not answer.isdigit() in [
+                                dns.get("hostname"),
+                                dns.get("servername", dns.get("nodename")),
+                            ]:
                                 if not dns_requests[request][index].get("process_name"):
                                     dns_requests[request][index]["process_name"] = process_details["name"]
 
@@ -2558,6 +2566,7 @@ def _create_signature_result_section(
     process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
     uses_https_proxy_in_sandbox: bool,
+    signature_map: Dict[str, Dict[str, Any]] = {},
 ) -> Optional[ResultMultiSection]:
     """
     This method creates a ResultMultiSection for the given signature
@@ -2570,6 +2579,7 @@ def _create_signature_result_section(
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
+    :param signature_map: A map of all YARA signatures processed by Assemblyline and their current properties
     :return: A ResultMultiSection containing details about the signature,
              unless the signature is deemed a False Positive
     """
@@ -2616,6 +2626,7 @@ def _create_signature_result_section(
                 ontres,
                 iocs_found_in_data_res_sec,
                 uses_https_proxy_in_sandbox,
+                signature_map,
             )
             if mark_body.body:
                 sig_res.add_section_part(mark_body)
@@ -2737,6 +2748,7 @@ def _handle_mark_data(
     ontres: OntologyResults,
     iocs_found_in_data_res_sec: Optional[ResultTableSection] = None,
     uses_https_proxy_in_sandbox: bool = False,
+    signature_map: Dict[str, Dict[str, Any]] = {},
 ) -> None:
     """
     This method handles a mark that is "data"
@@ -2751,6 +2763,7 @@ def _handle_mark_data(
     :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
+    :param signature_map: A map of all YARA signatures processed by Assemblyline and their current properties
     :return: None
     """
     for k, v in mark_items:
@@ -2782,6 +2795,7 @@ def _handle_mark_data(
             ontres,
             iocs_found_in_data_res_sec,
             uses_https_proxy_in_sandbox,
+            signature_map,
         )
 
     return iocs_found_in_data_res_sec
@@ -2796,6 +2810,7 @@ def _tag_mark_values(
     ontres: OntologyResults,
     iocs_found_in_data_res_sec: Optional[ResultTableSection] = None,
     uses_https_proxy_in_sandbox: bool = False,
+    signature_map: Dict[str, Dict[str, Any]] = {},
 ) -> Optional[ResultTableSection]:
     """
     This method tags a given value accordingly by the key
@@ -2808,6 +2823,7 @@ def _tag_mark_values(
     :param iocs_found_in_data_res_sec: The result section containing any IOCs found in signature data
     :param uses_https_proxy_in_sandbox: A boolean indicating if a proxy is used in the sandbox architecture that
     decrypts and forwards HTTPS traffic
+    :param signature_map: A map of all YARA signatures processed by Assemblyline and their current properties
     :return: None
     """
     delimiters = [":", "->", ",", " ", "("]
@@ -2894,7 +2910,14 @@ def _tag_mark_values(
                     )
                     attributes.append(attribute)
             rule_name = reg_match.group(2)
-            _ = add_tag(sig_res, "file.rule.cape", f"CAPE.{rule_name}")
+            # Find the appropriate source name for signature linking in the UI
+            source_name = "CAPE"
+            if signature_map:
+                for sig_info in signature_map.values():
+                    if sig_info["name"] == rule_name:
+                        source_name = sig_info["source"]
+                        break
+            _ = add_tag(sig_res, "file.rule.cape", f"{source_name}.{rule_name}")
             if sig_res.heuristic:
                 sig_res.heuristic.add_signature_id(rule_name.lower(), 500)
     elif key.lower() in ["domain"]:
