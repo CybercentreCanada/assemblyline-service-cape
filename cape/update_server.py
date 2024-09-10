@@ -15,6 +15,7 @@ log.setLevel(level)
 
 classification = forge.get_classification()
 
+
 def replace_include(include, dirname, processed_files: set[str], cur_logger: logging.Logger):
     include_path = re.match(r"include [\'\"](.{4,})[\'\"]", include)
     if not include_path:
@@ -41,6 +42,7 @@ def replace_include(include, dirname, processed_files: set[str], cur_logger: log
 
     return temp_lines, processed_files
 
+
 class CapeYaraUpdateServer(ServiceUpdater):
     def __init__(self, *args, externals: dict[str, str], **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,9 +57,6 @@ class CapeYaraUpdateServer(ServiceUpdater):
         #   source:                 The name of the source
         #   default_classification: The default classification given to a signature if none is provided
 
-        # You'll want to write your files to self.latest_updates_dir which should hold all your downloaded files.
-        # The contents in this directory will then be used by prepare_output_directory().
-
         # Organize files by source
         processed_files: set[str] = set()
         parser = Plyara()
@@ -66,7 +65,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
             upload_list = []
             for file, _ in files_sha256:
                 self.log.info(f"Processing file: {file}")
-                if not(file.endswith(".yar") or file.endswith(".yara")):
+                if not (file.endswith(".yar") or file.endswith(".yara")):
                     continue
                 try:
                     valid = validate_rule(file)
@@ -74,7 +73,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                     self.log.error(f"Error validating {file}: {e}")
                     raise e
                 if valid:
-                    with open(file, 'r') as fh:
+                    with open(file, "r") as fh:
                         upload_list = parser.parse_string(fh.read())
                 else:
                     self.log.info(f"Invalid file {file}")
@@ -89,7 +88,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
                     # File has already been processed before, skip it to avoid duplication of rules
                     if file in processed_files:
                         continue
-                    if not(file.endswith(".yar") or file.endswith(".yara")):
+                    if not (file.endswith(".yar") or file.endswith(".yara")):
                         continue
 
                     self.log.info(f"Processing file: {file}")
@@ -108,7 +107,9 @@ class CapeYaraUpdateServer(ServiceUpdater):
                         temp_lines: list[str] = []
                         for _, f_line in enumerate(f_lines):
                             if f_line.startswith("include"):
-                                lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
+                                lines, processed_files = replace_include(
+                                    f_line, file_dirname, processed_files, self.log
+                                )
                                 temp_lines.extend(lines)
                             else:
                                 temp_lines.append(f_line)
@@ -135,13 +136,8 @@ class CapeYaraUpdateServer(ServiceUpdater):
                         self.log.error(f"Error validating {compiled_file.name}: {e}")
                         raise e
                     yara_importer._save_signatures(signatures=upload_list, source="prescript_cape")
-                    dest_dir = os.path.join(self.latest_updates_dir, source_name)
-                    os.makedirs(dest_dir, exist_ok=True)
-                    dest_file = os.path.join(dest_dir, f"{source_name}.yar")
-                    shutil.copy(compiled_file.name, dest_file)
                 except Exception as e:
                     raise e
-
 
     def is_valid(self, file_path) -> bool:
         # Purpose:  Used to determine if the file associated is 'valid' to be processed as a signature
@@ -149,13 +145,14 @@ class CapeYaraUpdateServer(ServiceUpdater):
         #   file_path:  Path to a signature file from an external source
         if os.path.isdir(file_path):
             return False
-        if not(file_path.endswith(".yar") or file_path.endswith(".yara")):
+        if not (file_path.endswith(".yar") or file_path.endswith(".yara")):
             return False
         validation = validate_rule(file_path)
         if isinstance(validation, bool):
             return validation
-        return super().is_valid(file_path) #Returns true always
+        return super().is_valid(file_path)  # Returns true always
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     with CapeYaraUpdateServer(externals=YARA_EXTERNALS, default_pattern=".*\.yar(a)?") as server:
         server.serve_forever()

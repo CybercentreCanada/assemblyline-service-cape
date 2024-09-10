@@ -648,19 +648,7 @@ dependencies:
     container:
       allow_internet_access: true
       command: ["python", "-m", "cape.update_server"]
-      sync: true
       image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
-      ports: ["5003"]
-      # Overwrite the UPDATER_DIR variables to point to your persisted mountpoint
-      environment:
-        - name: UPDATER_DIR
-          value: /mnt/persistent_updates/
-    # Allocate a storage volume and mount it to your updater's filesystem
-    volumes:
-      updates:
-        mount_path: /mnt/persistent_updates/
-        capacity: 5242880
-        storage_class: default
     run_as_core: True
 
 # Update configuration block
