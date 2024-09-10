@@ -87,6 +87,9 @@ config:
   # The period/interval (in hours) in which signatures/YARA rules/configuration extractors are updated on the CAPE nest
   update_period: 24
 
+  updater:
+    # Sources involved in prescripting with CAPE
+    prescript_CAPE: []
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds
@@ -656,10 +659,6 @@ update_config:
   generates_signatures: true
   # list of source object from where to fetch files for update and what will be the name of those files on disk
   sources:
-    - uri: https://github.com/CybercentreCanada/assemblyline-service-cape-yara-rules.git
-      pattern: .*\.yar
-      name: assemblyline-service-cape-yara-rules
-      sync: true
     - uri: https://github.com/kevoreilly/CAPEv2.git
       pattern: .*\.yar
       name: internal-cape-yara
