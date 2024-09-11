@@ -427,6 +427,7 @@ class CAPE(ServiceBase):
                         continue
 
                     for rule_path in rules.values():
+                        self.log.debug(f"Trying to load rule {rule_path}\n")
                         if rule_path.startswith(source_dir):
                             with open(rule_path) as fh:
                                 rule_content.append(fh.read())
@@ -524,16 +525,16 @@ class CAPE(ServiceBase):
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
                                 action = key.replace("al_cape_", "")
-                                action = "".join(i for i in action if not i.isdigit())
+                                action = ''.join(i for i in action if not i.isdigit())
                                 if action.lower() in LIST_OF_VALID_ACTIONS:
                                     # The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
-                                    parsed_param = loads(params.replace("'", '"'))
+                                    parsed_param = loads(params.replace("'", "\""))
                                     option_passed += f" {action}"
                                     for param_key in ACTIONS_PARAMETERS[action]:
                                         if parsed_param[param_key] == "":
                                             parsed_param[param_key] = "None"
-                                        if isinstance(parsed_param[param_key], str) and '"' in parsed_param[param_key]:
-                                            parsed_param[param_key] = parsed_param[param_key].replace('"', '\\"')
+                                        if isinstance(parsed_param[param_key], str) and "\"" in parsed_param[param_key]:
+                                            parsed_param[param_key] = parsed_param[param_key].replace("\"", "\\\"")
                                         option_passed += f" {parsed_param[param_key]}"
                 else:
                     option_passed = ""

@@ -230,3 +230,8 @@ could be at `/usr/share/perl5/INetSim/`. Restart INetSim with `sudo systemctl re
 #### CAPE-specific safelisted items
 The file at `al_config/system_safelist.yaml` contains suggested safelisted values that can be added to the Assemblyline system safelist
 either by copy-and-pasting directly to the text editor on the page `https://<Assemblyline Instance>/admin/tag_safelist` or through the [Assemblyline Client](https://github.com/CybercentreCanada/assemblyline_client).
+
+### Sources and prescript feature
+By default the CAPE updater fetch the rules from the community and base repository. They are known as source from the service standpoint. If you do not wish to load them or to remove the community rules this need to be edited in the manifest under the 'update_config-->sources'. 
+
+!Beta! There is also a feature to run Yara rules on the sample prior to the analysis which is called prescript. They will be used to dictate preconfiguration of the virtual machine before the analysis. Details are going to be given when the prescript detection feature is officially release in CAPE. In order to run rules via this feature, a given source will need to be added to the 'updater-->prescript_CAPE' section of the manifest.  
