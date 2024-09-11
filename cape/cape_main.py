@@ -409,6 +409,7 @@ class CAPE(ServiceBase):
         externals.update(YARA_EXTERNALS)
 
         rules, indexed = {}, []
+        self.yara_loaded_signature_name.append(yara_root)
         for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
             for filename in filenames:
                 self.yara_loaded_signature_name.append(filename)
