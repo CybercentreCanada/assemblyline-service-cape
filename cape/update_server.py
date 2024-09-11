@@ -57,47 +57,45 @@ class CapeYaraUpdateServer(ServiceUpdater):
         processed_files: set[str] = set()
         parser = Plyara()
         parser.STRING_ESCAPE_CHARS.add("r")
-        with tempfile.NamedTemporaryFile(mode="a+", suffix=source_name) as compiled_file:
-            # Aggregate files into one major source file
-            upload_list = []
-            yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
-            for file, _ in files_sha256:
-                # File has already been processed before, skip it to avoid duplication of rules
-                if file in processed_files:
-                    continue
+        upload_list = []
+        yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
+        for file, _ in files_sha256:
+            # File has already been processed before, skip it to avoid duplication of rules
+            if file in processed_files:
+                continue
 
-                self.log.info(f"Processing file: {file}")
+            self.log.info(f"Processing file: {file}")
 
-                file_dirname = os.path.dirname(file)
-                processed_files.add(os.path.normpath(file))
+            file_dirname = os.path.dirname(file)
+            processed_files.add(os.path.normpath(file))
+            try:
+                valid = validate_rule(file)
+            except Exception as e:
+                self.log.error(f"Error validating {file}: {e}")
+                raise e
+            if valid:
+                with open(file, "r", errors="surrogateescape") as f:
+                    f_lines = f.readlines()
+
+                temp_lines: list[str] = []
+                for _, f_line in enumerate(f_lines):
+                    if f_line.startswith("include"):
+                        lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
+                        temp_lines.extend(lines)
+                    else:
+                        temp_lines.append(f_line)
+
+                # guess the type of files that we have in the current file
+                # Try parsing the ruleset; on fail, move onto next set
                 try:
-                    valid = validate_rule(file)
+                    signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
+                    upload_list.extend(signatures)
                 except Exception as e:
-                    self.log.error(f"Error validating {file}: {e}")
-                    raise e
-                if valid:
-                    with open(file, "r", errors="surrogateescape") as f:
-                        f_lines = f.readlines()
-
-                    temp_lines: list[str] = []
-                    for _, f_line in enumerate(f_lines):
-                        if f_line.startswith("include"):
-                            lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
-                            temp_lines.extend(lines)
-                        else:
-                            temp_lines.append(f_line)
-
-                    # guess the type of files that we have in the current file
-                    # Try parsing the ruleset; on fail, move onto next set
-                    try:
-                        signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
-                        upload_list.extend(signatures)
-                    except Exception as e:
-                        self.log.error(f"Problem parsing {file}: {e}")
-                        continue
-            yara_importer._save_signatures(
-                signatures=upload_list, source=source_name, default_classification=default_classification
-            )
+                    self.log.error(f"Problem parsing {file}: {e}")
+                    continue
+        yara_importer._save_signatures(
+            signatures=upload_list, source=source_name, default_classification=default_classification
+        )
 
     def is_valid(self, file_path) -> bool:
         # Purpose:  Used to determine if the file associated is 'valid' to be processed as a signature
