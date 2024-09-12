@@ -410,10 +410,11 @@ class CAPE(ServiceBase):
 
         rules, indexed = {}, []
         self.yara_loaded_signature_name.append(yara_root)
-        for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
+        for root, _, filenames in os.walk(yara_root, followlinks=True):
             for filename in filenames:
+                path = os.path.join(yara_root, root)
                 self.yara_loaded_signature_name.append(filename)
-                filepath = os.path.join(yara_root, filename)
+                filepath = os.path.join(path, filename)
                 if validate_rule(filepath):
                     rules[f"rule_{len(rules)}"] = filepath
                     indexed.append(filename)
