@@ -511,11 +511,11 @@ class CAPE(ServiceBase):
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions "
                     for match in matches:
-                        rule_classification = (match.meta.get('sharing') or match.meta.get('classification')) or self.classification.UNRESTRICTED
-                        kv_section_body = KVSectionBody(classification=rule_classification)
                         strings = match.strings
                         rule_name = match.rule
-                        _ = add_tag(prescipt_detection_section, "file.rule.cape", f"{match.namespace}.{rule_name}")
+                        rule_classification = self.signatures_meta[rule_name]["classification"]
+                        kv_section_body = KVSectionBody(classification=rule_classification)
+                        _ = add_tag(kv_section_body, "file.rule.cape", f"{match.namespace}.{rule_name}")
                         matched_strings = ""
                         for matched_string in strings:
                             for matched_instance in matched_string.instances:
@@ -524,21 +524,21 @@ class CAPE(ServiceBase):
                                     string_value = safe_str(string_value)
                                 matched_strings += string_value
                         kv_section_body.set_item(rule_name, matched_strings)
-                        prescipt_detection_section.add_section_part(kv_section_body)
+                        prescipt_detection_section.add_subsection(kv_section_body)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
                                 action = key.replace("al_cape_", "")
-                                action = ''.join(i for i in action if not i.isdigit())
+                                action = "".join(i for i in action if not i.isdigit())
                                 if action.lower() in LIST_OF_VALID_ACTIONS:
                                     # The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
-                                    parsed_param = loads(params.replace("'", "\""))
+                                    parsed_param = loads(params.replace("'", '"'))
                                     option_passed += f" {action}"
                                     for param_key in ACTIONS_PARAMETERS[action]:
                                         if parsed_param[param_key] == "":
                                             parsed_param[param_key] = "None"
-                                        if isinstance(parsed_param[param_key], str) and "\"" in parsed_param[param_key]:
-                                            parsed_param[param_key] = parsed_param[param_key].replace("\"", "\\\"")
+                                        if isinstance(parsed_param[param_key], str) and '"' in parsed_param[param_key]:
+                                            parsed_param[param_key] = parsed_param[param_key].replace('"', '\\"')
                                         option_passed += f" {parsed_param[param_key]}"
                 else:
                     option_passed = ""
