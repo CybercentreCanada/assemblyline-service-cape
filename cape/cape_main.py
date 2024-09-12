@@ -14,7 +14,7 @@ from zipfile import ZipFile
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
-from assemblyline.common.forge import get_identify
+from assemblyline.common.forge import get_identify, get_classification
 from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
 from assemblyline.common.isotime import epoch_to_local
 from assemblyline.common.str_utils import safe_str
@@ -231,9 +231,9 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
+        self.classification = forge.get_classification()
 
         # Properies pertaining to using YARA rules with CAPE
-        self.yara_loaded_signature_name = []
         self.yara_sigs = None
         self.yara_errors = {}
 
@@ -413,7 +413,6 @@ class CAPE(ServiceBase):
             for filename in filenames:
                 path = os.path.join(yara_root, root)
                 filepath = os.path.join(path, filename)
-                self.yara_loaded_signature_name.append(filepath)
                 if validate_rule(filepath):
                     rules[f"rule_{len(rules)}"] = filepath
                     indexed.append(filename)
@@ -509,10 +508,11 @@ class CAPE(ServiceBase):
                 prescipt_detection_section.add_section_part(error_section_body)
             try:
                 if self.yara_sigs is not None:
-                    kv_section_body = KVSectionBody()
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions "
                     for match in matches:
+                        rule_classification = (match.meta.get('sharing') or match.meta.get('classification')) or self.classification.UNRESTRICTED
+                        kv_section_body = KVSectionBody(classification=rule_classification)
                         strings = match.strings
                         rule_name = match.rule
                         _ = add_tag(prescipt_detection_section, "file.rule.cape", f"{match.namespace}.{rule_name}")
@@ -524,6 +524,7 @@ class CAPE(ServiceBase):
                                     string_value = safe_str(string_value)
                                 matched_strings += string_value
                         kv_section_body.set_item(rule_name, matched_strings)
+                        prescipt_detection_section.add_section_part(kv_section_body)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
@@ -552,14 +553,10 @@ class CAPE(ServiceBase):
                 matches = []
             if len(matches) > 0:
                 kwargs["options"] += ",".join(option_passed)
-                prescipt_detection_section.add_section_part(kv_section_body)
                 instructions_section_body = TextSectionBody(body=option_passed)
                 prescipt_detection_section.add_section_part(instructions_section_body)
             else:
-                no_match = "No matching rules, ran CAPE as default. Rules loaded were :"
-                for rule in self.yara_loaded_signature_name:
-                    no_match += (" " + str(rule))
-                info_section_body = TextSectionBody(body=no_match)
+                info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default.")
                 prescipt_detection_section.add_section_part(info_section_body)
             parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
