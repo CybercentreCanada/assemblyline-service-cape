@@ -233,7 +233,6 @@ class CAPE(ServiceBase):
         self.uwsgi_with_recycle = False
 
         # Properies pertaining to using YARA rules with CAPE
-        self.yara_loaded_signature_name = []
         self.yara_sigs = None
         self.yara_errors = {}
 
@@ -413,7 +412,6 @@ class CAPE(ServiceBase):
             for filename in filenames:
                 path = os.path.join(yara_root, root)
                 filepath = os.path.join(path, filename)
-                self.yara_loaded_signature_name.append(filepath)
                 if validate_rule(filepath):
                     rules[f"rule_{len(rules)}"] = filepath
                     indexed.append(filename)
@@ -556,10 +554,7 @@ class CAPE(ServiceBase):
                 instructions_section_body = TextSectionBody(body=option_passed)
                 prescipt_detection_section.add_section_part(instructions_section_body)
             else:
-                no_match = "No matching rules, ran CAPE as default. Rules loaded were :"
-                for rule in self.yara_loaded_signature_name:
-                    no_match += (" " + str(rule))
-                info_section_body = TextSectionBody(body=no_match)
+                info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default.")
                 prescipt_detection_section.add_section_part(info_section_body)
             parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
