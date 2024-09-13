@@ -24,10 +24,8 @@ from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import (
-    BODY_FORMAT,
     ImageSectionBody,
     Result,
-    KVSectionBody,
     ResultKeyValueSection,
     ResultMultiSection,
     ResultSection,
@@ -514,7 +512,7 @@ class CAPE(ServiceBase):
                         strings = match.strings
                         rule_name = match.rule
                         rule_classification = self.signatures_meta[rule_name]["classification"]
-                        kv_section_body = KVSectionBody(classification=rule_classification)
+                        kv_section_body = ResultKeyValueSection(classification=rule_classification)
                         _ = add_tag(kv_section_body, "file.rule.cape", f"{match.namespace}.{rule_name}")
                         matched_strings = ""
                         for matched_string in strings:
