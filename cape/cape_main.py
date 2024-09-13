@@ -512,7 +512,10 @@ class CAPE(ServiceBase):
                         strings = match.strings
                         rule_name = match.rule
                         rule_classification = self.signatures_meta[rule_name]["classification"]
-                        kv_section_body = ResultKeyValueSection(classification=rule_classification)
+                        source = self.signatures_meta[rule_name]["source"]
+                        kv_section_body = ResultKeyValueSection(
+                            title_text=f"[{source}] {rule_name}", classification=rule_classification
+                        )
                         _ = add_tag(kv_section_body, "file.rule.cape", f"{match.namespace}.{rule_name}")
                         matched_strings = ""
                         for matched_string in strings:
@@ -521,7 +524,9 @@ class CAPE(ServiceBase):
                                 if isinstance(string_value, bytes):
                                     string_value = safe_str(string_value)
                                 matched_strings += string_value
-                        kv_section_body.set_item(rule_name, matched_strings)
+                        kv_section_body.set_item("name", rule_name)
+                        kv_section_body.set_item("string_hits", matched_strings)
+                        actions = []
                         prescipt_detection_section.add_subsection(kv_section_body)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
@@ -531,13 +536,16 @@ class CAPE(ServiceBase):
                                 if action.lower() in LIST_OF_VALID_ACTIONS:
                                     # The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
                                     parsed_param = loads(params.replace("'", '"'))
-                                    option_passed += f" {action}"
+                                    option = action
                                     for param_key in ACTIONS_PARAMETERS[action]:
                                         if parsed_param[param_key] == "":
                                             parsed_param[param_key] = "None"
                                         if isinstance(parsed_param[param_key], str) and '"' in parsed_param[param_key]:
                                             parsed_param[param_key] = parsed_param[param_key].replace('"', '\\"')
-                                        option_passed += f" {parsed_param[param_key]}"
+                                        option += f" {parsed_param[param_key]}"
+                                    option_passed += f" {option}"
+                                    actions.append(option)
+                        kv_section_body.set_item("actions", actions)
                 else:
                     option_passed = ""
                     matches = []
