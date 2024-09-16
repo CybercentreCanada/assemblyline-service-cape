@@ -1,19 +1,18 @@
 import os
 import shutil
 import tempfile
+from io import BytesIO
 from typing import Any
+from zipfile import ZipFile
 
 from assemblyline.common import forge
-from assemblyline.odm.models.signature import Signature
-from assemblyline_v4_service.updater.updater import ServiceUpdater
+from assemblyline_v4_service.updater.updater import ServiceUpdater, UPDATER_DIR
+from assemblyline.common.isotime import epoch_to_iso
+
 from cape.yara_modules import *
 
-log = logging.getLogger(__name__)
-level = logging.DEBUG
-log.setLevel(level)
-
-
 classification = forge.get_classification()
+
 
 def replace_include(include, dirname, processed_files: set[str], cur_logger: logging.Logger):
     include_path = re.match(r"include [\'\"](.{4,})[\'\"]", include)
@@ -41,11 +40,11 @@ def replace_include(include, dirname, processed_files: set[str], cur_logger: log
 
     return temp_lines, processed_files
 
+
 class CapeYaraUpdateServer(ServiceUpdater):
     def __init__(self, *args, externals: dict[str, str], **kwargs):
         super().__init__(*args, **kwargs)
         self.externals = externals
-        self.log = log
 
     def import_update(self, files_sha256, source_name: str, default_classification=classification.UNRESTRICTED) -> None:
         # Purpose:  Used to import a set of signatures from a source into a reserved directory
@@ -55,93 +54,48 @@ class CapeYaraUpdateServer(ServiceUpdater):
         #   source:                 The name of the source
         #   default_classification: The default classification given to a signature if none is provided
 
-        # You'll want to write your files to self.latest_updates_dir which should hold all your downloaded files.
-        # The contents in this directory will then be used by prepare_output_directory().
-
-        # Organize files by source
         processed_files: set[str] = set()
         parser = Plyara()
         parser.STRING_ESCAPE_CHARS.add("r")
-        if source_name in ["internal-cape-yara", "internal-cape-community-yara"]:
-            upload_list = []
-            for file, _ in files_sha256:
-                self.log.info(f"Processing file: {file}")
-                if not(file.endswith(".yar") or file.endswith(".yara")):
+        upload_list = []
+        yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
+        for file, _ in files_sha256:
+            # File has already been processed before, skip it to avoid duplication of rules
+            if file in processed_files:
+                continue
+
+            self.log.info(f"Processing file: {file}")
+
+            file_dirname = os.path.dirname(file)
+            processed_files.add(os.path.normpath(file))
+            try:
+                valid = validate_rule(file)
+            except Exception as e:
+                self.log.error(f"Error validating {file}: {e}")
+                raise e
+            if valid:
+                with open(file, "r", errors="surrogateescape") as f:
+                    f_lines = f.readlines()
+
+                temp_lines: list[str] = []
+                for _, f_line in enumerate(f_lines):
+                    if f_line.startswith("include"):
+                        lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
+                        temp_lines.extend(lines)
+                    else:
+                        temp_lines.append(f_line)
+
+                # guess the type of files that we have in the current file
+                # Try parsing the ruleset; on fail, move onto next set
+                try:
+                    signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
+                    upload_list.extend(signatures)
+                except Exception as e:
+                    self.log.error(f"Problem parsing {file}: {e}")
                     continue
-                try:
-                    valid = validate_rule(file)
-                except Exception as e:
-                    self.log.error(f"Error validating {file}: {e}")
-                    raise e
-                if valid:
-                    with open(file, 'r') as fh:
-                        upload_list = parser.parse_string(fh.read())
-                else:
-                    self.log.info(f"Invalid file {file}")
-            yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
-            yara_importer._save_signatures(signatures=upload_list, source="CAPE")
-        else:
-            with tempfile.NamedTemporaryFile(mode="a+", suffix=source_name) as compiled_file:
-                # Aggregate files into one major source file
-                upload_list = []
-                yara_importer = YaraImporter(self.updater_type, self.client, logger=self.log)
-                for file, _ in files_sha256:
-                    # File has already been processed before, skip it to avoid duplication of rules
-                    if file in processed_files:
-                        continue
-                    if not(file.endswith(".yar") or file.endswith(".yara")):
-                        continue
-
-                    self.log.info(f"Processing file: {file}")
-
-                    file_dirname = os.path.dirname(file)
-                    processed_files.add(os.path.normpath(file))
-                    try:
-                        valid = validate_rule(file)
-                    except Exception as e:
-                        self.log.error(f"Error validating {file}: {e}")
-                        raise e
-                    if valid:
-                        with open(file, "r", errors="surrogateescape") as f:
-                            f_lines = f.readlines()
-
-                        temp_lines: list[str] = []
-                        for _, f_line in enumerate(f_lines):
-                            if f_line.startswith("include"):
-                                lines, processed_files = replace_include(f_line, file_dirname, processed_files, self.log)
-                                temp_lines.extend(lines)
-                            else:
-                                temp_lines.append(f_line)
-
-                        # guess the type of files that we have in the current file
-                        # Try parsing the ruleset; on fail, move onto next set
-                        try:
-                            signatures: list[dict[str, Any]] = parser.parse_string("\n".join(temp_lines))
-                            upload_list = signatures
-                        except Exception as e:
-                            self.log.error(f"Problem parsing {file}: {e}")
-                            continue
-                            # Save all rules from source into single file
-                for s in signatures:
-                    # Fix imports and remove cuckoo
-                    s["imports"] = utils.detect_imports(s)
-                    compiled_file.write(utils.rebuild_yara_rule(s))
-                try:
-                    compiled_file.seek(0)
-                    try:
-                        validate = YaraValidator(externals=self.externals, logger=self.log)
-                        validate.validate_rules(compiled_file.name)
-                    except Exception as e:
-                        self.log.error(f"Error validating {compiled_file.name}: {e}")
-                        raise e
-                    yara_importer._save_signatures(signatures=upload_list, source="prescript_cape")
-                    dest_dir = os.path.join(self.latest_updates_dir, source_name)
-                    os.makedirs(dest_dir, exist_ok=True)
-                    dest_file = os.path.join(dest_dir, f"{source_name}.yar")
-                    shutil.copy(compiled_file.name, dest_file)
-                except Exception as e:
-                    raise e
-
+        yara_importer._save_signatures(
+            signatures=upload_list, source=source_name, default_classification=default_classification
+        )
 
     def is_valid(self, file_path) -> bool:
         # Purpose:  Used to determine if the file associated is 'valid' to be processed as a signature
@@ -149,13 +103,61 @@ class CapeYaraUpdateServer(ServiceUpdater):
         #   file_path:  Path to a signature file from an external source
         if os.path.isdir(file_path):
             return False
-        if not(file_path.endswith(".yar") or file_path.endswith(".yara")):
+        if not (file_path.endswith(".yar") or file_path.endswith(".yara")):
             return False
         validation = validate_rule(file_path)
         if isinstance(validation, bool):
             return validation
-        return super().is_valid(file_path) #Returns true always
+        return super().is_valid(file_path)  # Returns true always
 
-if __name__ == '__main__':
+    def do_local_update(self) -> None:
+        old_update_time = self.get_local_update_time()
+        if not os.path.exists(UPDATER_DIR):
+            os.makedirs(UPDATER_DIR)
+
+        # Create a temporary file for the time keeper
+        time_keeper = tempfile.NamedTemporaryFile(prefix="time_keeper_", dir=UPDATER_DIR, delete=False)
+        time_keeper.close()
+        time_keeper = time_keeper.name
+
+        output_directory = tempfile.mkdtemp(prefix="update_dir_", dir=UPDATER_DIR)
+        sources_removed_locally = False
+        if self._update_dir:
+            current_update_dir = os.path.join(self._update_dir, self.updater_type)
+
+            if os.path.exists(current_update_dir):
+                sources_removed_locally = set(os.listdir(current_update_dir)) - set(
+                    [s.name for s in self._service.update_config.sources]
+                )
+
+        # Check if new signatures have been added (or it there's been a local change since the last update)
+        self.log.info("Check for new signatures.")
+        if sources_removed_locally or self.client.signature.update_available(
+            since=epoch_to_iso(old_update_time) or None, sig_type=self.updater_type
+        ):
+            self.log.info("An update is available for download from the datastore")
+
+            self.log.debug(f"{self.updater_type} update available since {epoch_to_iso(old_update_time) or ''}")
+            prescript_CAPE_sources = self._service.config.get("updater", {}).get("prescript_CAPE", [])
+            prescript_query = f"{self.signatures_query} AND source:{' OR '.join(prescript_CAPE_sources)}"
+            if (
+                prescript_CAPE_sources
+                and self.client.datastore.signature.search(prescript_query, rows=0, track_total_hits=True)["total"]
+            ):
+                # Pull the set of YARA signatures related to prescript CAPE
+                with ZipFile(BytesIO(self.client.signature.download(prescript_query)), "r") as zip_f:
+                    zip_f.extractall(output_directory)
+                    self.log.info("New ruleset successfully downloaded and ready to use")
+            else:
+                self.log.info("No prescript CAPE rules to download")
+            self.serve_directory(output_directory, time_keeper)
+        else:
+            self.log.info("No signature updates available.")
+            shutil.rmtree(output_directory, ignore_errors=True)
+            if os.path.exists(time_keeper):
+                os.unlink(time_keeper)
+
+
+if __name__ == "__main__":
     with CapeYaraUpdateServer(externals=YARA_EXTERNALS, default_pattern=".*\.yar(a)?") as server:
         server.serve_forever()

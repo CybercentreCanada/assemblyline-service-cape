@@ -14,7 +14,7 @@ from zipfile import ZipFile
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
-from assemblyline.common.forge import get_identify
+from assemblyline.common.forge import get_identify, get_classification
 from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
 from assemblyline.common.isotime import epoch_to_local
 from assemblyline.common.str_utils import safe_str
@@ -24,10 +24,8 @@ from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import (
-    BODY_FORMAT,
     ImageSectionBody,
     Result,
-    KVSectionBody,
     ResultKeyValueSection,
     ResultMultiSection,
     ResultSection,
@@ -231,6 +229,11 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
+        self.classification = forge.get_classification()
+
+        # Properies pertaining to using YARA rules with CAPE
+        self.yara_sigs = None
+        self.yara_errors = {}
 
     def start(self) -> None:
         self.log.debug("CAPE service started...")
@@ -396,28 +399,46 @@ class CAPE(ServiceBase):
 
     def _load_rules(self):
         # Generate root directory for yara rules.
-        yara_root = os.path.join(self.rules_directory, "cape/prescript_cape")
-        if yara_root is None:
-            return (None, {"Updater_Error": "No valid updater directory set"})
+        yara_root = os.path.join(self.rules_directory, "cape")
+        errors = {}
+
+        # Need to define each external variable that will be used in the future. Otherwise Yara will complain.
+        externals = {"filename": ""}
+        externals.update(YARA_EXTERNALS)
+
         rules, indexed = {}, []
-        for yara_root, _, filenames in os.walk(yara_root, followlinks=True):
+        for root, _, filenames in os.walk(yara_root, followlinks=True):
             for filename in filenames:
-                filepath = os.path.join(yara_root, filename)
+                path = os.path.join(yara_root, root)
+                filepath = os.path.join(path, filename)
                 if validate_rule(filepath):
                     rules[f"rule_{len(rules)}"] = filepath
                     indexed.append(filename)
 
-                # Need to define each external variable that will be used in the
-            # future. Otherwise Yara will complain.
-            externals = {"filename": ""}
-        errors = {}
         while True:
             try:
-                yara_rules = yara.compile(filepaths=rules, externals=YARA_EXTERNALS)
-                return (yara_rules, errors)
-            except yara.SyntaxError as e:
+                yara.compile(filepaths=rules, externals=externals)
+                # Compilation successful, but we need to namespace these rules according to the source for later use
+                sources = {}
+                for source_name in os.listdir(yara_root):
+                    rule_content = []
+                    source_dir = os.path.join(yara_root, source_name)
+                    if not os.path.isdir(source_dir):
+                        continue
 
-                bad_rule = str(e).split('.yar', 1)[0]
+                    for rule_path in rules.values():
+                        self.log.debug(f"Trying to load rule {rule_path}\n")
+                        if rule_path.startswith(source_dir):
+                            with open(rule_path) as fh:
+                                rule_content.append(fh.read())
+                    sources[source_name] = "\n".join(rule_content)
+
+                self.yara_sigs = yara.compile(sources=sources, externals=externals)
+                self.yara_errors = errors
+                return
+            except yara.SyntaxError as e:
+                # Prune any invalid rules and log the exceptions
+                bad_rule = str(e).split(".yar", 1)[0]
 
                 if os.path.basename(bad_rule) not in indexed:
                     break
@@ -425,12 +446,11 @@ class CAPE(ServiceBase):
                     if v == bad_rule:
                         del rules[k]
                         indexed.remove(os.path.basename(bad_rule))
-                        print(f"Broken yara rule: {bad_rule}")
+                        self.log.error(f"Broken yara rule: {bad_rule}")
                         errors[bad_rule] = "Broken yara rule"
                         break
             except yara.Error as e:
                 self.log.error("There was a syntax error in one or more Yara rules: %s", e)
-                print("There was a syntax error in one or more Yara rules: %s", e)
                 errors["Error"] = "There was a syntax error in one or more Yara rules: %s" % e
                 break
 
@@ -478,22 +498,25 @@ class CAPE(ServiceBase):
 
         if "prescript_detection=yes" in kwargs.get("options", ""):
             parent_section.title_text += " (with prescript detection)"
-            #self.rules_list would be the list of loaded signatures not the ones in the folder
-            self.yara_sigs, errors = self._load_rules()
-            #What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
+            # self.rules_list would be the list of loaded signatures not the ones in the folder
+            # What about scripts and files ? How will we pass it along ? Need to zip compound it ? We might need to clone the repo on the server analyzer so it's passed along ?
             prescipt_detection_section = ResultMultiSection("Prescript Detection")
-            if errors is not None and errors:
-                error_section_body = TextSectionBody(body=dumps(errors))
+            if self.yara_errors is not None and self.yara_errors:
+                error_section_body = TextSectionBody(body=dumps(self.yara_errors))
                 prescipt_detection_section.add_section_part(error_section_body)
             try:
                 if self.yara_sigs is not None:
-                    kv_section_body = KVSectionBody()
                     matches = yara_scan(self.yara_sigs, self.request.file_contents)
                     option_passed = f"pre_script_args= --actions "
                     for match in matches:
                         strings = match.strings
                         rule_name = match.rule
-                        _ = add_tag(prescipt_detection_section, "file.rule.cape", f"prescript_cape.{rule_name}") 
+                        rule_classification = self.signatures_meta[rule_name]["classification"]
+                        source = self.signatures_meta[rule_name]["source"]
+                        kv_section_body = ResultKeyValueSection(
+                            title_text=f"[{source}] {rule_name}", classification=rule_classification
+                        )
+                        _ = add_tag(kv_section_body, "file.rule.cape", f"{match.namespace}.{rule_name}")
                         matched_strings = ""
                         for matched_string in strings:
                             for matched_instance in matched_string.instances:
@@ -501,40 +524,45 @@ class CAPE(ServiceBase):
                                 if isinstance(string_value, bytes):
                                     string_value = safe_str(string_value)
                                 matched_strings += string_value
-                        kv_section_body.set_item(rule_name, matched_strings)
+                        kv_section_body.set_item("name", rule_name)
+                        kv_section_body.set_item("string_hits", matched_strings)
+                        actions = []
+                        prescipt_detection_section.add_subsection(kv_section_body)
                         for key in match.meta.keys():
                             if key.startswith("al_cape"):
                                 params = match.meta[key]
                                 action = key.replace("al_cape_", "")
-                                action = ''.join(i for i in action if not i.isdigit())
+                                action = "".join(i for i in action if not i.isdigit())
                                 if action.lower() in LIST_OF_VALID_ACTIONS:
-                                #The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
-                                    parsed_param = loads(params.replace("'", "\""))
-                                    option_passed +=f" {action}"
+                                    # The parameters in the rules need to be double encoded and escaped such as \ need to look like this \\\\ and ' become \\'
+                                    parsed_param = loads(params.replace("'", '"'))
+                                    option = action
                                     for param_key in ACTIONS_PARAMETERS[action]:
                                         if parsed_param[param_key] == "":
                                             parsed_param[param_key] = "None"
-                                        if isinstance(parsed_param[param_key], str) and "\"" in parsed_param[param_key]:
-                                            parsed_param[param_key] = parsed_param[param_key].replace("\"", "\\\"")
-                                        option_passed += f" {parsed_param[param_key]}"
+                                        if isinstance(parsed_param[param_key], str) and '"' in parsed_param[param_key]:
+                                            parsed_param[param_key] = parsed_param[param_key].replace('"', '\\"')
+                                        option += f" {parsed_param[param_key]}"
+                                    option_passed += f" {option}"
+                                    actions.append(option)
+                        kv_section_body.set_item("actions", actions)
                 else:
                     option_passed = ""
                     matches = []
             except Exception as e:
                 self.log.error(repr(e))
                 print(e)
-                e_message = f"Exception {e}" 
+                e_message = f"Exception {e}"
                 exception_section_body = TextSectionBody(body=e_message)
                 prescipt_detection_section.add_section_part(exception_section_body)
                 option_passed = ""
                 matches = []
             if len(matches) > 0:
                 kwargs["options"] += ",".join(option_passed)
-                prescipt_detection_section.add_section_part(kv_section_body)
                 instructions_section_body = TextSectionBody(body=option_passed)
                 prescipt_detection_section.add_section_part(instructions_section_body)
             else:
-                info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default")
+                info_section_body = TextSectionBody(body="No matching rules, ran CAPE as default.")
                 prescipt_detection_section.add_section_part(info_section_body)
             parent_section.add_subsection(prescipt_detection_section)
         cape_task = CapeTask(self.file_name, host_to_use, **kwargs)
@@ -1916,6 +1944,7 @@ class CAPE(ServiceBase):
                 inetsim_dns_servers,
                 self.config.get("uses_https_proxy_in_sandbox", False),
                 self.config.get("suspicious_accepted_languages", []),
+                self.signatures_meta,
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
@@ -2295,7 +2324,7 @@ class CAPE(ServiceBase):
                             "description": "PEs extracted from Windows API buffers",
                             "to_be_extracted": True,
                         }
-                )
+                    )
 
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """
