@@ -2,23 +2,6 @@ name: tests
 
 variables:
   - group: unittest-samples
-  - name: self_location
-    value: "self_location"
-  - name: full_self_location
-    value: "$(Agent.BuildDirectory)/$(self_location)"
-  - name: samples_location
-    value: "samples_location"
-  - name: full_samples_location
-    value: "$(Agent.BuildDirectory)/$(samples_location)"
-
-resources:
-  repositories:
-  - repository: unittest-samples
-    type: github
-    name: $(unittest_samples_repository)
-    ref: main
-    endpoint: github-repo-sa
-    trigger: none
 
 trigger: ["*"]
 pr: ["*"]
@@ -26,45 +9,27 @@ pr: ["*"]
 pool:
   vmImage: "ubuntu-20.04"
 
-jobs:
-  - job: run_test
-    strategy:
-      matrix:
-        Python3_11:
-         python.version: "3.11"
-        Python3_12:
-         python.version: "3.12"
+resources:
+  repositories:
+    - repository: PipelineTemplates
+      type: github
+      name: CybercentreCanada/assemblyline-pipeline-templates
+      ref: refs/heads/main
+      endpoint: github-repo-sa
+      trigger: none
+    - repository: unittest-samples
+      type: github
+      name: $(unittest_samples_repository)
+      ref: main
+      endpoint: github-repo-sa
+      trigger: none
 
-    timeoutInMinutes: 10
-
-    steps:
-      - task: UsePythonVersion@0
-        displayName: Set python version
-        inputs:
-          versionSpec: "$(python.version)"
-      - checkout: self
-        fetchDepth: 1
-        path: $(self_location)
-      - checkout: unittest-samples
-        fetchDepth: 1
-        path: $(samples_location)
-      - script: |
-          [ ! -d "$(pwd)/tests" ] && echo "No tests found" && exit
-          sudo apt-get update
-          sudo apt-get install -y libfuzzy-dev libfuzzy2
-          if [[ -f "$(pwd)/pkglist.txt" ]]; then
-            grep -vE '^#' "$(pwd)/pkglist.txt" | xargs sudo apt install -y
-          fi
-          sudo rm -rf /var/lib/apt/lists/*
-          sudo env "PATH=$PATH" python -m pip install -U --no-cache-dir assemblyline assemblyline_v4_service
-          [ -f $(pwd)/requirements.txt ] && sudo env "PATH=$PATH" python -m pip install -U --no-cache-dir -r $(pwd)/requirements.txt
-          [ -f $(pwd)/tests/requirements.txt ] && sudo env "PATH=$PATH" python -m pip install -U --no-cache-dir -r $(pwd)/tests/requirements.txt
-          sudo rm -rf /tmp/* /var/lib/apt/lists/* ~/.cache/pip
-        workingDirectory: $(full_self_location)
-        displayName: Setup environment
-      - script: |
-          [ ! -d "$(pwd)/tests" ] && echo "No tests found" && exit
-          export REPO_NAME=${BUILD_REPOSITORY_NAME##*/}
-          python -m pytest -p no:cacheprovider --durations=10 -rsx -xsvvv --disable-warnings
-        workingDirectory: $(full_self_location)
-        displayName: Test
+extends:
+  template: stages/test-service.yaml@PipelineTemplates
+  parameters:
+    samples_repo: unittest-samples
+    test_container: "false"
+    python_versions:
+      - "3.11"
+      - "3.12"
+    
