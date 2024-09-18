@@ -660,6 +660,7 @@ CAPE_SIGNATURES = {
     "suricata_alert": "Network",
     "suspicious_certutil_use": "Command",
     "suspicious_command_tools": "Command",
+    "suspicious_html_title": "Phishing",
     "suspicious_ioctl_scsipassthough": "Bootkit",
     "suspicious_js_script": "Downloader",
     "suspicious_mpcmdrun_use": "Command",
