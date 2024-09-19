@@ -221,6 +221,7 @@ CAPE_SIGNATURES = {
     "disables_winfirewall": "Generic",
     "dll_load_uncommon_file_types": "Anti-debug",
     "document_script_exe_drop": "Dropper",
+    "domain_enumeration_commands": "Discovery",
     "doppelganging": "Injection",  # CAPE
     "dotnet_clr_usagelog_regkeys": "Evasion",
     "dotnet_code_compile": "Evasion",
