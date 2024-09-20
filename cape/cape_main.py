@@ -402,6 +402,8 @@ class CAPE(ServiceBase):
         yara_root = os.path.join(self.rules_directory, "cape")
         errors = {}
 
+        if not os.path.exists(yara_root):
+            return
         # Need to define each external variable that will be used in the future. Otherwise Yara will complain.
         externals = {"filename": ""}
         externals.update(YARA_EXTERNALS)
