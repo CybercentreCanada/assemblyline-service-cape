@@ -399,12 +399,13 @@ class CAPE(ServiceBase):
 
     def _load_rules(self):
         # Generate root directory for yara rules.
+        if self.rules_directory is None:
+            return
+        
         yara_root = os.path.join(self.rules_directory, "cape")
         errors = {}
 
         if not os.path.exists(yara_root):
-            self.yara_sigs = None
-            self.yara_errors = {}
             return
 
         # Need to define each external variable that will be used in the future. Otherwise Yara will complain.
