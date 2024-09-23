@@ -221,6 +221,7 @@ CAPE_SIGNATURES = {
     "disables_winfirewall": "Generic",
     "dll_load_uncommon_file_types": "Anti-debug",
     "document_script_exe_drop": "Dropper",
+    "domain_enumeration_commands": "Discovery",
     "doppelganging": "Injection",  # CAPE
     "dotnet_clr_usagelog_regkeys": "Evasion",
     "dotnet_code_compile": "Evasion",
@@ -660,6 +661,7 @@ CAPE_SIGNATURES = {
     "suricata_alert": "Network",
     "suspicious_certutil_use": "Command",
     "suspicious_command_tools": "Command",
+    "suspicious_html_title": "Phishing",
     "suspicious_ioctl_scsipassthough": "Bootkit",
     "suspicious_js_script": "Downloader",
     "suspicious_mpcmdrun_use": "Command",
