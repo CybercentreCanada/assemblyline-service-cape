@@ -1,5 +1,5 @@
 {
-  "template": "git@github.com:CybercentreCanada/assemblyline-service-pipeline-generator.git",
+  "template": "https://github.com/CybercentreCanada/assemblyline-service-pipeline-generator.git",
   "commit": "9c6acb636bac72450e3adbccc2c561ab95beabff",
   "checkout": null,
   "context": {
