@@ -649,6 +649,8 @@ docker_config:
 dependencies:
   updates:
     container:
+      cpu_cores: 2.0
+      ram_mb: 4096
       allow_internet_access: true
       command: ["python", "-m", "cape.update_server"]
       image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
