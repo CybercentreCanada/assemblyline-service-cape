@@ -2154,7 +2154,6 @@ def process_all_events(
                     command = get_cmd_command(match.value)
                     if command and command + b"\n" not in bat_commands:
                         bat_commands.append(command + b"\n")
-                bat_commands.append(event.command_line.encode())
 
             if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
                 continue
