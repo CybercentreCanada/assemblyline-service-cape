@@ -507,6 +507,7 @@ CAPE_SIGNATURES = {
     "packer_armadillo_regkey": "Packer",
     "packer_entropy": "Packer",
     "packer_nspack": "Packer",
+    "packer_themida": "Packer",
     "packer_unknown_pe_section_name": "Packer",
     "packer_upx": "Packer",
     "packer_yoda": "Packer",
