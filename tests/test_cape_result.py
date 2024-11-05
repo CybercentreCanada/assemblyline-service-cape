@@ -399,11 +399,11 @@ class TestCapeResult:
             ([], {}, {}),
         ],
     )
-    def test_convert_cape_processes(processes, correct_event, mocker):
+    def test_convert_cape_processes(processes, process_map, correct_event, mocker):
         safelist = {}
         so = OntologyResults(service_name="CAPE")
         mocker.patch.object(so, "sandboxes", return_value="blah")
-        convert_cape_processes(processes, , safelist, so)
+        convert_cape_processes(processes, process_map, safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
             _ = proc_as_prims["objectid"].pop("session")
