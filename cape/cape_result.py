@@ -616,7 +616,7 @@ def convert_cape_processes(
             command_line=command_line,
             start_time=first_seen,
             pguid=pguid,
-            loaded_modules = process_map[item["process_id"]]["loaded_dlls"],
+            loaded_modules = process_map[item["process_id"]]["loaded_modules"],
             services_involved = process_map[item["process_id"]]["services_involved"],
         )
 
@@ -2583,7 +2583,7 @@ def get_process_map(
             "name": process_name,
             "network_calls": network_calls,
             "decrypted_buffers": decrypted_buffers,
-            "loaded_dlls": loaded_dlls,
+            "loaded_modules": loaded_dlls,
             "services_involved": services_involved,
         }
     return process_map
