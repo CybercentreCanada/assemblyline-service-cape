@@ -357,7 +357,7 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
-                {1: { "loaded_modules": [], "services_involved": []}},
+                {0: { "loaded_modules": [], "services_involved": []}},
                 {
                     "start_time": "1970-01-01 00:00:01.000",
                     "end_time": "9999-12-31 23:59:59.999999",
@@ -393,7 +393,7 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
-                {1: { "loaded_modules": [], "services_involved": []}},
+                {0: { "loaded_modules": [], "services_involved": []}},
                 {},
             ),
             ([], {}, {}),
