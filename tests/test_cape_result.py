@@ -343,7 +343,7 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "processes, correct_event",
+        "processes, process_map, correct_event",
         [
             (
                 [
@@ -357,6 +357,7 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
+                {1: { "loaded_modules": [], "services_involved": []}},
                 {
                     "start_time": "1970-01-01 00:00:01.000",
                     "end_time": "9999-12-31 23:59:59.999999",
@@ -392,16 +393,17 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
+                {1: { "loaded_modules": [], "services_involved": []}},
                 {},
             ),
-            ([], {}),
+            ([], {}, {}),
         ],
     )
     def test_convert_cape_processes(processes, correct_event, mocker):
         safelist = {}
         so = OntologyResults(service_name="CAPE")
         mocker.patch.object(so, "sandboxes", return_value="blah")
-        convert_cape_processes(processes, safelist, so)
+        convert_cape_processes(processes, , safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
             _ = proc_as_prims["objectid"].pop("session")
