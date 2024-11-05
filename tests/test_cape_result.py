@@ -32149,7 +32149,7 @@ class TestCapeResult:
                         "process_id": 1,
                     }
                 ],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [{'OutputDebugStringA': {'string': 'blah'}}], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
