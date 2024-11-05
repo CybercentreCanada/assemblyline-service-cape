@@ -32202,8 +32202,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"WSASend": {"buffer": "blahblahblah bad.evil blahblahblah"}}],
                         "decrypted_buffers": [],
-                        'loaded_modules': None,
-                        'services_involved': None
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
