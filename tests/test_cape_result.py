@@ -31937,15 +31937,15 @@ class TestCapeResult:
             # We are no longer safelisting by dynamic.process.name tag values. So lsass should be included in the process map
             (
                 [{"module_path": "C:\\windows\\System32\\lsass.exe", "calls": [], "process_id": 1}],
-                {1: {"name": "C:\\windows\\System32\\lsass.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "C:\\windows\\System32\\lsass.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [{"module_path": "blah.exe", "calls": [], "process_id": 1}],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [{"module_path": "blah.exe", "calls": [{"api": "blah"}], "process_id": 1}],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
@@ -31966,6 +31966,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"getaddrinfo": {"hostname": "blah"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -31988,6 +31990,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"GetAddrInfoW": {"hostname": "blah"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32010,6 +32014,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"connect": {"ip_address": "blah", "port": 123}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32048,6 +32054,8 @@ class TestCapeResult:
                             }
                         ],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32086,6 +32094,8 @@ class TestCapeResult:
                             }
                         ],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32099,7 +32109,7 @@ class TestCapeResult:
                         "process_id": 1,
                     }
                 ],
-                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah"}}], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah"}}], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
@@ -32120,6 +32130,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [],
                         "decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32158,6 +32170,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [],
                         "decrypted_buffers": [{"OutputDebugStringA": {"string": "cfg:blah"}}],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32180,6 +32194,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
