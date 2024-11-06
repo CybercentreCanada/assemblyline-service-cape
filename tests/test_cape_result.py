@@ -300,14 +300,15 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "behaviour, expected",
+        "behaviour, process_map, expected",
         [
-            ({"processes": []}, []),
+            ({"processes": []}, {}, []),
             (
                 {
                     "processes": [{"parent_id": 123, "process_id": 321, "process_name": "blah.exe"}],
                     "apistats": {"blah": "blah"},
                 },
+                {321: { "loaded_modules": [], "services_involved": []}},
                 [(321, "blah.exe")],
             ),
             (
@@ -318,16 +319,17 @@ class TestCapeResult:
                     ],
                     "apistats": {"blah": "blah"},
                 },
+                {321: { "loaded_modules": [], "services_involved": []}},
                 [(321, "iexplore.exe"), (999, "iexplore.exe")],
             ),
         ],
     )
-    def test_process_behaviour(behaviour, expected, mocker):
+    def test_process_behaviour(behaviour, process_map, expected, mocker):
         mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
         so = OntologyResults()
-        main_process_tuples = process_behaviour(behaviour, safelist, so)
+        main_process_tuples = process_behaviour(behaviour, process_map, safelist, so)
         assert main_process_tuples == expected
 
     @staticmethod
