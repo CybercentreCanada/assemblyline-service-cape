@@ -229,7 +229,7 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
-        self.classification = forge.get_classification()
+        self.classification = get_classification()
 
         # Properies pertaining to using YARA rules with CAPE
         self.yara_sigs = None

@@ -14,6 +14,7 @@ import pefile
 import lief
 from peutils import is_valid
 
+from assemblyline.common import forge
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
@@ -84,7 +85,7 @@ SCORE_TRANSLATION = {
     7: 1000,
     8: 1000,
 }  # dead_host signature
-
+Classification = forge.get_classification()
 # Signature Processing Constants
 SKIPPED_FAMILIES = ["generic"]
 
@@ -706,7 +707,7 @@ def process_signatures(
             name=sig_name,
             type="CUCKOO",
             score=translated_score,
-            classification= Classification.UNRESTRICTED,
+            classification = Classification.UNRESTRICTED,
         )
         sig_res = _create_signature_result_section(
             sig_name,
