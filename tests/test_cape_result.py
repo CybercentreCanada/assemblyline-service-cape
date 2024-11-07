@@ -300,14 +300,15 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "behaviour, expected",
+        "behaviour, process_map, expected",
         [
-            ({"processes": []}, []),
+            ({"processes": []}, {}, []),
             (
                 {
                     "processes": [{"parent_id": 123, "process_id": 321, "process_name": "blah.exe"}],
                     "apistats": {"blah": "blah"},
                 },
+                {321: { "loaded_modules": [], "services_involved": []}},
                 [(321, "blah.exe")],
             ),
             (
@@ -318,16 +319,17 @@ class TestCapeResult:
                     ],
                     "apistats": {"blah": "blah"},
                 },
+                {321: { "loaded_modules": [], "services_involved": []}},
                 [(321, "iexplore.exe"), (999, "iexplore.exe")],
             ),
         ],
     )
-    def test_process_behaviour(behaviour, expected, mocker):
+    def test_process_behaviour(behaviour, process_map, expected, mocker):
         mocker.patch("cape.cape_result.get_process_api_sums", return_value={"blah": "blah"})
         mocker.patch("cape.cape_result.convert_cape_processes")
         safelist = {}
         so = OntologyResults()
-        main_process_tuples = process_behaviour(behaviour, safelist, so)
+        main_process_tuples = process_behaviour(behaviour, process_map, safelist, so)
         assert main_process_tuples == expected
 
     @staticmethod
@@ -343,7 +345,7 @@ class TestCapeResult:
 
     @staticmethod
     @pytest.mark.parametrize(
-        "processes, correct_event",
+        "processes, process_map, correct_event",
         [
             (
                 [
@@ -357,6 +359,7 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
+                {0: { "loaded_modules": [], "services_involved": []}},
                 {
                     "start_time": "1970-01-01 00:00:01.000",
                     "end_time": "9999-12-31 23:59:59.999999",
@@ -392,16 +395,17 @@ class TestCapeResult:
                         "first_seen": "1970-01-01 00:00:01,000",
                     }
                 ],
+                {0: { "loaded_modules": [], "services_involved": []}},
                 {},
             ),
-            ([], {}),
+            ([], {}, {}),
         ],
     )
-    def test_convert_cape_processes(processes, correct_event, mocker):
+    def test_convert_cape_processes(processes, process_map, correct_event, mocker):
         safelist = {}
         so = OntologyResults(service_name="CAPE")
         mocker.patch.object(so, "sandboxes", return_value="blah")
-        convert_cape_processes(processes, safelist, so)
+        convert_cape_processes(processes, process_map, safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
             _ = proc_as_prims["objectid"].pop("session")
@@ -31937,15 +31941,15 @@ class TestCapeResult:
             # We are no longer safelisting by dynamic.process.name tag values. So lsass should be included in the process map
             (
                 [{"module_path": "C:\\windows\\System32\\lsass.exe", "calls": [], "process_id": 1}],
-                {1: {"name": "C:\\windows\\System32\\lsass.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "C:\\windows\\System32\\lsass.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [{"module_path": "blah.exe", "calls": [], "process_id": 1}],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [{"module_path": "blah.exe", "calls": [{"api": "blah"}], "process_id": 1}],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
@@ -31966,6 +31970,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"getaddrinfo": {"hostname": "blah"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -31988,6 +31994,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"GetAddrInfoW": {"hostname": "blah"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32010,6 +32018,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"connect": {"ip_address": "blah", "port": 123}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32048,6 +32058,8 @@ class TestCapeResult:
                             }
                         ],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32086,6 +32098,8 @@ class TestCapeResult:
                             }
                         ],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32099,7 +32113,7 @@ class TestCapeResult:
                         "process_id": 1,
                     }
                 ],
-                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah"}}], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [{"send": {"buffer": "blah"}}], "decrypted_buffers": [], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
@@ -32120,6 +32134,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [],
                         "decrypted_buffers": [{"CryptDecrypt": {"buffer": "blah"}}],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32137,7 +32153,7 @@ class TestCapeResult:
                         "process_id": 1,
                     }
                 ],
-                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": []}},
+                {1: {"name": "blah.exe", "network_calls": [], "decrypted_buffers": [{'OutputDebugStringA': {'string': 'blah'}}], 'loaded_modules': [], 'services_involved': []}},
             ),
             (
                 [
@@ -32158,6 +32174,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [],
                         "decrypted_buffers": [{"OutputDebugStringA": {"string": "cfg:blah"}}],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32180,6 +32198,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"URLDownloadToFileW": {"url": "bad.evil"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
@@ -32202,6 +32222,8 @@ class TestCapeResult:
                         "name": "blah.exe",
                         "network_calls": [{"WSASend": {"buffer": "blahblahblah bad.evil blahblahblah"}}],
                         "decrypted_buffers": [],
+                        'loaded_modules': [],
+                        'services_involved': []
                     }
                 },
             ),
