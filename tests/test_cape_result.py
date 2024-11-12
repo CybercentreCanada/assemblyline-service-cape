@@ -30912,7 +30912,7 @@ class TestCapeResult:
                     "pimage": None,
                     "pobjectid": None,
                     'loaded_modules': None,
-                    'services_involved': None
+                    'services_involved': None,
                     "ppid": None,
                     "start_time": "1970-01-01 00:00:01",
                 },
