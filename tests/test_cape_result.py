@@ -380,6 +380,8 @@ class TestCapeResult:
                     "image": "blah",
                     "command_line": "blah",
                     "integrity_level": None,
+                    "loaded_modules": [],
+                    "services_involved": [],
                     "image_hash": None,
                     "original_file_name": None,
                 },
@@ -548,7 +550,7 @@ class TestCapeResult:
             objectid=p_objectid,
         )
         ontres.add_process(p)
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         ontres_sig.add_attribute(Attribute(p_objectid))
         sig_res = ResultMultiSection("blah")
         correct_sig_res = ResultMultiSection("blah")
@@ -30812,6 +30814,8 @@ class TestCapeResult:
                     "pcommand_line": None,
                     "pid": 1,
                     "pimage": None,
+                    'loaded_modules': None,
+                    'services_involved': None,
                     "pobjectid": None,
                     "ppid": None,
                     "start_time": "1970-01-01 00:00:01",
@@ -30840,6 +30844,8 @@ class TestCapeResult:
                     },
                     "original_file_name": None,
                     "pcommand_line": None,
+                    'loaded_modules': None,
+                    'services_involved': None,
                     "pid": 1,
                     "pimage": None,
                     "pobjectid": None,
@@ -30870,6 +30876,8 @@ class TestCapeResult:
                     },
                     "original_file_name": None,
                     "pcommand_line": None,
+                    'loaded_modules': None,
+                    'services_involved': None,
                     "pid": 1,
                     "pimage": None,
                     "pobjectid": None,
@@ -30903,6 +30911,8 @@ class TestCapeResult:
                     "pid": 1,
                     "pimage": None,
                     "pobjectid": None,
+                    'loaded_modules': None,
+                    'services_involved': None
                     "ppid": None,
                     "start_time": "1970-01-01 00:00:01",
                 },
@@ -30930,6 +30940,8 @@ class TestCapeResult:
                     },
                     "original_file_name": None,
                     "pcommand_line": None,
+                    'loaded_modules': None, 
+                    'services_involved': None,
                     "pid": 1,
                     "pimage": None,
                     "pobjectid": None,
@@ -30963,6 +30975,8 @@ class TestCapeResult:
                     "pid": 1,
                     "pimage": None,
                     "pobjectid": None,
+                    'loaded_modules': None,
+                    'services_involved': None,
                     "ppid": None,
                     "start_time": "1970-01-01 00:00:01",
                 },
@@ -32239,7 +32253,7 @@ class TestCapeResult:
         name = "blah"
         signature = {"data": []}
         translated_score = 0
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         ontres = OntologyResults(service_name="blah")
         process_map = {}
         safelist = {}
@@ -32474,7 +32488,7 @@ class TestCapeResult:
         attack_ids = {}
         sig_res = ResultMultiSection("blah")
         sig_res.set_heuristic(1)
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         _set_attack_ids(attack_ids, sig_res, ontres_sig)
         assert sig_res.heuristic.attack_ids == []
         assert ontres_sig.attacks == []
@@ -32496,7 +32510,7 @@ class TestCapeResult:
         # Case 1: No families
         families = []
         sig_res = ResultMultiSection("blah")
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         _set_families(families, sig_res, ontres_sig)
         assert sig_res.body is None
         assert ontres_sig.malware_families == []
