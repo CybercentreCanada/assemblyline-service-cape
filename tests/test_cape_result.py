@@ -523,14 +523,14 @@ class TestCapeResult:
         ontres = OntologyResults(service_name="CAPE")
 
         # Nothing happens
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         sig_res = ResultMultiSection("blah")
         correct_sig_res = ResultMultiSection("blah")
         _add_process_context(ontres_sig, sig_res, ontres)
         assert check_section_equality(sig_res, correct_sig_res)
 
         # Object ID does not exist
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         ontres_sig.add_attribute(Attribute(ObjectID("blah", "blah", "blah")))
         sig_res = ResultMultiSection("blah")
         correct_sig_res = ResultMultiSection("blah")
@@ -32278,6 +32278,7 @@ class TestCapeResult:
             "attributes": [],
             "malware_families": [],
             "name": "blah",
+            'classification': 'TLP:C',
             "objectid": {
                 "guid": None,
                 "ontology_id": "blah",
@@ -32328,6 +32329,7 @@ class TestCapeResult:
             "attributes": [],
             "malware_families": [],
             "name": "blah",
+            'classification': 'TLP:C',
             "objectid": {
                 "guid": None,
                 "ontology_id": "blah",
