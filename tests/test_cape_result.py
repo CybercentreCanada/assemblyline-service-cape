@@ -32526,7 +32526,7 @@ class TestCapeResult:
         # Case 3: Families in SKIPPED_FAMILIES
         families = ["generic", "wow"]
         sig_res = ResultMultiSection("blah")
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO")
+        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
         _set_families(families, sig_res, ontres_sig)
         assert sig_res.body == '[["TEXT", "\\tFamilies: wow", {}]]'
         assert ontres_sig.malware_families == ["wow"]
