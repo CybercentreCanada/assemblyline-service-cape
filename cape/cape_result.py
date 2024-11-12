@@ -323,7 +323,7 @@ def generate_al_result(
             al_result.add_subsection(noexec_res)
         else:
             # Otherwise, moving on!
-            main_process_tuples = process_behaviour(behaviour, safelist, ontres)
+            main_process_tuples = process_behaviour(behaviour, process_map, safelist, ontres)
 
     if ontres.get_processes():
         _update_process_map(process_map, ontres.get_processes())
@@ -501,6 +501,7 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
 
 def process_behaviour(
     behaviour: Dict[str, Any],
+    process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
 ) -> List[Tuple[int, str]]:
@@ -515,7 +516,7 @@ def process_behaviour(
     # Preparing CAPE processes to match the OntologyResults format
     processes = behaviour["processes"]
     if processes:
-        convert_cape_processes(processes, safelist, ontres)
+        convert_cape_processes(processes, process_map, safelist, ontres)
 
     if len(processes) < 1:
         return []
@@ -559,6 +560,7 @@ def get_process_api_sums(apistats: Dict[str, Dict[str, int]]) -> Dict[str, int]:
 
 def convert_cape_processes(
     cape_processes: List[Dict[str, Any]],
+    process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
     ontres: OntologyResults,
 ) -> None:
@@ -614,6 +616,8 @@ def convert_cape_processes(
             command_line=command_line,
             start_time=first_seen,
             pguid=pguid,
+            loaded_modules = process_map[item["process_id"]]["loaded_modules"],
+            services_involved = process_map[item["process_id"]]["services_involved"],
         )
 
 
@@ -689,6 +693,7 @@ def process_signatures(
         data = {
             "name": sig_name,
             "type": "CUCKOO",
+            "classification": Classification.UNRESTRICTED,
         }
         s_tag = SignatureModel.get_tag(data)
         s_oid = SignatureModel.get_oid(data)
@@ -701,6 +706,7 @@ def process_signatures(
             name=sig_name,
             type="CUCKOO",
             score=translated_score,
+            classification= Classification.UNRESTRICTED,
         )
         sig_res = _create_signature_result_section(
             sig_name,
@@ -2474,6 +2480,13 @@ def get_process_map(
     """
     process_map: Dict[int, Dict[str, Any]] = {}
     api_calls_of_interest = {
+        "LdrLoadDll": ["filename"],
+        "LoadLibraryExW": ["lplibfilename"],
+        "LdrGetDllHandle": ["filename"],
+        "CreateServiceA": ["servicename", "displayname", "starttype", "binarypathname"],
+        "CreateServiceW": ["servicename", "displayname", "starttype", "binarypathname"],
+        "StartServiceA": ["servicename", "arguments"],
+        "StartServiceW": ["servicename", "arguments"],
         "getaddrinfo": ["hostname", "nodename"],  # DNS
         "GetAddrInfoW": ["hostname", "nodename"],  # DNS
         "gethostbyname": ["hostname"],  # DNS
@@ -2517,6 +2530,8 @@ def get_process_map(
     for process in processes:
         process_name = process["module_path"] if process.get("module_path") else process["process_name"]
         network_calls = []
+        loaded_dlls = []
+        services_involved = []
         decrypted_buffers = []
         calls = process["calls"]
         for call in calls:
@@ -2541,18 +2556,35 @@ def get_process_map(
                                     continue
                                 args_of_interest[arg] = kv["value"]
                                 break
+                            elif category == "system" and "api" not in kv["value"]:
+                                args_of_interest[arg] = kv["value"].lower().replace(".dll", "")
+                                break
                 if args_of_interest:
                     item_to_add = {api: args_of_interest}
                     if category == "network" and item_to_add not in network_calls:
                         network_calls.append(item_to_add)
-                    elif category in ["crypto", "system"] and item_to_add not in decrypted_buffers:
+                    elif next(iter(item_to_add)) in ["LdrLoadDll", "LoadLibraryExW", "LdrGetDllHandle"] and next(iter(next(iter(item_to_add.values())).values())) not in loaded_dlls:
+                        dll_name = next(iter(next(iter(item_to_add.values())).values())) 
+                        adding_dll = True
+                        for loaded_dll in loaded_dlls:
+                            dll_chunck = loaded_dll.split("\\")
+                            if dll_name in dll_chunck:
+                                adding_dll = False
+                            elif dll_chunck[-1] in dll_name.split("\\"):
+                                adding_dll = False
+                        if adding_dll:    
+                            loaded_dlls.append(next(iter(next(iter(item_to_add.values())).values())))
+                    elif next(iter(item_to_add)) in ["CreateServiceA", "CreateServiceW", "StartServiceA", "StartServiceW"] and item_to_add not in services_involved:
+                        services_involved.append(item_to_add)
+                    elif category in ["crypto", "system"] and next(iter(item_to_add)) not in ["LdrLoadDll", "LoadLibraryExW", "LdrGetDllHandle", "CreateServiceA", "CreateServiceW", "StartServiceA", "StartServiceW"] and item_to_add not in decrypted_buffers:
                         decrypted_buffers.append(item_to_add)
-
         pid = process["process_id"]
         process_map[pid] = {
             "name": process_name,
             "network_calls": network_calls,
             "decrypted_buffers": decrypted_buffers,
+            "loaded_modules": loaded_dlls,
+            "services_involved": services_involved,
         }
     return process_map
 
