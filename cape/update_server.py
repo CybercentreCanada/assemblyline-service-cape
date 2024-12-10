@@ -46,7 +46,14 @@ class CapeYaraUpdateServer(ServiceUpdater):
         super().__init__(*args, **kwargs)
         self.externals = externals
 
-    def import_update(self, files_sha256, source_name: str, default_classification=classification.UNRESTRICTED) -> None:
+    def import_update(
+        self,
+        files_sha256,
+        source_name: str,
+        default_classification=classification.UNRESTRICTED,
+        *args,
+        **kwargs,
+    ) -> None:
         # Purpose:  Used to import a set of signatures from a source into a reserved directory
         # Inputs:
         #   files_sha256:           A list of tuples containing file paths and their respective sha256
@@ -138,7 +145,9 @@ class CapeYaraUpdateServer(ServiceUpdater):
             self.log.info("An update is available for download from the datastore")
 
             self.log.debug(f"{self.updater_type} update available since {epoch_to_iso(old_update_time) or ''}")
-            prescript_CAPE_sources = self._service.config.get("updater", {}).get("prescript_CAPE", [])
+            prescript_CAPE_sources = [
+                s.name for s in self._service.update_config.sources if s.configuration.get("prescript_CAPE") == True
+            ]
             prescript_query = f"{self.signatures_query} AND source:{' OR '.join(prescript_CAPE_sources)}"
             if (
                 prescript_CAPE_sources
