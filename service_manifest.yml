@@ -87,9 +87,6 @@ config:
   # The period/interval (in hours) in which signatures/YARA rules/configuration extractors are updated on the CAPE nest
   update_period: 24
 
-  updater:
-    # Sources involved in prescripting with CAPE
-    prescript_CAPE: []
 submission_params:
   - default: 0
     name: analysis_timeout_in_seconds
@@ -654,7 +651,7 @@ dependencies:
       allow_internet_access: true
       command: ["python", "-m", "cape.update_server"]
       image: ${REGISTRY}cccs/assemblyline-service-cape:$SERVICE_TAG
-      ports: ["5003"]      
+      ports: ["5003"]
     run_as_core: True
 
 # Update configuration block
