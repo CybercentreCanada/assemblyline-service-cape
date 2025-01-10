@@ -9,7 +9,7 @@
 This Assemblyline service submits files to a CAPEv2 deployment and parses the report returned.
 
 ## Service Details
-`NOTE`: This service `requires extensive additional installation outside of Assemblyline` before being functional. It is `not` preinstalled during a default installation.
+**NOTE**: This service **requires extensive additional installation outside of Assemblyline** before being functional. It is **not** preinstalled during a default installation.
 
 This repository contains mostly code adapted from the
 [Assemblyline Cuckoo service](https://github.com/CybercentreCanada/assemblyline-service-cuckoo), and
@@ -310,7 +310,7 @@ General Assemblyline documentation can be found at: https://cybercentrecanada.gi
 Ce service Assemblyline soumet des fichiers à un déploiement CAPEv2 et analyse le rapport renvoyé.
 
 ## Détails du service
-`NOTE` : Ce service `nécessite une installation supplémentaire importante en dehors d'Assemblyline` avant d'être fonctionnel. Il n'est `pas` préinstallé lors d'une installation par défaut.
+**NOTE** : Ce service **nécessite une installation supplémentaire importante en dehors d'Assemblyline** avant d'être fonctionnel. Il n'est **pas** préinstallé lors d'une installation par défaut.
 
 Ce dépôt contient principalement du code adapté du [service Coucou d'Assemblyline].
 [Assemblyline Cuckoo service] (https://github.com/CybercentreCanada/assemblyline-service-cuckoo), et
