@@ -1,26 +1,33 @@
 ARG branch=latest
 FROM cccs/assemblyline-v4-service-base:$branch
 
-ENV SERVICE_PATH cape.cape_main.CAPE
+# Python path to the service class from your service directory
+ENV SERVICE_PATH cape.cape.CAPE
 
+# Install apt dependencies
 USER root
-
-# Get required apt packages
-RUN apt-get update && apt-get install -y qemu-utils && rm -rf /var/lib/apt/lists/*
-
-# Switch to assemblyline user
-USER assemblyline
+COPY pkglist.txt /tmp/setup/
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends \
+    $(grep -vE "^\s*(#|$)" /tmp/setup/pkglist.txt | tr "\n" " ") && \
+    rm -rf /tmp/setup/pkglist.txt /var/lib/apt/lists/*
 
 # Install python dependencies
+USER assemblyline
 COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir --user --requirement requirements.txt && rm -rf ~/.cache/pip
+RUN pip install \
+    --no-cache-dir \
+    --user \
+    --requirement requirements.txt && \
+    rm -rf ~/.cache/pip
 
-# Copy CAPE service code
+# Copy service code
 WORKDIR /opt/al_service
 COPY . .
 
 # Patch version in manifest
-ARG version=4.0.0.dev1
+ARG version=1.0.0.dev1
 USER root
 RUN sed -i -e "s/\$SERVICE_TAG/$version/g" service_manifest.yml
 

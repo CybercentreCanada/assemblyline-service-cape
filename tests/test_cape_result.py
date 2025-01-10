@@ -92,7 +92,7 @@ from cape.cape_result import (
     process_info,
     process_network,
 )
-from test_cape_main import create_tmp_manifest, remove_tmp_manifest
+from test_cape import create_tmp_manifest, remove_tmp_manifest
 
 
 class TestCapeResult:
@@ -30940,7 +30940,7 @@ class TestCapeResult:
                     },
                     "original_file_name": None,
                     "pcommand_line": None,
-                    'loaded_modules': None, 
+                    'loaded_modules': None,
                     'services_involved': None,
                     "pid": 1,
                     "pimage": None,
@@ -32426,15 +32426,15 @@ class TestCapeResult:
         # Case 6: Procmem_yara signature special case
         name = "procmem_yara"
         signature = {
-            'name': 'procmem_yara', 
-            'description': 'Yara detections observed in process dumps, payloads or dropped files', 
-            'severity': 4, 
-            'weight': 1, 
-            'confidence': 100, 
-            'references': [], 
-            'data': [{'Hit': "PID  trigged the Yara rule 'embedded_win_api'"}, {'Hit': "PID 4876 trigged the Yara rule 'INDICATOR_EXE_Packed_GEN01'"}], 
-            'new_data': [], 
-            'alert': False, 
+            'name': 'procmem_yara',
+            'description': 'Yara detections observed in process dumps, payloads or dropped files',
+            'severity': 4,
+            'weight': 1,
+            'confidence': 100,
+            'references': [],
+            'data': [{'Hit': "PID  trigged the Yara rule 'embedded_win_api'"}, {'Hit': "PID 4876 trigged the Yara rule 'INDICATOR_EXE_Packed_GEN01'"}],
+            'new_data': [],
+            'alert': False,
             'families': []
         }
         translated_score = 500
@@ -32476,7 +32476,7 @@ class TestCapeResult:
 
         # Case 3: Known signature exception "procmem_yara"
         name = "procmem_yara"
-        signature = {"procmem_yara": "anything"} 
+        signature = {"procmem_yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)

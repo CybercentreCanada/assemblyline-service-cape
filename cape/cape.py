@@ -401,7 +401,7 @@ class CAPE(ServiceBase):
         # Generate root directory for yara rules.
         if self.rules_directory is None:
             return
-        
+
         yara_root = os.path.join(self.rules_directory, "cape")
         errors = {}
 

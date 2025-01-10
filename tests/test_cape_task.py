@@ -1,12 +1,12 @@
 import pytest
-from test_cape_main import cape_task_class, samples
+from test_cape import cape_task_class, samples
 
 
 class TestCuckooTask:
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
     def test_init(sample, cape_task_class):
-        from cape.cape_main import (
+        from cape.cape import (
             CAPE_API_DELETE_TASK,
             CAPE_API_QUERY_MACHINES,
             CAPE_API_QUERY_REPORT,

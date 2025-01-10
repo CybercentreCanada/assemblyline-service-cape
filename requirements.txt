@@ -1,3 +1,5 @@
+assemblyline
+assemblyline-v4-service
 assemblyline-service-utilities
 pefile
 retrying
