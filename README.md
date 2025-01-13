@@ -26,7 +26,7 @@ created by [x1mus](https://github.com/x1mus) with support from [Sorakurai](https
 
 The CAPE service uses the CAPE REST API to send files to the CAPE nest which then hands out these tasks to a pool of victim machines (one file per victim).
 
-`You are responsible for setting up the CAPE nest and victims`. The analysis results for the detonation of a submitted file in a victim is then retrieved,
+**You are responsible for setting up the CAPE nest and victims**. The analysis results for the detonation of a submitted file in a victim is then retrieved,
 and a summarized version of the report is displayed to the user through the Assemblyline UI. The full report is also included in the Assemblyline UI as a supplementary file for your reading pleasure.
 Files that are unpacked and saved to disk are fed back into Assemblyline.
 
@@ -138,7 +138,7 @@ The method for interpretting this structure is that files are divided between Li
 ##### INetSim specifications
 
 - `random_ip_range` - [default: 192.0.2.0/24] This is the IP range that INetSim (if configured) will pick from in order to return a random IP for any DNS request that the victims make (note that this requires a patch to INetSim). This option is mainly for safelisting.
-  `NB` : this functionality relies on the "INetSim - Random DNS Resolution" section below.
+  **NB** : this functionality relies on the "INetSim - Random DNS Resolution" section below.
 - `inetsim_dns_servers` - [default: []] This is a list of INetSim DNS server IPs
 
 ##### API Token Configurations
@@ -327,7 +327,7 @@ créé par [x1mus](https://github.com/x1mus) avec le soutien de [Sorakurai](http
 
 Le service CAPE utilise l'API REST CAPE pour envoyer des fichiers au nid CAPE qui distribue ensuite ces tâches à un ensemble de machines victimes (un fichier par victime).
 
-`Vous êtes responsable de la configuration du nid CAPE et des victimes`. Les résultats de l'analyse pour la détonation d'un fichier soumis dans une victime sont ensuite récupérés,
+**Vous êtes responsable de la configuration du nid CAPE et des victimes**. Les résultats de l'analyse pour la détonation d'un fichier soumis dans une victime sont ensuite récupérés,
 et une version résumée du rapport est affichée à l'utilisateur par l'intermédiaire de l'interface utilisateur d'Assemblyline. Le rapport complet est également inclus dans l'interface utilisateur d'Assemblyline en tant que fichier supplémentaire pour votre plaisir de lecture.
 Les fichiers qui sont décompressés et sauvegardés sur disque sont réinjectés dans Assemblyline.
 
@@ -439,7 +439,7 @@ La méthode d'interprétation de cette structure est que les fichiers sont répa
 ##### Spécifications INetSim
 
 - `random_ip_range` - [default : 192.0.2.0/24] Il s'agit de la plage d'adresses IP qu'INetSim (s'il est configuré) choisira afin de renvoyer une adresse IP aléatoire pour toute requête DNS effectuée par les victimes (notez que cela nécessite un correctif d'INetSim). Cette option est principalement utilisée pour les listes de sécurité.
-  NB : cette fonctionnalité repose sur la section "INetSim - Random DNS Resolution" ci-dessous.
+  **NB** : cette fonctionnalité repose sur la section "INetSim - Random DNS Resolution" ci-dessous.
 - `inetsim_dns_servers` - [default : []] Il s'agit d'une liste d'IP de serveurs DNS INetSim.
 
 ##### Configurations des jetons de l'API
