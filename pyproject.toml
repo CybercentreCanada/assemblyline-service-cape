@@ -1,0 +1,2 @@
+[tool.cruft]
+skip = ["pkglist.txt", "README.md", "cape", "tests"]
