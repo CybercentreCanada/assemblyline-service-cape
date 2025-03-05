@@ -40,7 +40,19 @@ config:
   uwsgi_with_recycle: false
 
   # CAPE victim configurations
+  #IMPORTANT: The image name must be present inside the vm label in order for them to be picked up by this tag
   allowed_images: []
+  multi_routing_hosts: false
+  #Allow for hosts with both internet and inetsim, this require changing the auto_architecture to something like this:
+  #auto_architecture:
+  # win:
+  #   x64:
+  #     on: []
+  #     off: []
+  #   x86:
+  #     on: []
+  #     off: []
+  # ...
   # This is used if the "auto" specific image will select multiple images and you want to override it with less images
   auto_architecture:
     win:

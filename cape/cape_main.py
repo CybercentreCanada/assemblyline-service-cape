@@ -46,6 +46,8 @@ from cape.cape_result import (
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
+    OFFLINE_IMAGE_PREFIX,
+    ONLINE_IMAGE_PREFIX,
     convert_processtree_id_to_tree_id,
     generate_al_result,
     x64_IMAGE_SUFFIX,
@@ -2353,6 +2355,8 @@ class CAPE(ServiceBase):
         possible_images: List[str],
         auto_architecture: Dict[str, Dict[str, List]],
         all_relevant: bool = False,
+        multi_routing: bool = False,
+        routing: str = None,
     ) -> List[str]:
         """
         This method determines the relevant images that a file should be sent to based on its type
@@ -2380,7 +2384,18 @@ class CAPE(ServiceBase):
             # If any other file is submitted than what is listed below, then send it to a 64-bit Windows image
             platform = WINDOWS_IMAGE_PREFIX
             arch = x64_IMAGE_SUFFIX
-
+        if multi_routing:
+            if routing == "inetsim": 
+                conn = OFFLINE_IMAGE_PREFIX
+            elif routing == "internet":
+                conn = ONLINE_IMAGE_PREFIX
+            if not all_relevant and len(auto_architecture[platform][arch][conn]) > 0:
+                images_to_send_file_to = [image for image in auto_architecture[platform][arch][conn] if image in possible_images]
+            else:
+                images_to_send_file_to = [
+                    image for image in possible_images if all(item in image for item in [platform, arch, conn])
+                ]
+            return images_to_send_file_to
         if not all_relevant and len(auto_architecture[platform][arch]) > 0:
             images_to_send_file_to = [image for image in auto_architecture[platform][arch] if image in possible_images]
         else:
@@ -2507,6 +2522,8 @@ class CAPE(ServiceBase):
                     self.allowed_images,
                     self.config.get("auto_architecture", {}),
                     all_relevant,
+                    self.config.get("multi_routing_hosts", False),
+                    self.routing,
                 )
                 for relevant_image in relevant_images_list:
                     self._set_hosts_that_contain_image(relevant_image, relevant_images)
