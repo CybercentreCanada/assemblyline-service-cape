@@ -2389,6 +2389,8 @@ class CAPE(ServiceBase):
                 conn = OFFLINE_IMAGE_PREFIX
             elif routing == "internet":
                 conn = ONLINE_IMAGE_PREFIX
+            else:
+                conn = OFFLINE_IMAGE_PREFIX
             if not all_relevant and len(auto_architecture[platform][arch][conn]) > 0:
                 images_to_send_file_to = [image for image in auto_architecture[platform][arch][conn] if image in possible_images]
             else:

@@ -47,11 +47,11 @@ config:
   #auto_architecture:
   # win:
   #   x64:
-  #     on: []
-  #     off: []
+  #     "on": []
+  #     "off": []
   #   x86:
-  #     on: []
-  #     off: []
+  #     "on": []
+  #     "off": []
   # ...
   # This is used if the "auto" specific image will select multiple images and you want to override it with less images
   auto_architecture:
