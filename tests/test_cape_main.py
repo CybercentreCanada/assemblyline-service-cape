@@ -103,6 +103,7 @@ def dummy_request_class(dummy_task_class):
             self.sha256 = True
             self.deep_scan = False
             self.temp_submission_data = {}
+            self.routing = None
             self.update(some_dict)
 
         def add_supplementary(self, path, name, description):
@@ -2486,7 +2487,6 @@ class TestCapeMain:
         cape_class_instance.hosts = [{"machines": [], "ip": "blah"}]
         cape_class_instance.allowed_images = allowed_images
         cape_class_instance.timeout = 0
-        cape_class_instance.routing = None
         assert cape_class_instance._handle_specific_image() == correct_result
         if correct_body:
             correct_result_section = ResultSection(title_text="Requested Image Does Not Exist")
