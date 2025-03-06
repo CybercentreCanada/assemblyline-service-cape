@@ -2525,7 +2525,7 @@ class CAPE(ServiceBase):
                     self.config.get("auto_architecture", {}),
                     all_relevant,
                     self.config.get("multi_routing_hosts", False),
-                    self.routing,
+                    self.request.get_param("routing").lower(),
                 )
                 for relevant_image in relevant_images_list:
                     self._set_hosts_that_contain_image(relevant_image, relevant_images)
