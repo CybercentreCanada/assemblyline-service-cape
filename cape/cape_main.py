@@ -2385,9 +2385,9 @@ class CAPE(ServiceBase):
             platform = WINDOWS_IMAGE_PREFIX
             arch = x64_IMAGE_SUFFIX
         if multi_routing:
-            if routing == "inetsim": 
+            if routing == INETSIM.lower(): 
                 conn = OFFLINE_IMAGE_PREFIX
-            elif routing == "internet":
+            elif routing == INTERNET.lower():
                 conn = ONLINE_IMAGE_PREFIX
             else:
                 conn = OFFLINE_IMAGE_PREFIX
