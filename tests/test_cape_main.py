@@ -2486,6 +2486,7 @@ class TestCapeMain:
         cape_class_instance.hosts = [{"machines": [], "ip": "blah"}]
         cape_class_instance.allowed_images = allowed_images
         cape_class_instance.timeout = 0
+        cape_class_instance.routing = None
         assert cape_class_instance._handle_specific_image() == correct_result
         if correct_body:
             correct_result_section = ResultSection(title_text="Requested Image Does Not Exist")
