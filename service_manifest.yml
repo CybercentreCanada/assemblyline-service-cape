@@ -676,3 +676,4 @@ update_config:
   signature_delimiter: "file"
   # Should the downloaded files be used to create signatures in the system
   wait_for_update: false
+  default_pattern: .*\.yar(a)?
