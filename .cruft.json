@@ -1,0 +1,23 @@
+{
+  "template": "https://github.com/CybercentreCanada/assemblyline-service-template.git",
+  "commit": "349a8390e48c1607f6dc245add2627df07c7bc9b",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "service_name": "cape",
+      "__svc_name": "cape",
+      "__repository": "assemblyline-service-cape",
+      "__pkg_name": "cape",
+      "class_name": "CAPE",
+      "short_description": "This Assemblyline service submits files to a CAPEv2 deployment and parses the report returned.",
+      "short_description_fr": "Ce service Assemblyline soumet des fichiers à un déploiement CAPEv2 et analyse le rapport renvoyé.",
+      "stage": "CORE",
+      "category": "Dynamic Analysis",
+      "org_name_full": "CybercentreCanada",
+      "org_name_short": "cccs",
+      "license": "mit",
+      "_template": "https://github.com/CybercentreCanada/assemblyline-service-template.git"
+    }
+  },
+  "directory": null
+}

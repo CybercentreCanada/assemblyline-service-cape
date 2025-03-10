@@ -6,8 +6,8 @@ from typing import Any
 from zipfile import ZipFile
 
 from assemblyline.common import forge
-from assemblyline_v4_service.updater.updater import ServiceUpdater, UPDATER_DIR
 from assemblyline.common.isotime import epoch_to_iso
+from assemblyline_v4_service.updater.updater import UPDATER_DIR, ServiceUpdater
 
 from cape.yara_modules import *
 
@@ -42,9 +42,7 @@ def replace_include(include, dirname, processed_files: set[str], cur_logger: log
 
 
 class CapeYaraUpdateServer(ServiceUpdater):
-    def __init__(self, *args, externals: dict[str, str], **kwargs):
-        super().__init__(*args, **kwargs)
-        self.externals = externals
+    externals = YARA_EXTERNALS
 
     def import_update(
         self,
@@ -168,5 +166,5 @@ class CapeYaraUpdateServer(ServiceUpdater):
 
 
 if __name__ == "__main__":
-    with CapeYaraUpdateServer(externals=YARA_EXTERNALS, default_pattern=".*\.yar(a)?") as server:
+    with CapeYaraUpdateServer() as server:
         server.serve_forever()

@@ -1,14 +1,24 @@
 Dockerfile
 .idea
 .git
+.gitignore
+.vscode
+.dockerignore
 
 pipelines
 venv
+.venv
 env
+.env
 test
 tests
-exemples
+examples
 docs
+
+build
+dist
+**/__pycache__
+**/*.pyc
 
 pip-log.txt
 pip-delete-this-directory.txt
@@ -18,5 +28,5 @@ pip-delete-this-directory.txt
 .cache
 nosetests.xml
 coverage.xml
-*,cover
+*.cover
 *.log

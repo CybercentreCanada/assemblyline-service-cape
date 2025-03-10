@@ -16,7 +16,7 @@ from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
 from assemblyline_v4_service.common.task import Task
-from cape.cape_main import *
+from cape.cape import *
 from requests import ConnectionError, Session, exceptions
 from retrying import RetryError
 
@@ -325,7 +325,7 @@ class TestModule:
 
     @staticmethod
     def test_retry_on_none():
-        from cape.cape_main import _retry_on_none
+        from cape.cape import _retry_on_none
 
         assert _retry_on_none(None) is True
         assert _retry_on_none("blah") is False
@@ -457,7 +457,7 @@ class TestCapeMain:
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
     def test_execute(sample, cape_class_instance, mocker):
-        mocker.patch("cape.cape_main.generate_random_words", return_value="blah")
+        mocker.patch("cape.cape.generate_random_words", return_value="blah")
         mocker.patch.object(CAPE, "_decode_mime_encoded_file_name", return_value=None)
         mocker.patch.object(CAPE, "_remove_illegal_characters_from_file_name", return_value=None)
         mocker.patch.object(CAPE, "query_machines", return_value={})
@@ -544,7 +544,7 @@ class TestCapeMain:
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
         from assemblyline.common.exceptions import RecoverableError
-        from cape.cape_main import CAPE
+        from cape.cape import CAPE
 
         ontres = OntologyResults(service_name="blah")
         ontres.add_sandbox(
@@ -836,20 +836,20 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 6: We get a 200 status code with data and there is a similar task
-            with mocker.patch("cape.cape_main.tasks_are_similar", return_value=True):
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=True):
                 m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is True
                 assert cape_task.id == 1
 
             # Case 7: We get a 200 status code with data and there is not a similar task
-            with mocker.patch("cape.cape_main.tasks_are_similar", return_value=False):
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=False):
                 m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is False
 
             # Case 8: We get a 200 status code with no data and there is not a similar task
-            with mocker.patch("cape.cape_main.tasks_are_similar", return_value=False):
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=False):
                 m.get(cape_task.sha256_search_url % sha256, json=correct_no_match_rest_response, status_code=200)
                 test_result = cape_class_instance.sha256_check(sha256, cape_task)
                 assert test_result is False
@@ -1572,7 +1572,7 @@ class TestCapeMain:
         [("blah", "blah"), ("=?blah?=", "random_blah"), ("=?iso-8859-1?q?blah?=", "blah")],
     )
     def test_decode_mime_encoded_file_name(test_file_name, correct_file_name, cape_class_instance, mocker):
-        mocker.patch("cape.cape_main.generate_random_words", return_value="random_blah")
+        mocker.patch("cape.cape.generate_random_words", return_value="random_blah")
         cape_class_instance.file_name = test_file_name
         cape_class_instance._decode_mime_encoded_file_name()
         assert cape_class_instance.file_name == correct_file_name
@@ -1858,7 +1858,7 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
         mocker.patch.object(CAPE, "_extract_commands")
-        mocker.patch("cape.cape_main.ZipFile", return_value=dummy_zip_class())
+        mocker.patch("cape.cape.ZipFile", return_value=dummy_zip_class())
 
         cape_class_instance._unpack_zip(
             zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
@@ -1946,9 +1946,9 @@ class TestCapeMain:
         report_json = report_info
 
         mocker.patch("builtins.open")
-        mocker.patch("cape.cape_main.loads", return_value=report_json)
+        mocker.patch("cape.cape.loads", return_value=report_json)
         mocker.patch.object(CAPE, "report_machine_info")
-        mocker.patch("cape.cape_main.generate_al_result", return_value=({}, []))
+        mocker.patch("cape.cape.generate_al_result", return_value=({}, []))
         mocker.patch.object(CAPE, "delete_task")
 
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
@@ -1969,32 +1969,32 @@ class TestCapeMain:
         assert results == ({}, [])
 
         # Exception tests for generate_al_result
-        mocker.patch("cape.cape_main.generate_al_result", side_effect=RecoverableError("blah"))
+        mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
             _ = cape_class_instance._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
-        mocker.patch("cape.cape_main.generate_al_result", side_effect=CapeProcessingException("blah"))
+        mocker.patch("cape.cape.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
             _ = cape_class_instance._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
-        mocker.patch("cape.cape_main.generate_al_result", side_effect=Exception("blah"))
+        mocker.patch("cape.cape.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         # Exception tests for json.loads
-        mocker.patch("cape.cape_main.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
+        mocker.patch("cape.cape.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
         with pytest.raises(JSONDecodeError):
             _ = cape_class_instance._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
-        mocker.patch("cape.cape_main.loads", side_effect=Exception("blah"))
+        mocker.patch("cape.cape.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist

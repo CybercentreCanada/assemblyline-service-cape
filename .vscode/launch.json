@@ -1,0 +1,36 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "RunServiceOnce CAPE",
+            "type": "python",
+            "request": "launch",
+            "module": "assemblyline_v4_service.dev.run_service_once",
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "-d",
+                "cape.cape.CAPE",
+                "${file}"
+            ],
+            "justMyCode": false,
+        },
+        {
+            "name": "[Service] CAPE - Privileged",
+            "type": "python",
+            "request": "launch",
+            "module": "assemblyline_v4_service.run_privileged_service",
+            "env": {
+                "SERVICE_MANIFEST_PATH": "service_manifest.yml",
+                "PRIVILEGED": "true",
+                "SERVICE_PATH": "cape.cape.CAPE",
+                "TASKING_DIR": "/tmp/CAPE"
+            },
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+        }
+    ]
+}
