@@ -103,6 +103,7 @@ def dummy_request_class(dummy_task_class):
             self.sha256 = True
             self.deep_scan = False
             self.temp_submission_data = {}
+            self.routing = "inetsim"
             self.update(some_dict)
 
         def add_supplementary(self, path, name, description):
@@ -2480,7 +2481,7 @@ class TestCapeMain:
         mocker.patch.object(CAPE, "_does_image_exist", return_value=image_exists)
         mocker.patch.object(CAPE, "_determine_relevant_images", return_value=relevant_images)
         mocker.patch.object(CAPE, "_get_available_images", return_value=[])
-        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.request = dummy_request_class(routing = "inetsim")
         cape_class_instance.request.file_type = None
         cape_class_instance.file_res = dummy_result_class_instance
         cape_class_instance.hosts = [{"machines": [], "ip": "blah"}]
