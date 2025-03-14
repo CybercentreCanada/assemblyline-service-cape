@@ -278,6 +278,9 @@ regex:
   - upload\.wikimedia\.org$
   # Criteo
   - ailab\.criteo\.com$
+  # Non domain
+  - proof\.es
+  - proof\.fr
 
   network.dynamic.ip:
   # Public DNS
