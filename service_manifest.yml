@@ -568,6 +568,29 @@ heuristics:
       procmem_yara: 0
     filetype: "*"
     description: A Yara rule in CAPE was raised
+  - heur_id: 56
+    name: Suspicious_tree_id
+    score: 0
+    filetype: "*"
+    description: Suspicious tree id in the process tree.
+
+  - heur_id: 57
+    name: Possible_lolbas_tree_id
+    score: 0
+    filetype: "*"
+    description: Possible lolbas tree id in the process tree.
+
+  - heur_id: 58
+    name: Suspicious_remote_tree_id
+    score: 0
+    filetype: "*"
+    description: Suspicious remote tree id in the process tree.
+
+  - heur_id: 404
+    name: Missing Json
+    score: 0
+    filetype: "*"
+    description: The analysis is missing the json report.
 
   - heur_id: 1000
     name: Domain detected
