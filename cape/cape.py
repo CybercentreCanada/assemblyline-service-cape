@@ -1807,6 +1807,7 @@ class CAPE(ServiceBase):
             no_json_res_sec = ResultTextSection("The CAPE JSON Report Is Missing!")
             no_json_res_sec.add_line("Please alert your CAPE administrators.")
             parent_section.add_subsection(no_json_res_sec)
+            parent_section.set_heuristic(404)
         if report_json_path:
             cape_artifact_pids, main_process_tuples = self._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
