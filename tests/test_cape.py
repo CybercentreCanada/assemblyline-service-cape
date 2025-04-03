@@ -712,14 +712,14 @@ class TestCapeMain:
                     or return_value.get("task", {}).get("status") == TASK_MISSING
                 ):
                     p1 = Process(
-                        target=cape_class_instance.poll_started, args=(cape_task), name="poll_started with task status"
+                        target=cape_class_instance.poll_started, args=(cape_task, None), name="poll_started with task status"
                     )
                     p1.start()
                     p1.join(timeout=2)
                     p1.terminate()
                     assert p1.exitcode is None
                 else:
-                    test_result = cape_class_instance.poll_started(cape_task)
+                    test_result = cape_class_instance.poll_started(cape_task, None)
                     assert TASK_STARTED == test_result
 
     @staticmethod
@@ -868,30 +868,35 @@ class TestCapeMain:
         error_rest_response = {"error": True, "error_value": "blah"}
         error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
         weird_rest_response = {}
+        parent_section = ResultSection("blah")
 
         with requests_mock.Mocker() as m:
             # Case 1: Successful call, status code 200, valid response
             m.post(cape_task.submit_url, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance.submit_file(file_content, cape_task)
+            test_result = cape_class_instance.submit_file(file_content, cape_task, parent_section)
             assert test_result == 1
 
             # Case 2: Successful call, status code 200, error response
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, json=error_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance.submit_file(file_content, cape_task)
+                cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 3: Successful call, status code 200, error with details response
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, json=error_with_details_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance.submit_file(file_content, cape_task)
+                cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 4: Timeout
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, exc=exceptions.Timeout)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with Timeout",
             )
@@ -901,12 +906,14 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 5: ConnectionError
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, exc=ConnectionError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with ConnectionError",
             )
@@ -916,12 +923,14 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 6: Non-200 status code
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, status_code=500)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with non-200 status code",
             )
@@ -931,12 +940,14 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 7: 200 status code, bad response data, Example 1
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, json=correct_with_only_data_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with 200 status code and bad response",
             )
@@ -946,12 +957,14 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 8: 200 status code, bad response data, Example 2
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with 200 status code and bad response",
             )
@@ -961,12 +974,14 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 9: ChunkedEncodingError
+            parent_section = ResultSection("blah")
             m.post(cape_task.submit_url, exc=exceptions.ChunkedEncodingError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
                     file_content,
                     cape_task,
+                    parent_section
                 ),
                 name="submit_file with ChunkedEncodingError",
             )
@@ -1049,35 +1064,40 @@ class TestCapeMain:
         error_rest_response = {"error": True, "error_value": "blah"}
         error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
         weird_rest_response = {}
+        parent_section = ResultSection("blah")
 
         with requests_mock.Mocker() as m:
             # Case 1: Successful call, status code 200, valid response
             m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance.query_task(cape_task)
+            test_result = cape_class_instance.query_task(cape_task, parent_section)
             assert test_result == {"task": "blah"}
 
             # Case 2: Successful call, status code 200, error response
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, json=error_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance.query_task(cape_task)
+                cape_class_instance.query_task(cape_task, parent_section)
 
             # Case 3: Successful call, status code 200, error with details response
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, json=error_with_details_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance.query_task(cape_task)
+                cape_class_instance.query_task(cape_task, parent_section)
 
             # Case 4: Timeout
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, exc=exceptions.Timeout)
-            p1 = Process(target=cape_class_instance.query_task, args=(cape_task,), name="query_task with Timeout")
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with Timeout")
             p1.start()
             p1.join(timeout=2)
             p1.terminate()
             assert p1.exitcode is None
 
             # Case 5: ConnectionError
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, exc=ConnectionError)
             p1 = Process(
-                target=cape_class_instance.query_task, args=(cape_task,), name="query_task with ConnectionError"
+                target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with ConnectionError"
             )
             p1.start()
             p1.join(timeout=2)
@@ -1085,9 +1105,10 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 6: Non-200 status code
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, status_code=500)
             p1 = Process(
-                target=cape_class_instance.query_task, args=(cape_task,), name="query_task with non-200 status code"
+                target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with non-200 status code"
             )
             p1.start()
             p1.join(timeout=2)
@@ -1095,15 +1116,17 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 7: Successful call, status code 404
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=404)
-            test_result = cape_class_instance.query_task(cape_task)
+            test_result = cape_class_instance.query_task(cape_task, parent_section)
             assert test_result == {"task": {"status": TASK_MISSING}, "id": task_id}
 
             # Case 8: 200 status code, bad response data, Example 1
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, json=correct_with_only_data_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.query_task,
-                args=(cape_task,),
+                args=(cape_task, parent_section),
                 name="query_task with 200 status code and bad response",
             )
             p1.start()
@@ -1112,10 +1135,11 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 9: 200 status code, bad response data, Example 2
+            parent_section = ResultSection("blah")
             m.get(cape_task.query_task_url % task_id, json=weird_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.query_task,
-                args=(cape_task,),
+                args=(cape_task, parent_section),
                 name="query_task with 200 status code and bad response",
             )
             p1.start()
@@ -2511,26 +2535,30 @@ class TestCapeMain:
         correct_rest_response = {"data": {"tasks": {"pending": 1}}}
         errors_rest_response = {"error": True, "error_value": "blah"}
         weird_rest_response = {}
+        parent_section = ResultSection("blah")
+
         with requests_mock.Mocker() as m:
             # Case 1: We have one host, and we are able to connect to it
             # with a successful response
             hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
             m.get(host_status_url_1, json=correct_rest_response)
-            test_result = cape_class_instance._determine_host_to_use(hosts)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
             assert hosts[0] == test_result
 
             # Case 2: We have one host, and we are able to connect to it
             # with errors
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, json=errors_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance._determine_host_to_use(hosts)
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
 
             # Case 3: We have one host, and we are able to connect to it
             # with a weird message
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, json=weird_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance._determine_host_to_use,
-                args=(hosts,),
+                args=(hosts, parent_section),
                 name="_determine_host_to_use with 200 status code and weird message",
             )
             p1.start()
@@ -2540,10 +2568,11 @@ class TestCapeMain:
 
             # Case 4: We have one host, and we are able to connect to it
             # with a bad status code
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, status_code=500)
             p1 = Process(
                 target=cape_class_instance._determine_host_to_use,
-                args=(hosts,),
+                args=(hosts, parent_section),
                 name="_determine_host_to_use with non-200 status code",
             )
             p1.start()
@@ -2552,24 +2581,27 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 5: We have more than one host, and we are able to connect to all with a successful response
+            parent_section = ResultSection("blah")
             hosts = [
                 {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
                 {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
             ]
             m.get(host_status_url_1, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance._determine_host_to_use(hosts)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
             assert any(host == test_result for host in hosts)
 
             # Case 6: We have more than one host, and we are able to connect to all with errors
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, json=errors_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance._determine_host_to_use(hosts)
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
 
             # Case 7: We have more than one host, and we are able to connect to all with a bad status code
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, status_code=500)
             p1 = Process(
                 target=cape_class_instance._determine_host_to_use,
-                args=(hosts,),
+                args=(hosts, parent_section),
                 name="_determine_host_to_use with non-200 status code",
             )
             p1.start()
@@ -2578,6 +2610,7 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 8: We have more than one host, and we are able to connect to one with a successful response, and another with errors
+            parent_section = ResultSection("blah")
             hosts = [
                 {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
                 {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
@@ -2585,20 +2618,22 @@ class TestCapeMain:
             m.get(host_status_url_1, json=correct_rest_response, status_code=200)
             m.get(host_status_url_2, json=errors_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance._determine_host_to_use(hosts)
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
 
             # Case 9: We have more than one host, and we are able to connect to one with a successful response, and another with errors, but flipped
+            parent_section = ResultSection("blah")
             m.get(host_status_url_2, json=errors_rest_response, status_code=200)
             m.get(host_status_url_1, json=correct_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
-                cape_class_instance._determine_host_to_use(hosts)
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
 
             # Case 10: We have one host, and we get a Timeout
             cape_class_instance.hosts = hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, exc=exceptions.Timeout)
             p1 = Process(
                 target=cape_class_instance._determine_host_to_use,
-                args=(hosts,),
+                args=(hosts, parent_section),
                 name="_determine_host_to_use with timeout",
             )
             p1.start()
@@ -2607,10 +2642,11 @@ class TestCapeMain:
             assert p1.exitcode is None
 
             # Case 11: We have one host, and we get a ConnectionError
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, exc=ConnectionError("blah"))
             p2 = Process(
                 target=cape_class_instance._determine_host_to_use,
-                args=(hosts,),
+                args=(hosts, parent_section),
                 name="_determine_host_to_use with connectionerror",
             )
             p2.start()
@@ -2619,22 +2655,25 @@ class TestCapeMain:
             assert p2.exitcode is None
 
             # Case 12: We have more than one host, and we get a Timeout for one and a successful response for another
+            parent_section = ResultSection("blah")
             hosts = [
                 {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
                 {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
             ]
             m.get(host_status_url_1, exc=exceptions.Timeout)
             m.get(host_status_url_2, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance._determine_host_to_use(hosts)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
             assert hosts[1] == test_result
 
             # Case 13: We have more than one host, and we get a ConnectionError for one and a successful response for another
+            parent_section = ResultSection("blah")
             m.get(host_status_url_1, exc=ConnectionError("blah"))
             m.get(host_status_url_2, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance._determine_host_to_use(hosts)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
             assert hosts[1] == test_result
 
             # Case 14: We have more than one host, and we are able to connect to two with a successful response, another with a weird response, another with a non-200 status code, another with Timeout, another with ConnectionError
+            parent_section = ResultSection("blah")
             hosts = [
                 {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
                 {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
@@ -2649,7 +2688,7 @@ class TestCapeMain:
             m.get(host_status_url_4, exc=exceptions.Timeout)
             m.get(host_status_url_5, exc=ConnectionError("blah"))
             m.get(host_status_url_6, json=correct_rest_response, status_code=200)
-            test_result = cape_class_instance._determine_host_to_use(hosts)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
             assert any(test_result == host for host in [hosts[2], hosts[5]])
 
     @staticmethod

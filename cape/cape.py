@@ -500,7 +500,7 @@ class CAPE(ServiceBase):
             self.file_res.add_section(parent_section)
         else:
             self._set_task_parameters(kwargs, parent_section)
-            host_to_use = self._determine_host_to_use(hosts)
+            host_to_use = self._determine_host_to_use(hosts, parent_section)
 
         # Let's add this for distinction between analyses
         if "free=yes" in kwargs.get("options", ""):
@@ -657,7 +657,7 @@ class CAPE(ServiceBase):
             if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
                     """Submits a new file to CAPE for analysis"""
-                    task_id = self.submit_file(file_content, cape_task)
+                    task_id = self.submit_file(file_content, cape_task, parent_section)
                     if not task_id:
                         self.log.error("Failed to get task for submitted file.")
                         return
@@ -684,7 +684,7 @@ class CAPE(ServiceBase):
 
         self.log.debug(f"Submission succeeded. File: {cape_task.file} -- Task {cape_task.id}")
 
-        self.poll_started(cape_task)
+        self.poll_started(cape_task, parent_section)
 
         try:
             status = self.poll_report(cape_task, parent_section)
@@ -697,6 +697,7 @@ class CAPE(ServiceBase):
             raise RecoverableError(f"Unable to complete analysis and processing in time. Try again.")
 
         if status in [ANALYSIS_FAILED, PROCESSING_FAILED]:
+            parent_section.set_heuristic(501)
             raise NonRecoverableError(
                 f"The analysis/processing of CAPE task {cape_task.id} has failed. This could be for a variety of reasons. Try resubmitting again, and if that resubmission also fails then contact the CAPE administrator for details."
             )
@@ -707,13 +708,13 @@ class CAPE(ServiceBase):
     @retry(
         wait_fixed=CAPE_POLL_DELAY * 1000, retry_on_result=_retry_on_none, retry_on_exception=_exclude_invalid_req_ex
     )
-    def poll_started(self, cape_task: CapeTask) -> Optional[str]:
+    def poll_started(self, cape_task: CapeTask, parent_section: ResultSection) -> Optional[str]:
         """
         This method queries the task on the CAPE server, and determines if the task has started
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: A string representing the status
         """
-        task_info = self.query_task(cape_task)
+        task_info = self.query_task(cape_task, parent_section)
 
         if task_info.get("guest", {}).get("status") == TASK_STARTING:
             return None
@@ -736,18 +737,20 @@ class CAPE(ServiceBase):
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: A string representing the status
         """
-        task_info = self.query_task(cape_task)
+        task_info = self.query_task(cape_task, parent_section)
 
         # Check for errors first to avoid parsing exceptions
         status = task_info["status"]
         if status == ANALYSIS_FAILED:
             self.log.error(f"Analysis has failed for task {cape_task.id} due to {task_info['errors']}.")
+            parent_section.set_heuristic(502)
             analysis_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
             return ANALYSIS_FAILED
         elif status == PROCESSING_FAILED:
             self.log.error(f"Processing has failed for task {cape_task.id}.")
+            parent_section.set_heuristic(503)
             processing_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             processing_errors_sec.add_line(f"Processing has failed for task {cape_task.id}.")
             parent_section.add_subsection(processing_errors_sec)
@@ -839,7 +842,7 @@ class CAPE(ServiceBase):
                     sleep(5)
                     continue
 
-    def submit_file(self, file_content: bytes, cape_task: CapeTask) -> int:
+    def submit_file(self, file_content: bytes, cape_task: CapeTask, parent_section: ResultSection) -> int:
         """
         This method submits the file to the CAPE server
         :param file_content: the contents of the file to be submitted
@@ -924,6 +927,7 @@ class CAPE(ServiceBase):
                         sleep(self.timeout)
                         raise RecoverableError("Retrying since the specific image was missing...")
                     else:
+                        parent_section.set_heuristic(504)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -1025,7 +1029,7 @@ class CAPE(ServiceBase):
 
             return report_data
 
-    def query_task(self, cape_task: CapeTask) -> Dict[str, Any]:
+    def query_task(self, cape_task: CapeTask, parent_section: ResultSection) -> Dict[str, Any]:
         """
         This method queries the task on the CAPE server
         :param cape_task: The CapeTask class instance, which contains details about the specific task
@@ -1081,6 +1085,7 @@ class CAPE(ServiceBase):
                         f"Failed to query the task {cape_task.id} with {task_url} due "
                         f"to '{resp_json['error_value']}'."
                     )
+                    parent_section.set_heuristic(504)
                     raise InvalidCapeRequest(
                         "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                     )
@@ -1966,11 +1971,13 @@ class CAPE(ServiceBase):
         except CapeProcessingException:
             # Catching the CapeProcessingException, attempting to delete the file, and then carrying on
             self.log.error("Processing error occurred generating report")
+            parent_section.set_heuristic(503)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
         except Exception as e:
             self.log.error(f"Error generating report: {repr(e)}")
+            parent_section.set_heuristic(502)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
@@ -2273,7 +2280,7 @@ class CAPE(ServiceBase):
                 # in which case we do not want them extracted
                 if not any(
                     f"hh_process_{proc['pid']}_" in path
-                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist)
+                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist)[0]
                     if proc.get("pid")
                 ):
                     self.log.debug(
@@ -2558,7 +2565,7 @@ class CAPE(ServiceBase):
                     self.file_res.add_section(no_image_sec)
         return image_requested, relevant_images
 
-    def _determine_host_to_use(self, hosts: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _determine_host_to_use(self, hosts: List[Dict[str, Any]], parent_section: ResultSection) -> Dict[str, Any]:
         """
         This method determines which host to send a file to, based on randomness and the length of the host's pending
         task queue
@@ -2610,6 +2617,7 @@ class CAPE(ServiceBase):
                         self.log.error(
                             f"Failed to query the host for {host_status_url} due " f"to '{resp_json['error_value']}'."
                         )
+                        parent_section.set_heuristic(501)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -2636,6 +2644,7 @@ class CAPE(ServiceBase):
         if len(min_queue_hosts) > 0:
             return choice(min_queue_hosts)
         else:
+            parent_section.set_heuristic(505)
             raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
 
     def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
