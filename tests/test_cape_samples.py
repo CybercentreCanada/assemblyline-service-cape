@@ -2,8 +2,9 @@ import os
 import time
 
 import pytest
-from assemblyline.common.importing import load_module_by_path
 from assemblyline_service_utilities.testing.helper import TestHelper
+
+from assemblyline.common.importing import load_module_by_path
 
 # Force manifest location
 os.environ["SERVICE_MANIFEST_PATH"] = os.path.join(os.path.dirname(__file__), "..", "service_manifest.yml")
@@ -17,7 +18,7 @@ service_class = load_module_by_path("cape.cape.CAPE", os.path.join(os.path.dirna
 th = TestHelper(service_class, RESULTS_FOLDER, SAMPLES_FOLDER)
 
 
-@pytest.mark.parametrize("sample", [])
+@pytest.mark.parametrize("sample", th.result_list())
 def test_sample(sample):
     start_time = time.time()
     th.run_test_comparison(sample)
