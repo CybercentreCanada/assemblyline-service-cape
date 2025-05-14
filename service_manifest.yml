@@ -587,40 +587,10 @@ heuristics:
     description: Suspicious remote tree id in the process tree.
 
   - heur_id: 404
-    name: Missing Json
+    name: Service raising an error
     score: 0
     filetype: "*"
-    description: The analysis is missing the json report.
-
-  - heur_id: 501
-    name: General CAPE failure
-    score: 0
-    filetype: "*"
-    description: The analysis failed for a generic error.
-
-  - heur_id: 502
-    name: CAPE Analysis failure
-    score: 0
-    filetype: "*"
-    description: The analysis failed.
-
-  - heur_id: 503
-    name: CAPE processing failure
-    score: 0
-    filetype: "*"
-    description: The processing failed.
-  
-  - heur_id: 504
-    name: CAPE API down
-    score: 0
-    filetype: "*"
-    description: Problem with the API
-
-  - heur_id: 505
-    name: No machine available
-    score: 0
-    filetype: "*"
-    description: No machine available.
+    description: The CAPE service raised an error.
 
   - heur_id: 1000
     name: Domain detected
