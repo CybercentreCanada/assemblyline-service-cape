@@ -653,6 +653,7 @@ class CAPE(ServiceBase):
         :param reboot: A boolean indicating that we will be resubmitting a task for reboot analysis
         :return: None
         """
+        global have_raised_error
         if not reboot:
             if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
@@ -740,6 +741,7 @@ class CAPE(ServiceBase):
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: A string representing the status
         """
+        global have_raised_error
         task_info = self.query_task(cape_task, parent_section)
 
         # Check for errors first to avoid parsing exceptions
@@ -858,6 +860,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: an integer representing the task ID
         """
+        global have_raised_error
         self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
@@ -1047,6 +1050,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: a dictionary containing details about the task, such as its status
         """
+        global have_raised_error
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -1802,6 +1806,7 @@ class CAPE(ServiceBase):
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
     ) -> None:
+        global have_raised_error
         """
         This method unpacks the zipfile, which contains the report for the task
         :param zip_report: The zipfile in bytes which contains all artifacts from the analysis
@@ -1932,6 +1937,7 @@ class CAPE(ServiceBase):
         :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
         the initial process and the process name
         """
+        global have_raised_error
         try:
             # Setting environment recursion limit for large JSONs
             setrecursionlimit(int(self.config["recursion_limit"]))
@@ -2596,6 +2602,7 @@ class CAPE(ServiceBase):
         :param hosts: The hosts that the file could be sent to
         :return: The host that the file will be sent to
         """
+        global have_raised_error
         # This method will be used to determine the host to use for a submission
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
