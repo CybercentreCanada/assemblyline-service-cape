@@ -127,7 +127,7 @@ INTERNET = "internet"
 # Ontology Result Constants
 SANDBOX_NAME = "CAPE Sandbox"
 SERVICE_NAME = "CAPE"
-have_raised_error = False
+ = False
 
 class MissingCapeReportException(Exception):
     """Exception class for missing reports"""
@@ -701,7 +701,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("General CAPE failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("General CAPE failure", 0)
             raise NonRecoverableError(
                 f"The analysis/processing of CAPE task {cape_task.id} has failed. This could be for a variety of reasons. Try resubmitting again, and if that resubmission also fails then contact the CAPE administrator for details."
             )
@@ -751,7 +752,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
             analysis_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
@@ -761,7 +763,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
             processing_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             processing_errors_sec.add_line(f"Processing has failed for task {cape_task.id}.")
             parent_section.add_subsection(processing_errors_sec)
@@ -942,7 +945,8 @@ class CAPE(ServiceBase):
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
                             have_raised_error = True
-                        parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("CAPE API down", 0)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -1104,7 +1108,8 @@ class CAPE(ServiceBase):
                     if not have_raised_error:
                         parent_section.set_heuristic(404)
                         have_raised_error = True
-                    parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                    if parent_section.heuristic is not None:
+                        parent_section.heuristic.add_signature_id("CAPE API down", 0)
                     raise InvalidCapeRequest(
                         "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                     )
@@ -1835,7 +1840,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("Missing Json", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("Missing Json", 0)
         if report_json_path:
             cape_artifact_pids, main_process_tuples = self._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
@@ -1998,7 +2004,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
@@ -2007,7 +2014,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
@@ -2651,7 +2659,8 @@ class CAPE(ServiceBase):
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
                             have_raised_error = True
-                        parent_section.heuristic.add_signature_id("General CAPE failure", 0)
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("General CAPE failure", 0)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -2681,7 +2690,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("No machine available", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("No machine available", 0)
             raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
 
     def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
