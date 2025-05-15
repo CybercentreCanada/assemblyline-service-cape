@@ -127,7 +127,7 @@ INTERNET = "internet"
 # Ontology Result Constants
 SANDBOX_NAME = "CAPE Sandbox"
 SERVICE_NAME = "CAPE"
- = False
+have_raised_error = False
 
 class MissingCapeReportException(Exception):
     """Exception class for missing reports"""
