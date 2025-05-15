@@ -653,6 +653,7 @@ class CAPE(ServiceBase):
         :param reboot: A boolean indicating that we will be resubmitting a task for reboot analysis
         :return: None
         """
+        global have_raised_error
         if not reboot:
             if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
@@ -700,7 +701,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("General CAPE failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("General CAPE failure", 0)
             raise NonRecoverableError(
                 f"The analysis/processing of CAPE task {cape_task.id} has failed. This could be for a variety of reasons. Try resubmitting again, and if that resubmission also fails then contact the CAPE administrator for details."
             )
@@ -740,6 +742,7 @@ class CAPE(ServiceBase):
         :param parent_section: The overarching result section detailing what image this task is being sent to
         :return: A string representing the status
         """
+        global have_raised_error
         task_info = self.query_task(cape_task, parent_section)
 
         # Check for errors first to avoid parsing exceptions
@@ -749,7 +752,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
             analysis_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             analysis_errors_sec.add_lines(task_info["errors"])
             parent_section.add_subsection(analysis_errors_sec)
@@ -759,7 +763,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
             processing_errors_sec = ResultTextSection(ANALYSIS_ERRORS)
             processing_errors_sec.add_line(f"Processing has failed for task {cape_task.id}.")
             parent_section.add_subsection(processing_errors_sec)
@@ -858,6 +863,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: an integer representing the task ID
         """
+        global have_raised_error
         self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
@@ -939,7 +945,8 @@ class CAPE(ServiceBase):
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
                             have_raised_error = True
-                        parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("CAPE API down", 0)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -1047,6 +1054,7 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: a dictionary containing details about the task, such as its status
         """
+        global have_raised_error
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -1100,7 +1108,8 @@ class CAPE(ServiceBase):
                     if not have_raised_error:
                         parent_section.set_heuristic(404)
                         have_raised_error = True
-                    parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                    if parent_section.heuristic is not None:
+                        parent_section.heuristic.add_signature_id("CAPE API down", 0)
                     raise InvalidCapeRequest(
                         "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                     )
@@ -1802,6 +1811,7 @@ class CAPE(ServiceBase):
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
     ) -> None:
+        global have_raised_error
         """
         This method unpacks the zipfile, which contains the report for the task
         :param zip_report: The zipfile in bytes which contains all artifacts from the analysis
@@ -1830,7 +1840,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("Missing Json", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("Missing Json", 0)
         if report_json_path:
             cape_artifact_pids, main_process_tuples = self._build_report(
                 report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
@@ -1932,6 +1943,7 @@ class CAPE(ServiceBase):
         :return: A list of dictionaries with details about the payloads and the pids that they were hollowed out of, and a list of tuples representing both the PID of
         the initial process and the process name
         """
+        global have_raised_error
         try:
             # Setting environment recursion limit for large JSONs
             setrecursionlimit(int(self.config["recursion_limit"]))
@@ -1992,7 +2004,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE processing failure", 0)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
@@ -2001,7 +2014,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("CAPE Analysis failure", 0)
             if cape_task and cape_task.id is not None:
                 self.delete_task(cape_task)
             raise
@@ -2596,6 +2610,7 @@ class CAPE(ServiceBase):
         :param hosts: The hosts that the file could be sent to
         :return: The host that the file will be sent to
         """
+        global have_raised_error
         # This method will be used to determine the host to use for a submission
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
@@ -2644,7 +2659,8 @@ class CAPE(ServiceBase):
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
                             have_raised_error = True
-                        parent_section.heuristic.add_signature_id("General CAPE failure", 0)
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("General CAPE failure", 0)
                         raise InvalidCapeRequest(
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
@@ -2674,7 +2690,8 @@ class CAPE(ServiceBase):
             if not have_raised_error:
                 parent_section.set_heuristic(404)
                 have_raised_error = True
-            parent_section.heuristic.add_signature_id("No machine available", 0)
+            if parent_section.heuristic is not None:
+                parent_section.heuristic.add_signature_id("No machine available", 0)
             raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
 
     def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
