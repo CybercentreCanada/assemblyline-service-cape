@@ -1,35 +1,31 @@
 name: build
-
 variables:
-  - group: unittest-samples
-
+- group: unittest-samples
 trigger:
   tags:
-    include: ["v*"]
+    include:
+    - v*
 pr: none
-
 pool:
-  vmImage: "ubuntu-22.04"
-
+  vmImage: ubuntu-latest
 resources:
   repositories:
-    - repository: PipelineTemplates
-      type: github
-      name: CybercentreCanada/assemblyline-pipeline-templates
-      ref: refs/heads/main
-      endpoint: github-repo-sa
-      trigger: none
-    - repository: unittest-samples
-      type: github
-      name: $(unittest_samples_repository)
-      ref: main
-      endpoint: github-repo-sa
-      trigger: none
-
+  - repository: PipelineTemplates
+    type: github
+    name: CybercentreCanada/assemblyline-pipeline-templates
+    ref: refs/heads/main
+    endpoint: github-repo-sa
+    trigger: none
+  - repository: unittest-samples
+    type: github
+    name: $(unittest_samples_repository)
+    ref: main
+    endpoint: github-repo-sa
+    trigger: none
 extends:
   template: stages/deploy-service.yaml@PipelineTemplates
   parameters:
-    is_public: "true"
+    is_public: 'true'
     samples_repo: unittest-samples
     labels:
-      classification: "UNCLASSIFIED"
+      classification: UNCLASSIFIED
