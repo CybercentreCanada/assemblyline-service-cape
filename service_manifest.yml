@@ -587,10 +587,10 @@ heuristics:
     description: Suspicious remote tree id in the process tree.
 
   - heur_id: 404
-    name: Missing Json
+    name: Service raising an error
     score: 0
     filetype: "*"
-    description: The analysis is missing the json report.
+    description: The CAPE service raised an error.
 
   - heur_id: 1000
     name: Domain detected
