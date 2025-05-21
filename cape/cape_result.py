@@ -640,7 +640,7 @@ def build_process_tree(
     """
     if not ontres.get_processes():
         return
-    process_tree_section = ontres.get_process_tree_result_section(processtree_id_safelist)
+    process_tree_section = ontres.get_process_tree_result_section(processtree_id_safelist, 56) #tying to heuristic 56
     if is_process_martian:
         sig_name = "process_martian"
         heur_id = get_category_id(sig_name)
