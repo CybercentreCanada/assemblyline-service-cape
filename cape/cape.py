@@ -2274,7 +2274,7 @@ class CAPE(ServiceBase):
                 # in which case we do not want them extracted
                 if not any(
                     f"hh_process_{proc['pid']}_" in path
-                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist,self.use_process_tree_inspection)
+                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist, self.use_process_tree_inspection)
                     if proc.get("pid")
                 ):
                     self.log.debug(
