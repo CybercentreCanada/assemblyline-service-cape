@@ -105,6 +105,7 @@ def dummy_request_class(dummy_task_class):
             self.temp_submission_data = {}
             self.routing = "inetsim"
             self.update(some_dict)
+            self.use_process_tree_inspection = False
 
         def add_supplementary(self, path, name, description):
             self.task.supplementary.append({"path": path, "name": name, "description": description})
