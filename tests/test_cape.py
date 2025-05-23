@@ -453,6 +453,7 @@ class TestCapeMain:
         assert cape_class_instance.allowed_images == cape_class_instance.config.get("allowed_images", [])
         assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
         assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
+        assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
@@ -2200,6 +2201,7 @@ class TestCapeMain:
         )
         ontres.add_process(p)
         safelist = []
+        cape_class_instance.use_process_tree_inspection = False
         cape_class_instance._extract_hollowshunter(zip_obj, task_id, main_process_tuples, ontres, safelist)
 
         assert cape_class_instance.artifact_list[0] == {
