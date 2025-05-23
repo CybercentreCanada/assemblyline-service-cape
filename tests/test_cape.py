@@ -105,7 +105,6 @@ def dummy_request_class(dummy_task_class):
             self.temp_submission_data = {}
             self.routing = "inetsim"
             self.update(some_dict)
-            self.use_process_tree_inspection = False
 
         def add_supplementary(self, path, name, description):
             self.task.supplementary.append({"path": path, "name": name, "description": description})
@@ -437,7 +436,6 @@ class TestCapeMain:
         assert cape_class_instance.hosts == []
         assert cape_class_instance.routing == ""
         assert cape_class_instance.safelist == {}
-        assert cape_class_instance.use_process_tree_inspection == False
         # assert cape_class_instance.identify == ""
         assert cape_class_instance.retry_on_no_machine is False
         assert cape_class_instance.uwsgi_with_recycle is False
