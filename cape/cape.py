@@ -251,6 +251,7 @@ class CAPE(ServiceBase):
         self.allowed_images = self.config.get("allowed_images", [])
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
+        self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
 
         try:
             self.safelist = self.get_api_interface().get_safelist()
@@ -2318,7 +2319,7 @@ class CAPE(ServiceBase):
                 # in which case we do not want them extracted
                 if not any(
                     f"hh_process_{proc['pid']}_" in path
-                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist)[0]
+                    for proc in ontres.get_process_tree(safelist=custom_tree_id_safelist, use_process_tree_inspection=self.use_process_tree_inspection)[0]
                     if proc.get("pid")
                 ):
                     self.log.debug(
