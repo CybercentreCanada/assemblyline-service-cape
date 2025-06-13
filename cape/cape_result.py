@@ -149,6 +149,8 @@ CRYPT_BUFFER_CALLS = [
 MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
 SUPPORTED_EXTENSIONS = [
+    "au3",
+    "a3x",
     "bat",
     "bin",
     "cpl",
