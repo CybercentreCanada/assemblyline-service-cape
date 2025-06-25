@@ -1524,7 +1524,7 @@ class CAPE(ServiceBase):
 
         # Package-related logic
         # If the user requests a package, give it to them
-        if package:
+        if package and package != "None":
             kwargs["package"] = package
         # If the user wants to use antivm packages and the file type makes sense, give it to them
         elif self.config.get("use_antivm_packages", False) and self.request.file_type in [
