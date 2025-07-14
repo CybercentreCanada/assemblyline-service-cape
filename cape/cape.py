@@ -920,10 +920,12 @@ class CAPE(ServiceBase):
                 continue
             else:
                 resp_json = resp.json()
+                root_error = ""
                 if "error" in resp_json and resp_json["error"]:
                     self.log.error(
                         f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'."
                     )
+                    root_error = str(resp_json['error_value'])
                     incorrect_tag = False
                     if "errors" in resp_json and resp_json["errors"]:
                         try:
@@ -935,13 +937,15 @@ class CAPE(ServiceBase):
                                             incorrect_tag = (
                                                 "Check Tags help, you have introduced incorrect tag(s)." in v
                                             )
+                                            if root_error == "":
+                                                root_error = str(v)
                         except Exception:
                             pass
 
                     if self.retry_on_no_machine and incorrect_tag:
                         # No need to log here because the log.error above containing further details about the error has happened
                         sleep(self.timeout)
-                        raise RecoverableError("Retrying since the specific image was missing...")
+                        raise RecoverableError(f"Retrying since the specific image was missing: {root_error}")
                     else:
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
