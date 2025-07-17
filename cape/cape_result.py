@@ -1053,9 +1053,30 @@ def process_network(
                 continue
             if len(relevant_answer) == 0:
                 relevant_answer.append("")
-            nd = ontres.create_network_dns(
-                domain=request, resolved_ips=relevant_answer, lookup_type=attempt.get("type")
-            )
+            domain_answer = []
+            ip_answer = []
+            for dns_answer in relevant_answer:
+                if not any(c.isalpha() for c in dns_answer) :
+                    ip_answer.append(dns_answer)    
+                elif any(c.isalpha() for c in dns_answer):
+                    domain_answer.append(dns_answer)
+            if len(domain_answer) > 0 and len(ip_answer) > 0:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=ip_answer, resolved_domains=domain_answer, lookup_type=attempt.get("type")
+                )
+            elif len(domain_answer) > 0:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_domains=domain_answer, lookup_type=attempt.get("type")
+                )
+            elif len(ip_answer) > 0:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=ip_answer, lookup_type=attempt.get("type")
+                )
+            else:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=relevant_answer, lookup_type=attempt.get("type")
+                )
+                
 
             destination_ip = dns_servers[0] if dns_servers else None
             destination_port = 53
