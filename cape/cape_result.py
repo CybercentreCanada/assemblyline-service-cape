@@ -1066,15 +1066,15 @@ def process_network(
                 )
             elif len(domain_answer) > 0:
                 nd = ontres.create_network_dns(
-                    domain=request, resolved_domains=domain_answer, lookup_type=attempt.get("type")
+                    domain=request, resolved_ips=None, resolved_domains=domain_answer, lookup_type=attempt.get("type")
                 )
             elif len(ip_answer) > 0:
                 nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=ip_answer, lookup_type=attempt.get("type")
+                    domain=request, resolved_ips=ip_answer, resolved_domains=None, lookup_type=attempt.get("type")
                 )
             else:
                 nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=relevant_answer, lookup_type=attempt.get("type")
+                    domain=request, resolved_ips=relevant_answer, resolved_domains=None, lookup_type=attempt.get("type")
                 )
                 
 
