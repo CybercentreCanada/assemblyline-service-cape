@@ -1077,58 +1077,58 @@ def process_network(
                         domain=request, resolved_ips=relevant_answer, resolved_domains=None, lookup_type=attempt.get("type")
                     )
 
-            destination_ip = dns_servers[0] if dns_servers else None
-            destination_port = 53
-            transport_layer_protocol = NetworkConnection.UDP
+                destination_ip = dns_servers[0] if dns_servers else None
+                destination_port = 53
+                transport_layer_protocol = NetworkConnection.UDP
 
-            nc_oid = NetworkConnectionModel.get_oid(
-                {
-                    "destination_ip": destination_ip,
-                    "destination_port": destination_port,
-                    "transport_layer_protocol": transport_layer_protocol,
-                    "connection_type": NetworkConnection.DNS,
-                    "dns_details": {"domain": request},
-                    "lookup_type": attempt.get("type"),
-                }
-            )
-            objectid = ontres.create_objectid(
-                tag=NetworkConnectionModel.get_tag(
+                nc_oid = NetworkConnectionModel.get_oid(
                     {
                         "destination_ip": destination_ip,
                         "destination_port": destination_port,
+                        "transport_layer_protocol": transport_layer_protocol,
+                        "connection_type": NetworkConnection.DNS,
+                        "dns_details": {"domain": request},
+                        "lookup_type": attempt.get("type"),
                     }
-                ),
-                ontology_id=nc_oid,
-                session=session,
-                time_observed=attempt["time"],
-            )
-            objectid.assign_guid()
-            try:
-                nc = ontres.create_network_connection(
-                    objectid=objectid,
-                    destination_ip=destination_ip,
-                    destination_port=destination_port,
-                    transport_layer_protocol=transport_layer_protocol,
-                    direction=NetworkConnection.OUTBOUND,
-                    dns_details=nd,
-                    connection_type=NetworkConnection.DNS,
                 )
-            except ValueError as e:
-                log.warning(
-                    f"{e}. The required values passed were:\n"
-                    f"objectid={objectid}\n"
-                    f"destination_ip={destination_ip}\n"
-                    f"destination_port={destination_port}\n"
-                    f"transport_layer_protocol={transport_layer_protocol}"
+                objectid = ontres.create_objectid(
+                    tag=NetworkConnectionModel.get_tag(
+                        {
+                            "destination_ip": destination_ip,
+                            "destination_port": destination_port,
+                        }
+                    ),
+                    ontology_id=nc_oid,
+                    session=session,
+                    time_observed=attempt["time"],
                 )
-                continue
-            p = ontres.get_process_by_guid(attempt["guid"])
-            if not p:
-                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
-            if p:
-                nc.set_process(p)
-            ontres.add_network_connection(nc)
-            ontres.add_network_dns(nd)
+                objectid.assign_guid()
+                try:
+                    nc = ontres.create_network_connection(
+                        objectid=objectid,
+                        destination_ip=destination_ip,
+                        destination_port=destination_port,
+                        transport_layer_protocol=transport_layer_protocol,
+                        direction=NetworkConnection.OUTBOUND,
+                        dns_details=nd,
+                        connection_type=NetworkConnection.DNS,
+                    )
+                except ValueError as e:
+                    log.warning(
+                        f"{e}. The required values passed were:\n"
+                        f"objectid={objectid}\n"
+                        f"destination_ip={destination_ip}\n"
+                        f"destination_port={destination_port}\n"
+                        f"transport_layer_protocol={transport_layer_protocol}"
+                    )
+                    continue
+                p = ontres.get_process_by_guid(attempt["guid"])
+                if not p:
+                    p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
+                if p:
+                    nc.set_process(p)
+                ontres.add_network_connection(nc)
+                ontres.add_network_dns(nd)
 
     if dns_res_sec and len(dns_res_sec.tags.get("network.dynamic.domain", [])) > 0:
         network_res.add_subsection(dns_res_sec)
