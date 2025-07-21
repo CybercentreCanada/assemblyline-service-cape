@@ -1708,7 +1708,7 @@ class TestCapeResult:
         http_subsection.add_subsection(http_header_anomaly_sec)
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
-            tags={"network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
+            tags={'network.dynamic.domain': ['steamcommunity.com'], "network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
         )
         unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
         unseen_subsection.set_heuristic(1013)
