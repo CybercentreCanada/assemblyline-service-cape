@@ -1711,6 +1711,7 @@ class TestCapeResult:
             tags={'network.dynamic.domain': ['steamcommunity.com'], "network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
         )
         unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
+        unseen_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "steamcommunity.com"}))
         unseen_subsection.set_heuristic(1013)
         correct_network_result_section.add_subsection(unseen_subsection)
         correct_result_section.add_subsection(correct_network_result_section)
