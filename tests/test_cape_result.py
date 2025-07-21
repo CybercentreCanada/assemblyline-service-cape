@@ -30426,7 +30426,7 @@ class TestCapeResult:
     )
     def test_get_destination_ip(http_call, dns_servers, host, expected_destination_ip):
         ontres = OntologyResults(service_name="blah")
-        dns = NetworkDNS("blah.ca", ["1.1.1.1"], "A")
+        dns = NetworkDNS("blah.ca", ["1.1.1.1"], None, "A")
         ontres.add_network_dns(dns)
 
         assert _get_destination_ip(http_call, dns_servers, host, ontres) == expected_destination_ip
