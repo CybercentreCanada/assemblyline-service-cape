@@ -2819,7 +2819,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "crl.sectigo.com", "resolved_ips": ["192.0.2.135"], "lookup_type": "A"},
+                "dns_details": {"domain": "crl.sectigo.com", "resolved_ips": ["192.0.2.135"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2841,7 +2841,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "microsoft.com", "resolved_ips": ["192.0.2.126"], "lookup_type": "A"},
+                "dns_details": {"domain": "microsoft.com", "resolved_ips": ["192.0.2.126"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2863,7 +2863,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "google.com", "resolved_ips": ["192.0.2.31"], "lookup_type": "A"},
+                "dns_details": {"domain": "google.com", "resolved_ips": ["192.0.2.31"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2885,7 +2885,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "xfinity.com", "resolved_ips": ["192.0.2.212"], "lookup_type": "A"},
+                "dns_details": {"domain": "xfinity.com", "resolved_ips": ["192.0.2.212"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2907,7 +2907,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "linkedin.com", "resolved_ips": ["192.0.2.136"], "lookup_type": "A"},
+                "dns_details": {"domain": "linkedin.com", "resolved_ips": ["192.0.2.136"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2929,7 +2929,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "broadcom.com", "resolved_ips": ["192.0.2.40"], "lookup_type": "A"},
+                "dns_details": {"domain": "broadcom.com", "resolved_ips": ["192.0.2.40"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2951,7 +2951,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "yahoo.com", "resolved_ips": ["192.0.2.204"], "lookup_type": "A"},
+                "dns_details": {"domain": "yahoo.com", "resolved_ips": ["192.0.2.204"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2973,7 +2973,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "irs.gov", "resolved_ips": ["192.0.2.37"], "lookup_type": "A"},
+                "dns_details": {"domain": "irs.gov", "resolved_ips": ["192.0.2.37"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -2995,7 +2995,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "oracle.com", "resolved_ips": ["192.0.2.166"], "lookup_type": "A"},
+                "dns_details": {"domain": "oracle.com", "resolved_ips": ["192.0.2.166"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -3017,7 +3017,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "verisign.com", "resolved_ips": ["192.0.2.76"], "lookup_type": "A"},
+                "dns_details": {"domain": "verisign.com", "resolved_ips": ["192.0.2.76"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -3039,7 +3039,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "cisco.com", "resolved_ips": ["192.0.2.137"], "lookup_type": "A"},
+                "dns_details": {"domain": "cisco.com", "resolved_ips": ["192.0.2.137"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -27961,7 +27961,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qetyraq.com", "resolved_ips": ["192.0.2.85"], "lookup_type": "A"},
+                "dns_details": {"domain": "qetyraq.com", "resolved_ips": ["192.0.2.85"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -27983,7 +27983,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lysynur.com", "resolved_ips": ["192.0.2.85"], "lookup_type": "A"},
+                "dns_details": {"domain": "lysynur.com", "resolved_ips": ["192.0.2.85"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28005,7 +28005,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "ganyhus.com", "resolved_ips": ["192.0.2.181"], "lookup_type": "A"},
+                "dns_details": {"domain": "ganyhus.com", "resolved_ips": ["192.0.2.181"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28027,7 +28027,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "DESKTOP-LG3F6GA", "resolved_ips": ["192.168.0.9"], "lookup_type": "A"},
+                "dns_details": {"domain": "DESKTOP-LG3F6GA", "resolved_ips": ["192.168.0.9"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28049,7 +28049,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyvyxor.com", "resolved_ips": ["192.0.2.57"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyvyxor.com", "resolved_ips": ["192.0.2.57"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28071,7 +28071,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "galykes.com", "resolved_ips": ["192.0.2.57"], "lookup_type": "A"},
+                "dns_details": {"domain": "galykes.com", "resolved_ips": ["192.0.2.57"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28093,7 +28093,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gatyfus.com", "resolved_ips": ["192.0.2.125"], "lookup_type": "A"},
+                "dns_details": {"domain": "gatyfus.com", "resolved_ips": ["192.0.2.125"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28115,7 +28115,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qetyfuv.com", "resolved_ips": ["192.0.2.131"], "lookup_type": "A"},
+                "dns_details": {"domain": "qetyfuv.com", "resolved_ips": ["192.0.2.131"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28137,7 +28137,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vojyqem.com", "resolved_ips": ["192.0.2.217"], "lookup_type": "A"},
+                "dns_details": {"domain": "vojyqem.com", "resolved_ips": ["192.0.2.217"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28159,7 +28159,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "puzylyp.com", "resolved_ips": ["192.0.2.246"], "lookup_type": "A"},
+                "dns_details": {"domain": "puzylyp.com", "resolved_ips": ["192.0.2.246"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28181,7 +28181,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gahyqah.com", "resolved_ips": ["192.0.2.91"], "lookup_type": "A"},
+                "dns_details": {"domain": "gahyqah.com", "resolved_ips": ["192.0.2.91"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28203,7 +28203,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lymysan.com", "resolved_ips": ["192.0.2.139"], "lookup_type": "A"},
+                "dns_details": {"domain": "lymysan.com", "resolved_ips": ["192.0.2.139"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28225,7 +28225,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qedynul.com", "resolved_ips": ["192.0.2.120"], "lookup_type": "A"},
+                "dns_details": {"domain": "qedynul.com", "resolved_ips": ["192.0.2.120"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28247,7 +28247,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gadyniw.com", "resolved_ips": ["192.0.2.208"], "lookup_type": "A"},
+                "dns_details": {"domain": "gadyniw.com", "resolved_ips": ["192.0.2.208"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28269,7 +28269,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "purycap.com", "resolved_ips": ["192.0.2.200"], "lookup_type": "A"},
+                "dns_details": {"domain": "purycap.com", "resolved_ips": ["192.0.2.200"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28291,7 +28291,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vocyzit.com", "resolved_ips": ["192.0.2.178"], "lookup_type": "A"},
+                "dns_details": {"domain": "vocyzit.com", "resolved_ips": ["192.0.2.178"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28313,7 +28313,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyryfyd.com", "resolved_ips": ["192.0.2.162"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyryfyd.com", "resolved_ips": ["192.0.2.162"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28335,7 +28335,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vonypom.com", "resolved_ips": ["192.0.2.203"], "lookup_type": "A"},
+                "dns_details": {"domain": "vonypom.com", "resolved_ips": ["192.0.2.203"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28357,7 +28357,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gacyzuz.com", "resolved_ips": ["192.0.2.28"], "lookup_type": "A"},
+                "dns_details": {"domain": "gacyzuz.com", "resolved_ips": ["192.0.2.28"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28379,7 +28379,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vocyruk.com", "resolved_ips": ["192.0.2.28"], "lookup_type": "A"},
+                "dns_details": {"domain": "vocyruk.com", "resolved_ips": ["192.0.2.28"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28401,7 +28401,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gatyvyz.com", "resolved_ips": ["192.0.2.254"], "lookup_type": "A"},
+                "dns_details": {"domain": "gatyvyz.com", "resolved_ips": ["192.0.2.254"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28423,7 +28423,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pumyxiv.com", "resolved_ips": ["192.0.2.254"], "lookup_type": "A"},
+                "dns_details": {"domain": "pumyxiv.com", "resolved_ips": ["192.0.2.254"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28445,7 +28445,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lygymoj.com", "resolved_ips": ["192.0.2.198"], "lookup_type": "A"},
+                "dns_details": {"domain": "lygymoj.com", "resolved_ips": ["192.0.2.198"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28467,7 +28467,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pumypog.com", "resolved_ips": ["192.0.2.173"], "lookup_type": "A"},
+                "dns_details": {"domain": "pumypog.com", "resolved_ips": ["192.0.2.173"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28489,7 +28489,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qekykev.com", "resolved_ips": ["192.0.2.67"], "lookup_type": "A"},
+                "dns_details": {"domain": "qekykev.com", "resolved_ips": ["192.0.2.67"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28511,7 +28511,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vowydef.com", "resolved_ips": ["192.0.2.67"], "lookup_type": "A"},
+                "dns_details": {"domain": "vowydef.com", "resolved_ips": ["192.0.2.67"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28533,7 +28533,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pupybul.com", "resolved_ips": ["192.0.2.19"], "lookup_type": "A"},
+                "dns_details": {"domain": "pupybul.com", "resolved_ips": ["192.0.2.19"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28555,7 +28555,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "ganypih.com", "resolved_ips": ["192.0.2.43"], "lookup_type": "A"},
+                "dns_details": {"domain": "ganypih.com", "resolved_ips": ["192.0.2.43"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28577,7 +28577,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyvytuj.com", "resolved_ips": ["192.0.2.43"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyvytuj.com", "resolved_ips": ["192.0.2.43"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28599,7 +28599,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gacyryw.com", "resolved_ips": ["192.0.2.6"], "lookup_type": "A"},
+                "dns_details": {"domain": "gacyryw.com", "resolved_ips": ["192.0.2.6"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28621,7 +28621,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lykyjad.com", "resolved_ips": ["192.0.2.153"], "lookup_type": "A"},
+                "dns_details": {"domain": "lykyjad.com", "resolved_ips": ["192.0.2.153"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28643,7 +28643,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vopybyt.com", "resolved_ips": ["192.0.2.153"], "lookup_type": "A"},
+                "dns_details": {"domain": "vopybyt.com", "resolved_ips": ["192.0.2.153"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28665,7 +28665,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qebytiq.com", "resolved_ips": ["192.0.2.18"], "lookup_type": "A"},
+                "dns_details": {"domain": "qebytiq.com", "resolved_ips": ["192.0.2.18"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28687,7 +28687,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pufymoq.com", "resolved_ips": ["192.0.2.94"], "lookup_type": "A"},
+                "dns_details": {"domain": "pufymoq.com", "resolved_ips": ["192.0.2.94"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28709,7 +28709,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qexylup.com", "resolved_ips": ["192.0.2.54"], "lookup_type": "A"},
+                "dns_details": {"domain": "qexylup.com", "resolved_ips": ["192.0.2.54"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28731,7 +28731,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pujyjav.com", "resolved_ips": ["192.0.2.155"], "lookup_type": "A"},
+                "dns_details": {"domain": "pujyjav.com", "resolved_ips": ["192.0.2.155"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28753,7 +28753,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "volykyc.com", "resolved_ips": ["192.0.2.219"], "lookup_type": "A"},
+                "dns_details": {"domain": "volykyc.com", "resolved_ips": ["192.0.2.219"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28775,7 +28775,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "puvyxil.com", "resolved_ips": ["192.0.2.33"], "lookup_type": "A"},
+                "dns_details": {"domain": "puvyxil.com", "resolved_ips": ["192.0.2.33"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28797,7 +28797,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "pufygug.com", "resolved_ips": ["192.0.2.99"], "lookup_type": "A"},
+                "dns_details": {"domain": "pufygug.com", "resolved_ips": ["192.0.2.99"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28819,7 +28819,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vofymik.com", "resolved_ips": ["192.0.2.78"], "lookup_type": "A"},
+                "dns_details": {"domain": "vofymik.com", "resolved_ips": ["192.0.2.78"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28841,7 +28841,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gaqydeb.com", "resolved_ips": ["192.0.2.167"], "lookup_type": "A"},
+                "dns_details": {"domain": "gaqydeb.com", "resolved_ips": ["192.0.2.167"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28863,7 +28863,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qexyryl.com", "resolved_ips": ["192.0.2.167"], "lookup_type": "A"},
+                "dns_details": {"domain": "qexyryl.com", "resolved_ips": ["192.0.2.167"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28885,7 +28885,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "puzywel.com", "resolved_ips": ["192.0.2.34"], "lookup_type": "A"},
+                "dns_details": {"domain": "puzywel.com", "resolved_ips": ["192.0.2.34"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28907,7 +28907,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyxylux.com", "resolved_ips": ["192.0.2.212"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyxylux.com", "resolved_ips": ["192.0.2.212"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28929,7 +28929,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qeqysag.com", "resolved_ips": ["192.0.2.251"], "lookup_type": "A"},
+                "dns_details": {"domain": "qeqysag.com", "resolved_ips": ["192.0.2.251"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28951,7 +28951,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "purydyv.com", "resolved_ips": ["192.0.2.60"], "lookup_type": "A"},
+                "dns_details": {"domain": "purydyv.com", "resolved_ips": ["192.0.2.60"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28973,7 +28973,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qegyqaq.com", "resolved_ips": ["192.0.2.25"], "lookup_type": "A"},
+                "dns_details": {"domain": "qegyqaq.com", "resolved_ips": ["192.0.2.25"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -28995,7 +28995,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qegyhig.com", "resolved_ips": ["192.0.2.172"], "lookup_type": "A"},
+                "dns_details": {"domain": "qegyhig.com", "resolved_ips": ["192.0.2.172"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29017,7 +29017,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qeqyxov.com", "resolved_ips": ["192.0.2.172"], "lookup_type": "A"},
+                "dns_details": {"domain": "qeqyxov.com", "resolved_ips": ["192.0.2.172"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29039,7 +29039,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qetyvep.com", "resolved_ips": ["192.0.2.133"], "lookup_type": "A"},
+                "dns_details": {"domain": "qetyvep.com", "resolved_ips": ["192.0.2.133"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29061,7 +29061,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gahyhob.com", "resolved_ips": ["192.0.2.106"], "lookup_type": "A"},
+                "dns_details": {"domain": "gahyhob.com", "resolved_ips": ["192.0.2.106"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29083,7 +29083,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vojyjof.com", "resolved_ips": ["192.0.2.92"], "lookup_type": "A"},
+                "dns_details": {"domain": "vojyjof.com", "resolved_ips": ["192.0.2.92"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29105,7 +29105,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyxywer.com", "resolved_ips": ["192.0.2.92"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyxywer.com", "resolved_ips": ["192.0.2.92"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29127,7 +29127,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gaqycos.com", "resolved_ips": ["192.0.2.44"], "lookup_type": "A"},
+                "dns_details": {"domain": "gaqycos.com", "resolved_ips": ["192.0.2.44"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29149,7 +29149,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lygygin.com", "resolved_ips": ["192.0.2.82"], "lookup_type": "A"},
+                "dns_details": {"domain": "lygygin.com", "resolved_ips": ["192.0.2.82"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29171,7 +29171,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vowycac.com", "resolved_ips": ["192.0.2.13"], "lookup_type": "A"},
+                "dns_details": {"domain": "vowycac.com", "resolved_ips": ["192.0.2.13"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29193,7 +29193,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vofygum.com", "resolved_ips": ["192.0.2.45"], "lookup_type": "A"},
+                "dns_details": {"domain": "vofygum.com", "resolved_ips": ["192.0.2.45"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29215,7 +29215,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "volyqat.com", "resolved_ips": ["192.0.2.15"], "lookup_type": "A"},
+                "dns_details": {"domain": "volyqat.com", "resolved_ips": ["192.0.2.15"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29237,7 +29237,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "puvytuq.com", "resolved_ips": ["192.0.2.124"], "lookup_type": "A"},
+                "dns_details": {"domain": "puvytuq.com", "resolved_ips": ["192.0.2.124"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29259,7 +29259,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "gadyfuh.com", "resolved_ips": ["192.0.2.240"], "lookup_type": "A"},
+                "dns_details": {"domain": "gadyfuh.com", "resolved_ips": ["192.0.2.240"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29281,7 +29281,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lyryvex.com", "resolved_ips": ["192.0.2.74"], "lookup_type": "A"},
+                "dns_details": {"domain": "lyryvex.com", "resolved_ips": ["192.0.2.74"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29303,7 +29303,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lymyxid.com", "resolved_ips": ["192.0.2.238"], "lookup_type": "A"},
+                "dns_details": {"domain": "lymyxid.com", "resolved_ips": ["192.0.2.238"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29325,7 +29325,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qekyqop.com", "resolved_ips": ["192.0.2.232"], "lookup_type": "A"},
+                "dns_details": {"domain": "qekyqop.com", "resolved_ips": ["192.0.2.232"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29347,7 +29347,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "qedyfyq.com", "resolved_ips": ["192.0.2.123"], "lookup_type": "A"},
+                "dns_details": {"domain": "qedyfyq.com", "resolved_ips": ["192.0.2.123"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29369,7 +29369,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "vonyzuf.com", "resolved_ips": ["192.0.2.192"], "lookup_type": "A"},
+                "dns_details": {"domain": "vonyzuf.com", "resolved_ips": ["192.0.2.192"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29391,7 +29391,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "galyqaz.com", "resolved_ips": ["192.0.2.58"], "lookup_type": "A"},
+                "dns_details": {"domain": "galyqaz.com", "resolved_ips": ["192.0.2.58"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -29413,7 +29413,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "lysyfyj.com", "resolved_ips": ["192.0.2.84"], "lookup_type": "A"},
+                "dns_details": {"domain": "lysyfyj.com", "resolved_ips": ["192.0.2.84"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
         ]
@@ -29622,7 +29622,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "microsoft.com", "resolved_ips": ["192.0.2.126"], "lookup_type": "A"},
+                "dns_details": {"domain": "microsoft.com", "resolved_ips": ["192.0.2.126"], "resolved_domains": None, "lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
@@ -31495,7 +31495,7 @@ class TestCapeResult:
         )
         default_so.add_process(p)
 
-        dns = default_so.create_network_dns(domain="blah", resolved_ips=["1.1.1.1"], lookup_type="A")
+        dns = default_so.create_network_dns(domain="blah", resolved_ips=["1.1.1.1"], resolved_domains=None, lookup_type="A")
         default_so.add_network_dns(dns)
 
         nc_dns = default_so.create_network_connection(
