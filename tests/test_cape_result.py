@@ -1922,7 +1922,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "steamcommunity.com", "resolved_ips": ["192.0.2.214"], "lookup_type": "A"},
+                "dns_details": {"domain": "steamcommunity.com", "resolved_ips": ["192.0.2.214"], "resolved_domains": None ,"lookup_type": "A"},
                 "connection_type": "dns",
             },
             {
