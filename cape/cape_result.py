@@ -41,7 +41,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     extract_iocs_from_text_blob,
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
-from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
+from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
 from assemblyline_service_utilities.common.sysmon_helper import (
     UNKNOWN_PROCESS,
     convert_sysmon_network,
@@ -1037,6 +1037,8 @@ def process_network(
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
     for request, attempts in dns_requests.items():
+        if contains_safelisted_value(request, safelist)
+            continue
         for attempt in attempts:
             relevant_answer = []
             if isinstance(attempt["answers"], List):
