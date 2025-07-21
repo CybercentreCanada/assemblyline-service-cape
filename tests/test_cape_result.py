@@ -1944,7 +1944,7 @@ class TestCapeResult:
                 "source_ip": None,
                 "source_port": None,
                 "http_details": None,
-                "dns_details": {"domain": "t.me", "resolved_ips": ["192.0.2.164"], "lookup_type": "A"},
+                "dns_details": {"domain": "t.me", "resolved_ips": ["192.0.2.164"], "resolved_domains: None, ""lookup_type": "A"},
                 "connection_type": "dns",
             },
         ]
