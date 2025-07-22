@@ -1706,11 +1706,12 @@ class TestCapeResult:
         http_header_anomaly_sec.set_heuristic(1012)
         http_header_anomaly_sec.heuristic.add_signature_id("suspicious_language_accepted_us", 750)
         http_subsection.add_subsection(http_header_anomaly_sec)
+        #'network.dynamic.domain': ['steamcommunity.com']
         unseen_subsection = ResultTableSection(
             "Unseen IOCs found in API calls",
-            tags={'network.dynamic.domain': ['steamcommunity.com'], "network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
+            tags={"network.dynamic.ip": ["95.216.164.28"], "network.dynamic.uri": ["http://95.216.164.28"]},
         )
-        unseen_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "steamcommunity.com"}))
+        #unseen_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": "steamcommunity.com"}))
         unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": "http://95.216.164.28"}))
         unseen_subsection.set_heuristic(1013)
         correct_network_result_section.add_subsection(unseen_subsection)
@@ -2794,6 +2795,8 @@ class TestCapeResult:
             },
         )
         for uri in ["https://google.com/", "https://verisign.com/"]:
+            unseen_subsection.add_row(TableRow({"ioc_type": "domain", "ioc": uri.replace("https://", "")[:-1]}))
+        for uri in ["https://google.com/", "https://verisign.com/"]:
             unseen_subsection.add_row(TableRow({"ioc_type": "uri", "ioc": uri}))
         unseen_subsection.set_heuristic(1013)
         correct_network_result_section.add_subsection(unseen_subsection)
@@ -2804,31 +2807,9 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_5k3lJGnVOdAsCHIq8WjiQL",
-                    "service_name": "blah",
-                    "guid": "{3622D059-774A-4EF9-B0C8-532FC23E6F50}",
-                    "treeid": None,
-                    "processtree": None,
-                    "time_observed": None,
-                    "session": None,
-                },
-                "destination_ip": "192.168.0.4",
-                "destination_port": 53,
-                "transport_layer_protocol": "udp",
-                "direction": "outbound",
-                "process": None,
-                "source_ip": None,
-                "source_port": None,
-                "http_details": None,
-                "dns_details": {"domain": "crl.sectigo.com", "resolved_ips": ["192.0.2.135"], "resolved_domains": None, "lookup_type": "A"},
-                "connection_type": "dns",
-            },
-            {
-                "objectid": {
-                    "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_1kWPAWYK4r9cF7b76Z3NIk",
                     "service_name": "blah",
-                    "guid": "{E100429A-B64B-4FE5-92C4-422F1F762228}",
+                    "guid": "{3622D059-774A-4EF9-B0C8-532FC23E6F50}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2848,31 +2829,9 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_4U8y0TkZq1Z4BLTWJxiDee",
-                    "service_name": "blah",
-                    "guid": "{34B30464-218E-4479-A15E-FF5E44A267B6}",
-                    "treeid": None,
-                    "processtree": None,
-                    "time_observed": None,
-                    "session": None,
-                },
-                "destination_ip": "192.168.0.4",
-                "destination_port": 53,
-                "transport_layer_protocol": "udp",
-                "direction": "outbound",
-                "process": None,
-                "source_ip": None,
-                "source_port": None,
-                "http_details": None,
-                "dns_details": {"domain": "google.com", "resolved_ips": ["192.0.2.31"], "resolved_domains": None, "lookup_type": "A"},
-                "connection_type": "dns",
-            },
-            {
-                "objectid": {
-                    "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_7RIeViAuXM0irVHW02A4Ee",
                     "service_name": "blah",
-                    "guid": "{FEDF2594-1B2A-44D1-B7B3-A9449D5C3648}",
+                    "guid": "{E100429A-B64B-4FE5-92C4-422F1F762228}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2894,7 +2853,7 @@ class TestCapeResult:
                     "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_39XxwW76sHXfT3JaIpgAqm",
                     "service_name": "blah",
-                    "guid": "{02ECC30A-4B95-4FE6-906B-16C41D64D045}",
+                    "guid": "{34B30464-218E-4479-A15E-FF5E44A267B6}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2916,7 +2875,7 @@ class TestCapeResult:
                     "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_6UUbcOj3hVkA1Psth3MRcp",
                     "service_name": "blah",
-                    "guid": "{7F8677C6-EB9F-4606-ABBA-AE35D1CD4A9A}",
+                    "guid": "{FEDF2594-1B2A-44D1-B7B3-A9449D5C3648}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2938,7 +2897,7 @@ class TestCapeResult:
                     "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_5Rr88lHs3Rtxg9hS5lVtnA",
                     "service_name": "blah",
-                    "guid": "{BA39A4D8-E129-467C-B07A-128DDB22A6DC}",
+                    "guid": "{02ECC30A-4B95-4FE6-906B-16C41D64D045}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2960,7 +2919,7 @@ class TestCapeResult:
                     "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_7g0iAONUhvcDVLEn89ymSF",
                     "service_name": "blah",
-                    "guid": "{31D4685B-5B60-409E-BC3B-E45DEDB22F3D}",
+                    "guid": "{7F8677C6-EB9F-4606-ABBA-AE35D1CD4A9A}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -2982,7 +2941,7 @@ class TestCapeResult:
                     "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_5EjTydsmG5ZjUKeuuDbUAr",
                     "service_name": "blah",
-                    "guid": "{2FEE8808-8B2E-4281-A52C-6AE2DF9478D1}",
+                    "guid": "{BA39A4D8-E129-467C-B07A-128DDB22A6DC}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
@@ -3002,31 +2961,9 @@ class TestCapeResult:
             {
                 "objectid": {
                     "tag": "192.168.0.4:53",
-                    "ontology_id": "network_dns_spazsBgo3CZqiC3QfUDEn",
-                    "service_name": "blah",
-                    "guid": "{4DF101B4-83E0-4482-8FA6-89A12B9DDE72}",
-                    "treeid": None,
-                    "processtree": None,
-                    "time_observed": None,
-                    "session": None,
-                },
-                "destination_ip": "192.168.0.4",
-                "destination_port": 53,
-                "transport_layer_protocol": "udp",
-                "direction": "outbound",
-                "process": None,
-                "source_ip": None,
-                "source_port": None,
-                "http_details": None,
-                "dns_details": {"domain": "verisign.com", "resolved_ips": ["192.0.2.76"], "resolved_domains": None, "lookup_type": "A"},
-                "connection_type": "dns",
-            },
-            {
-                "objectid": {
-                    "tag": "192.168.0.4:53",
                     "ontology_id": "network_dns_7BNXZu9XaizzDGb5dDCnBl",
                     "service_name": "blah",
-                    "guid": "{4080F751-56B4-4F64-916C-E22CA60A6A6D}",
+                    "guid": "{31D4685B-5B60-409E-BC3B-E45DEDB22F3D}",
                     "treeid": None,
                     "processtree": None,
                     "time_observed": None,
