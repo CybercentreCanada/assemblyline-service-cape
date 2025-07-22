@@ -1037,7 +1037,7 @@ def process_network(
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
     for request, attempts in dns_requests.items():
-        if (request, safelist):
+        if contains_safelisted_value(request, safelist):
             continue
         for attempt in attempts:
             relevant_answer = []
