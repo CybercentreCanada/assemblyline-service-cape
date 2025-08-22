@@ -21,7 +21,7 @@ from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms
 from assemblyline.common.net import is_valid_ip
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
@@ -215,6 +215,7 @@ SIGNATURES_SECTION_TITLE = "Signatures"
 ENCRYPTED_BUFFER_LIMIT = 25
 SYSTEM_PROCESS_ID = 4
 MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
+HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
 YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
@@ -2934,6 +2935,13 @@ def _tag_mark_values(
         if uses_https_proxy_in_sandbox:
             # Let's try to avoid misparsed data in the signatures
             value = convert_url_to_https(method="CONNECT", url=value)
+        if key.lower() in ["request","suspicious_request","http_request"]:
+            try:
+                value = search(HTTP_REQUEST_REGEX, value).group(1)
+            except IndexError:
+                return
+            except AttributeError:
+                pass
         if add_tag(sig_res, "network.dynamic.uri", value) and attributes:
             # Determine which attribute is to be assigned the uri
             for attribute in attributes:
