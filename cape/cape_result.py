@@ -577,6 +577,8 @@ def convert_cape_processes(
     :param ontres: The Ontology Results class object
     :return: None
     """
+    if len(ontres.sandboxes) == 0:
+        return
     session = ontres.sandboxes[-1].objectid.session
     for item in cape_processes:
         process_path = item.get("module_path")
