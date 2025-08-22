@@ -406,7 +406,7 @@ class TestCapeResult:
     def test_convert_cape_processes(processes, process_map, correct_event, mocker):
         safelist = {}
         so = OntologyResults(service_name="CAPE")
-         sandbox = so.create_sandbox(
+        sandbox = so.create_sandbox(
             objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
             sandbox_name="CAPE",
         )
