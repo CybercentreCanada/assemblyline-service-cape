@@ -2299,6 +2299,18 @@ class CAPE(ServiceBase):
             (report_list, "HollowsHunter report (json)", False),
             (dump_list, "Memory Dump", True),
         ]
+        if any("hh_hollowshunter_hollows.log" in obj_path for obj_path in zip_obj.namelist()): 
+            trace_path = os.path.join(task_dir, path)
+            trace_file_name = f"{task_id}_hollows.log"
+            zip_obj.extract(obj_path, path=task_dir)
+            trace_artifact = {
+                    "name": trace_file_name,
+                    "path": trace_path,
+                    "description": "HollowsHunter trace",
+                    "to_be_extracted": False,
+                    }
+                    self.artifact_list.append(trace_artifact)
+                    self.log.debug(f"Adding HollowsHunter file {trace_file_name} for task {task_id}")
         for hh_tuple in hh_tuples:
             paths, desc, to_be_extracted = hh_tuple
             for path in paths:
