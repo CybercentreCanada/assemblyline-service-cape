@@ -1,6 +1,6 @@
 assemblyline
 assemblyline-v4-service
-assemblyline-service-utilities >= 4.6.0.6
+assemblyline-service-utilities >= 4.6.0.7
 pefile
 retrying
 SetSimilaritySearch
