@@ -2308,9 +2308,9 @@ class CAPE(ServiceBase):
                     "path": trace_path,
                     "description": "HollowsHunter trace",
                     "to_be_extracted": False,
-                    }
-                    self.artifact_list.append(trace_artifact)
-                    self.log.debug(f"Adding HollowsHunter file {trace_file_name} for task {task_id}")
+            }
+            self.artifact_list.append(trace_artifact)
+            self.log.debug(f"Adding HollowsHunter file {trace_file_name} for task {task_id}")
         for hh_tuple in hh_tuples:
             paths, desc, to_be_extracted = hh_tuple
             for path in paths:
