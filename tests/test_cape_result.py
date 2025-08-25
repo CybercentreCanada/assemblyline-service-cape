@@ -406,7 +406,11 @@ class TestCapeResult:
     def test_convert_cape_processes(processes, process_map, correct_event, mocker):
         safelist = {}
         so = OntologyResults(service_name="CAPE")
-        mocker.patch.object(so, "sandboxes", return_value="blah")
+        sandbox = so.create_sandbox(
+            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
+            sandbox_name="CAPE",
+        )
+        so.add_sandbox(sandbox)
         convert_cape_processes(processes, process_map, safelist, so)
         if correct_event:
             proc_as_prims = so.get_processes()[0].as_primitives()
