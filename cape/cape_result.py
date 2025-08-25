@@ -41,7 +41,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     extract_iocs_from_text_blob,
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
-from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted
+from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
 from assemblyline_service_utilities.common.sysmon_helper import (
     UNKNOWN_PROCESS,
     convert_sysmon_network,
@@ -1040,6 +1040,8 @@ def process_network(
             if not _create_network_connection_for_network_flow(network_flow, session, ontres):
                 continue
     for request, attempts in dns_requests.items():
+        if contains_safelisted_value(request, safelist):
+            continue
         for attempt in attempts:
             relevant_answer = []
             if isinstance(attempt["answers"], List):
@@ -1052,87 +1054,86 @@ def process_network(
                 if answer and answer.isdigit():
                     continue
                 relevant_answer.append(answer)
-            if not request or not attempt.get("type"):
-                continue
-            if len(relevant_answer) == 0:
-                relevant_answer.append("")
-            domain_answer = []
-            ip_answer = []
-            for dns_answer in relevant_answer:
-                if not any(c.isalpha() for c in dns_answer) :
-                    ip_answer.append(dns_answer)    
-                elif any(c.isalpha() for c in dns_answer):
-                    domain_answer.append(dns_answer)
-            if len(domain_answer) > 0 and len(ip_answer) > 0:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=ip_answer, resolved_domains=domain_answer, lookup_type=attempt.get("type")
-                )
-            elif len(domain_answer) > 0:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=None, resolved_domains=domain_answer, lookup_type=attempt.get("type")
-                )
-            elif len(ip_answer) > 0:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=ip_answer, resolved_domains=None, lookup_type=attempt.get("type")
-                )
-            else:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=relevant_answer, resolved_domains=None, lookup_type=attempt.get("type")
-                )
-                
+                if not request or not attempt.get("type"):
+                    continue
+                if len(relevant_answer) == 0:
+                    relevant_answer.append("")
+                domain_answer = []
+                ip_answer = []
+                for dns_answer in relevant_answer:
+                    if not any(c.isalpha() for c in dns_answer) :
+                        ip_answer.append(dns_answer)    
+                    elif any(c.isalpha() for c in dns_answer):
+                        domain_answer.append(dns_answer)
+                if len(domain_answer) > 0 and len(ip_answer) > 0:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=ip_answer, resolved_domains=domain_answer, lookup_type=attempt.get("type")
+                    )
+                elif len(domain_answer) > 0:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=None, resolved_domains=domain_answer, lookup_type=attempt.get("type")
+                    )
+                elif len(ip_answer) > 0:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=ip_answer, resolved_domains=None, lookup_type=attempt.get("type")
+                    )
+                else:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=relevant_answer, resolved_domains=None, lookup_type=attempt.get("type")
+                    )
 
-            destination_ip = dns_servers[0] if dns_servers else None
-            destination_port = 53
-            transport_layer_protocol = NetworkConnection.UDP
+                destination_ip = dns_servers[0] if dns_servers else None
+                destination_port = 53
+                transport_layer_protocol = NetworkConnection.UDP
 
-            nc_oid = NetworkConnectionModel.get_oid(
-                {
-                    "destination_ip": destination_ip,
-                    "destination_port": destination_port,
-                    "transport_layer_protocol": transport_layer_protocol,
-                    "connection_type": NetworkConnection.DNS,
-                    "dns_details": {"domain": request},
-                    "lookup_type": attempt.get("type"),
-                }
-            )
-            objectid = ontres.create_objectid(
-                tag=NetworkConnectionModel.get_tag(
+                nc_oid = NetworkConnectionModel.get_oid(
                     {
                         "destination_ip": destination_ip,
                         "destination_port": destination_port,
+                        "transport_layer_protocol": transport_layer_protocol,
+                        "connection_type": NetworkConnection.DNS,
+                        "dns_details": {"domain": request},
+                        "lookup_type": attempt.get("type"),
                     }
-                ),
-                ontology_id=nc_oid,
-                session=session,
-                time_observed=attempt["time"],
-            )
-            objectid.assign_guid()
-            try:
-                nc = ontres.create_network_connection(
-                    objectid=objectid,
-                    destination_ip=destination_ip,
-                    destination_port=destination_port,
-                    transport_layer_protocol=transport_layer_protocol,
-                    direction=NetworkConnection.OUTBOUND,
-                    dns_details=nd,
-                    connection_type=NetworkConnection.DNS,
                 )
-            except ValueError as e:
-                log.warning(
-                    f"{e}. The required values passed were:\n"
-                    f"objectid={objectid}\n"
-                    f"destination_ip={destination_ip}\n"
-                    f"destination_port={destination_port}\n"
-                    f"transport_layer_protocol={transport_layer_protocol}"
+                objectid = ontres.create_objectid(
+                    tag=NetworkConnectionModel.get_tag(
+                        {
+                            "destination_ip": destination_ip,
+                            "destination_port": destination_port,
+                        }
+                    ),
+                    ontology_id=nc_oid,
+                    session=session,
+                    time_observed=attempt["time"],
                 )
-                continue
-            p = ontres.get_process_by_guid(attempt["guid"])
-            if not p:
-                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
-            if p:
-                nc.set_process(p)
-            ontres.add_network_connection(nc)
-            ontres.add_network_dns(nd)
+                objectid.assign_guid()
+                try:
+                    nc = ontres.create_network_connection(
+                        objectid=objectid,
+                        destination_ip=destination_ip,
+                        destination_port=destination_port,
+                        transport_layer_protocol=transport_layer_protocol,
+                        direction=NetworkConnection.OUTBOUND,
+                        dns_details=nd,
+                        connection_type=NetworkConnection.DNS,
+                    )
+                except ValueError as e:
+                    log.warning(
+                        f"{e}. The required values passed were:\n"
+                        f"objectid={objectid}\n"
+                        f"destination_ip={destination_ip}\n"
+                        f"destination_port={destination_port}\n"
+                        f"transport_layer_protocol={transport_layer_protocol}"
+                    )
+                    continue
+                p = ontres.get_process_by_guid(attempt["guid"])
+                if not p:
+                    p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
+                if p:
+                    nc.set_process(p)
+                ontres.add_network_connection(nc)
+                ontres.add_network_dns(nd)
 
     if dns_res_sec and len(dns_res_sec.tags.get("network.dynamic.domain", [])) > 0:
         network_res.add_subsection(dns_res_sec)
