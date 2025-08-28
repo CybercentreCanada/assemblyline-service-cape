@@ -442,6 +442,8 @@ def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ont
 
 
 def process_machine_info(machine_info: Dict[str, Any], ontres: OntologyResults):
+    if len(ontres.sandboxes) == 0:
+        return
     sandbox = ontres.sandboxes[-1]
     machine_name = machine_info["Name"]
     sandbox.update_machine_metadata(
@@ -680,7 +682,8 @@ def process_signatures(
     """
     if len(sigs) <= 0:
         return False
-
+    if len(ontres.sandboxes) == 0:
+        return
     session = ontres.sandboxes[-1].objectid.session
     # Flag used to indicate if process_martian signature should be used in process_behaviour
     is_process_martian = False
@@ -995,6 +998,8 @@ def process_network(
     :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
     :return: None
     """
+    if len(ontres.sandboxes) == 0:
+        return
     session = ontres.sandboxes[-1].objectid.session
     network_res = ResultSection("Network Activity")
 
@@ -1808,6 +1813,8 @@ def _create_network_connection_for_http_call(
     :param ontres: The Ontology Results class object
     :return: The new NetworkConnection object
     """
+    if len(ontres.sandboxes) == 0:
+        return
     session = ontres.sandboxes[-1].objectid.session
     source_ip = http_call.get("src")
     source_port = http_call.get("sport")
