@@ -167,7 +167,7 @@ submission_params:
     name: package
     type: list
     value: "None"
-    list: ["None", "Ie4uinit", "access", "applet", "archive", "autoit", "batch", "chm", "chrome", "chromium", "chromium_ext", "cpl", "crx", "dll", "doc", "doc2016", "doc_antivm", "edge", "eml", "exe", "firefox", "firefox_ext", "generic", "hta", "hwp", "ichitaro", "ie", "inf", "inp", "jar", "js", "js_antivm", "lnk", "mht", "msbuild", "msg", "msi", "msix", "nsis", "ollydbg", "one", "pdf", "ppt", "ppt2016", "ps1", "pub", "pub2016", "python", "rar", "rdp", "reg", "regsvr", "sct", "service", "service_dll", "shellcode", "shellcode_x64", "swf", "tor_browser", "vbejse", "vbs", "wsf", "xls", "xls2016", "xps", "xslt", "zip", "zip_compound"]
+    list: ["None", "Ie4uinit", "access", "applet", "archive", "autoit", "batch", "chm", "chrome", "chromium", "chromium_ext", "cpl", "crx", "dll", "doc", "doc2016", "doc_antivm", "edge", "eml", "exe", "firefox", "firefox_ext", "generic", "hta", "hwp", "ichitaro", "ie", "inf", "inp", "jar", "js", "js_antivm", "lnk", "mht", "msbuild", "msg", "msi", "msix", "nodejs", "nsis", "ollydbg", "one", "pdf", "ppt", "ppt2016", "ps1", "pub", "pub2016", "python", "rar", "rdp", "reg", "regsvr", "sct", "service", "service_dll", "shellcode", "shellcode_x64", "swf", "tor_browser", "vbejse", "vbs", "wsf", "xls", "xls2016", "xps", "xslt", "zip", "zip_compound"]
 
   - default: ""
     name: specific_machine
