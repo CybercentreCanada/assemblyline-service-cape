@@ -93,7 +93,7 @@ LINUX_PLATFORM = "linux"
 
 # TODO: RECOGNIZED_TYPES does not exist anymore and there a no static ways we can generate this because it can be
 #       modified on the fly by administrators. I will fake a RECOGNIZED_TYPES variable but this code should be removed
-#       and the checks to determine the architecture should be self contained in the _determine_relevant_images function
+#       and the checks to  the architecture should be self contained in the __relevant_images function
 RECOGNIZED_TYPES = set(trusted_mimes.values())
 RECOGNIZED_TYPES = RECOGNIZED_TYPES.union(set([x["al_type"] for x in magic_patterns]))
 
@@ -2627,7 +2627,7 @@ class CAPE(ServiceBase):
         # This method will be used to determine the host to use for a submission
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
-        min_queue_size = maxsize
+        max_availabilty_size = 0
 
         success = False
         while not success:
@@ -2678,10 +2678,10 @@ class CAPE(ServiceBase):
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
                     elif "data" in resp_json and resp_json["data"]:
-                        queue_size = resp_json["data"]["tasks"]["pending"]
-                        host_details.append({"host": host, "queue_size": queue_size})
-                        if queue_size < min_queue_size:
-                            min_queue_size = queue_size
+                        availabilty_size = resp_json["data"]["machines"]["available"]
+                        host_details.append({"host": host, "availability_size": availability_size})
+                        if availability_size > max_availability_size:
+                            max_availability_size = availability_size
                         success = True
                     else:
                         self.log.error(
@@ -2693,12 +2693,12 @@ class CAPE(ServiceBase):
                             sleep(5)
                         continue
 
-        # If the minimum queue size is shared by multiple hosts, choose a random one.
-        min_queue_hosts = [
-            host_detail["host"] for host_detail in host_details if host_detail["queue_size"] == min_queue_size
+        # If the maximum availability size is shared by multiple hosts, choose a random one.
+        max_availability_hosts = [
+            host_detail["host"] for host_detail in host_details if host_detail["availability_size"] == max_availability_size
         ]
-        if len(min_queue_hosts) > 0:
-            return choice(min_queue_hosts)
+        if len(max_availability_hosts) > 0:
+            return choice(max_availability_hosts)
         else:
             if not have_raised_error:
                 parent_section.set_heuristic(404)
