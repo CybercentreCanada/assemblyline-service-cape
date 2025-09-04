@@ -2627,7 +2627,7 @@ class CAPE(ServiceBase):
         # This method will be used to determine the host to use for a submission
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
-        max_availabilty_size = 0
+        max_availability_size = 0
 
         success = False
         while not success:
