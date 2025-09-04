@@ -2678,7 +2678,7 @@ class CAPE(ServiceBase):
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
                     elif "data" in resp_json and resp_json["data"]:
-                        availabilty_size = resp_json["data"]["machines"]["available"]
+                        availability_size = resp_json["data"]["machines"]["available"]
                         host_details.append({"host": host, "availability_size": availability_size})
                         if availability_size > max_availability_size:
                             max_availability_size = availability_size
