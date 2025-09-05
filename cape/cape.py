@@ -2627,7 +2627,9 @@ class CAPE(ServiceBase):
         # This method will be used to determine the host to use for a submission
         # Key aspect that we are using to make a decision is the # of pending tasks, aka the queue size
         host_details: List[Dict[str, Any], int] = []
+        min_queue_size = maxsize
         max_availability_size = 0
+        round_robin_strategy = self.config.get("round_robin_type", "default")
 
         success = False
         while not success:
@@ -2678,10 +2680,16 @@ class CAPE(ServiceBase):
                             "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
                         )
                     elif "data" in resp_json and resp_json["data"]:
-                        availability_size = resp_json["data"]["machines"]["available"]
-                        host_details.append({"host": host, "availability_size": availability_size})
-                        if availability_size > max_availability_size:
-                            max_availability_size = availability_size
+                        if round_robin_strategy == "available_machines":
+                            availability_size = resp_json["data"]["machines"]["available"]
+                            host_details.append({"host": host, "availability_size": availability_size})
+                            if availability_size > max_availability_size:
+                                max_availability_size = availability_size
+                        else:
+                            queue_size = resp_json["data"]["tasks"]["pending"]
+                            host_details.append({"host": host, "queue_size": queue_size})
+                            if queue_size < min_queue_size:
+                                min_queue_size = queue_size
                         success = True
                     else:
                         self.log.error(
@@ -2694,18 +2702,33 @@ class CAPE(ServiceBase):
                         continue
 
         # If the maximum availability size is shared by multiple hosts, choose a random one.
-        max_availability_hosts = [
-            host_detail["host"] for host_detail in host_details if host_detail["availability_size"] == max_availability_size
-        ]
-        if len(max_availability_hosts) > 0:
-            return choice(max_availability_hosts)
+        if round_robin_strategy == "available_machines":
+            max_availability_hosts = [
+                host_detail["host"] for host_detail in host_details if host_detail["availability_size"] == max_availability_size
+            ]
+            if len(max_availability_hosts) > 0:
+                return choice(max_availability_hosts)
+            else:
+                if not have_raised_error:
+                    parent_section.set_heuristic(404)
+                    have_raised_error = True
+                if parent_section.heuristic is not None:
+                    parent_section.heuristic.add_signature_id("No machine available", 0)
+                raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
         else:
-            if not have_raised_error:
-                parent_section.set_heuristic(404)
-                have_raised_error = True
-            if parent_section.heuristic is not None:
-                parent_section.heuristic.add_signature_id("No machine available", 0)
-            raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
+             # If the minimum queue size is shared by multiple hosts, choose a random one.
+            min_queue_hosts = [
+                host_detail["host"] for host_detail in host_details if host_detail["queue_size"] == min_queue_size
+            ]
+            if len(min_queue_hosts) > 0:
+                return choice(min_queue_hosts)
+            else:
+                if not have_raised_error:
+                    parent_section.set_heuristic(404)
+                    have_raised_error = True
+                if parent_section.heuristic is not None:
+                    parent_section.heuristic.add_signature_id("No machine available", 0)
+                raise CapeVMBusyException(f"No host available for submission between {[host['ip'] for host in hosts]}")
 
     def _is_invalid_analysis_timeout(self, parent_section: ResultSection, reboot: bool = False) -> bool:
         """
