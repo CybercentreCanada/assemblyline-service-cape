@@ -2534,7 +2534,7 @@ class TestCapeMain:
         host_status_url_5 = f"http://5.5.5.5:5555/apiv2/{CAPE_API_QUERY_HOST}"
         host_status_url_6 = f"http://6.6.6.6:6666/apiv2/{CAPE_API_QUERY_HOST}"
 
-        correct_rest_response = {"data": {"machines": {"available": 1}}}
+        correct_rest_response = {"data": {"tasks": {"pending": 1}}}
         errors_rest_response = {"error": True, "error_value": "blah"}
         weird_rest_response = {}
         parent_section = ResultSection("blah")
