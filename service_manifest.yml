@@ -103,6 +103,10 @@ config:
 
   # The period/interval (in hours) in which signatures/YARA rules/configuration extractors are updated on the CAPE nest
   update_period: 24
+  # Round robin strategy used to prioritize machines for task distribution in multi server setup. 
+  # Valid options are "default" which represent the number of pending tasks and "available_machines".
+  # In a single machine setup keep to default.
+  round_robin_type: "default"
 
 submission_params:
   - default: 0
