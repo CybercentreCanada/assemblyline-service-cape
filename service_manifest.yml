@@ -241,14 +241,14 @@ heuristics:
     description: Attempts to detect if it is being debugged.
 
   - heur_id: 5
-    attack_id: T1497
+    attack_id: [T1497]
     name: Anti-emulation
     score: 0
     filetype: "*"
     description: Detects the presence of an emulator.
 
   - heur_id: 6
-    attack_id: T1497
+    attack_id: [T1497]
     name: Anti-sandbox
     score: 0
     filetype: "*"
@@ -292,14 +292,14 @@ heuristics:
     description: Manipulates browser-settings in a suspicious way.
 
   - heur_id: 13
-    attack_id: T1562.001
+    attack_id: [T1562.001]
     name: Bypass
     score: 0
     filetype: "*"
     description: Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)
 
   - heur_id: 14
-    attack_id: T1071
+    attack_id: [T1071]
     name: C2
     score: 0
     filetype: "*"
@@ -312,7 +312,7 @@ heuristics:
     description: Manipulates browser settings to allow for insecure clicking.
 
   - heur_id: 16
-    attack_id: T1059
+    attack_id: [T1059]
     name: Command
     score: 0
     filetype: "*"
@@ -393,7 +393,7 @@ heuristics:
 
   - heur_id: 29
     name: Exploit Kit
-    attack_id: T1059
+    attack_id: [T1059]
     score: 0
     filetype: "*"
     description: Programs designed to crack or break computer and network security measures.
@@ -412,7 +412,7 @@ heuristics:
     description: Collects and disseminates information such as login details, usernames, passwords, etc.
 
   - heur_id: 32
-    attack_id: T1055
+    attack_id: [T1055]
     name: Injection
     score: 0
     max_score: 1000
@@ -442,7 +442,7 @@ heuristics:
     description: Download and execute additional payloads on compromised machines.
 
   - heur_id: 36
-    attack_id: T1112
+    attack_id: [T1112]
     name: Locker
     score: 0
     filetype: "*"
@@ -485,7 +485,7 @@ heuristics:
     description: Makes API calls not consistent with expected/standard behaviour.
 
   - heur_id: 43
-    attack_id: T1027.002
+    attack_id: [T1027.002]
     name: Packer
     score: 0
     filetype: "*"
@@ -505,21 +505,21 @@ heuristics:
     description: Techniques were observed that attempted to obtain information from the user.
 
   - heur_id: 46
-    attack_id: T1486
+    attack_id: [T1486]
     name: Ransomware
     score: 0
     filetype: "*"
     description: Designed to block access to a system until a sum of money is paid.
 
   - heur_id: 47
-    attack_id: T1219
+    attack_id: [T1219]
     name: Rat
     score: 0
     filetype: "*"
     description: Designed to provide the capability of covert surveillance and/or unauthorized access to a target.
 
   - heur_id: 48
-    attack_id: T1014
+    attack_id: [T1014]
     name: Rootkit
     score: 0
     filetype: "*"
