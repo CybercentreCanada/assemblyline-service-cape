@@ -220,7 +220,7 @@ heuristics:
     description: Adds or manipulates an administrative user account.
 
   - heur_id: 2
-    attack_id: T1518.001
+    attack_id: [T1518.001]
     name: Anti-analysis
     score: 0
     filetype: "*"
