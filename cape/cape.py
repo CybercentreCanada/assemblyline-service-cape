@@ -1505,6 +1505,9 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
+        routes = self._safely_get_param("routing")
+        if route not in routes:
+            route = "inetsim"
         password = self.request.get_param("password")
 
         if "dll" in self.request.file_type:
@@ -2299,7 +2302,7 @@ class CAPE(ServiceBase):
             (report_list, "HollowsHunter report (json)", False),
             (dump_list, "Memory Dump", True),
         ]
-        if any("hollowshunter/hh_hollowshunter_hollows.log" in obj_path for obj_path in zip_obj.namelist()): 
+        if any("hollowshunter/hh_hollowshunter_hollows.log" in obj_path for obj_path in zip_obj.namelist()):
             trace_path = os.path.join(task_dir, "hollowshunter", "hh_hollowshunter_hollows.log")
             trace_file_name = f"{task_id}_hollows.log"
             zip_obj.extract("hollowshunter/hh_hollowshunter_hollows.log", path=task_dir)
@@ -2444,7 +2447,7 @@ class CAPE(ServiceBase):
             platform = WINDOWS_IMAGE_PREFIX
             arch = x64_IMAGE_SUFFIX
         if multi_routing:
-            if routing == INETSIM.lower(): 
+            if routing == INETSIM.lower():
                 conn = OFFLINE_IMAGE_PREFIX
             elif routing == INTERNET.lower():
                 conn = ONLINE_IMAGE_PREFIX
