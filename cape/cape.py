@@ -90,6 +90,7 @@ NO_PLATFORM = "none"
 WINDOWS_PLATFORM = "windows"
 LINUX_PLATFORM = "linux"
 
+ROUTING_LIST = ["none"]
 
 # TODO: RECOGNIZED_TYPES does not exist anymore and there a no static ways we can generate this because it can be
 #       modified on the fly by administrators. I will fake a RECOGNIZED_TYPES variable but this code should be removed
@@ -252,6 +253,7 @@ class CAPE(ServiceBase):
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
         self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
+        self.routes = self.config.get("routing_list", ROUTING_LIST)
 
         try:
             self.safelist = self.get_api_interface().get_safelist()
@@ -1505,8 +1507,7 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
-        routes = self._safely_get_param("routing")
-        if route not in routes:
+        if route not in self.routes:
             route = "inetsim"
         password = self.request.get_param("password")
 
