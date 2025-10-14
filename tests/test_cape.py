@@ -435,6 +435,7 @@ class TestCapeMain:
         assert cape_class_instance.artifact_list is None
         assert cape_class_instance.hosts == []
         assert cape_class_instance.routing == ""
+        assert cape_class_instance.routes == []
         assert cape_class_instance.safelist == {}
         # assert cape_class_instance.identify == ""
         assert cape_class_instance.retry_on_no_machine is False
@@ -454,6 +455,7 @@ class TestCapeMain:
         assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
         assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
         assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
+        assert cape_class_instance.routes == cape_class_instance.config.get("routing_list", ROUTING_LIST)
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)

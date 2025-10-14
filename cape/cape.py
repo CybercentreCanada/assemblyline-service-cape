@@ -228,6 +228,7 @@ class CAPE(ServiceBase):
         self.artifact_list: Optional[List[Dict[str, str]]] = None
         self.hosts: List[Dict[str, Any]] = []
         self.routing = ""
+        self.routes = []
         self.safelist: Dict[str, Dict[str, List[str]]] = {}
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
