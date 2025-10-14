@@ -90,7 +90,7 @@ NO_PLATFORM = "none"
 WINDOWS_PLATFORM = "windows"
 LINUX_PLATFORM = "linux"
 
-ROUTING_LIST = ["none"]
+ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
 # TODO: RECOGNIZED_TYPES does not exist anymore and there a no static ways we can generate this because it can be
 #       modified on the fly by administrators. I will fake a RECOGNIZED_TYPES variable but this code should be removed
