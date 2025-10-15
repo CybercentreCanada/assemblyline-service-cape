@@ -40,6 +40,7 @@ config:
   rest_timeout_in_seconds: 120
   connection_attempts: 3
 
+  enforce_routing: false
   routing_list: ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
   # Are you using UWSGI with recycling workers?

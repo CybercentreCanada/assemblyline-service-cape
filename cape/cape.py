@@ -229,6 +229,7 @@ class CAPE(ServiceBase):
         self.hosts: List[Dict[str, Any]] = []
         self.routing = ""
         self.routes = []
+        self.enforce_routing = False
         self.safelist: Dict[str, Dict[str, List[str]]] = {}
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
@@ -255,6 +256,7 @@ class CAPE(ServiceBase):
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
         self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
         self.routes = self.config.get("routing_list", ROUTING_LIST)
+        self.enforce_routing = self.config.get("enforce_routing", False)
 
         try:
             self.safelist = self.get_api_interface().get_safelist()
@@ -1508,7 +1510,8 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
-        if route not in self.routes:
+        enforce_routing = self.request.get_param("enforce_routing")
+        if enforce_routing and route not in self.routes:
             route = "inetsim"
         password = self.request.get_param("password")
 
