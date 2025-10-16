@@ -90,6 +90,7 @@ NO_PLATFORM = "none"
 WINDOWS_PLATFORM = "windows"
 LINUX_PLATFORM = "linux"
 
+ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
 # TODO: RECOGNIZED_TYPES does not exist anymore and there a no static ways we can generate this because it can be
 #       modified on the fly by administrators. I will fake a RECOGNIZED_TYPES variable but this code should be removed
@@ -227,6 +228,8 @@ class CAPE(ServiceBase):
         self.artifact_list: Optional[List[Dict[str, str]]] = None
         self.hosts: List[Dict[str, Any]] = []
         self.routing = ""
+        self.routes = []
+        self.enforce_routing = False
         self.safelist: Dict[str, Dict[str, List[str]]] = {}
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
@@ -252,6 +255,8 @@ class CAPE(ServiceBase):
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
         self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
+        self.routes = self.config.get("routing_list", ROUTING_LIST)
+        self.enforce_routing = self.config.get("enforce_routing", False)
 
         try:
             self.safelist = self.get_api_interface().get_safelist()
@@ -1505,6 +1510,8 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
+        if self.enforce_routing and route not in self.routes:
+            route = "inetsim"
         password = self.request.get_param("password")
 
         if "dll" in self.request.file_type:
@@ -2299,7 +2306,7 @@ class CAPE(ServiceBase):
             (report_list, "HollowsHunter report (json)", False),
             (dump_list, "Memory Dump", True),
         ]
-        if any("hollowshunter/hh_hollowshunter_hollows.log" in obj_path for obj_path in zip_obj.namelist()): 
+        if any("hollowshunter/hh_hollowshunter_hollows.log" in obj_path for obj_path in zip_obj.namelist()):
             trace_path = os.path.join(task_dir, "hollowshunter", "hh_hollowshunter_hollows.log")
             trace_file_name = f"{task_id}_hollows.log"
             zip_obj.extract("hollowshunter/hh_hollowshunter_hollows.log", path=task_dir)
@@ -2444,7 +2451,7 @@ class CAPE(ServiceBase):
             platform = WINDOWS_IMAGE_PREFIX
             arch = x64_IMAGE_SUFFIX
         if multi_routing:
-            if routing == INETSIM.lower(): 
+            if routing == INETSIM.lower():
                 conn = OFFLINE_IMAGE_PREFIX
             elif routing == INTERNET.lower():
                 conn = ONLINE_IMAGE_PREFIX

@@ -435,6 +435,8 @@ class TestCapeMain:
         assert cape_class_instance.artifact_list is None
         assert cape_class_instance.hosts == []
         assert cape_class_instance.routing == ""
+        assert cape_class_instance.routes == []
+        assert cape_class_instance.enforce_routing is False
         assert cape_class_instance.safelist == {}
         # assert cape_class_instance.identify == ""
         assert cape_class_instance.retry_on_no_machine is False
@@ -454,6 +456,8 @@ class TestCapeMain:
         assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
         assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
         assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
+        assert cape_class_instance.routes == cape_class_instance.config.get("routing_list", ROUTING_LIST)
+        assert cape_class_instance.enforce_routing == cape_class_instance.config.get("enforce_routing", False)
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
@@ -1755,6 +1759,30 @@ class TestCapeMain:
                     "options": "file=,nohuman=true,password=blah:tryme,enable_multi_password=true,",
                 },
             ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "doesnotexist",
+                    "password": "",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "inetsim",
+                    "options": "file=,nohuman=true,password=infected:123,enable_multi_password=true,",
+                },
+            ),
         ],
     )
     def test_set_task_parameters(params, expected_kwargs, cape_class_instance, dummy_request_class, mocker):
@@ -1765,6 +1793,8 @@ class TestCapeMain:
         cape_class_instance.request.deep_scan = params.pop("deep_scan")
         cape_class_instance.request.file_type = "archive/iso"
         cape_class_instance.request.temp_submission_data["passwords"] = ["infected", "123"]
+        cape_class_instance.routes = cape_class_instance.config.get("routing_list", ROUTING_LIST)
+        cape_class_instance.enforce_routing = True
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
         cape_class_instance._set_task_parameters(kwargs, parent_section)
         assert kwargs == expected_kwargs
