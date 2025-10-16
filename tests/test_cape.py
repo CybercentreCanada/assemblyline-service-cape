@@ -1699,7 +1699,6 @@ class TestCapeMain:
                     "package": "",
                     "dump_memory": False,
                     "routing": "none",
-                    "enforce_routing": False,
                     "password": "",
                 },
                 {
@@ -1724,7 +1723,6 @@ class TestCapeMain:
                     "package": "doc",
                     "dump_memory": True,
                     "routing": "tor",
-                    "enforce_routing": False,
                     "password": "blah",
                 },
                 {
@@ -1751,7 +1749,6 @@ class TestCapeMain:
                     "package": "",
                     "dump_memory": False,
                     "routing": "none",
-                    "enforce_routing": False,
                     "password": "blah:tryme",
                 },
                 {
@@ -1776,7 +1773,6 @@ class TestCapeMain:
                     "package": "",
                     "dump_memory": False,
                     "routing": "doesnotexist",
-                    "enforce_routing": True,
                     "password": "",
                 },
                 {
@@ -1798,7 +1794,7 @@ class TestCapeMain:
         cape_class_instance.request.file_type = "archive/iso"
         cape_class_instance.request.temp_submission_data["passwords"] = ["infected", "123"]
         cape_class_instance.routes = cape_class_instance.config.get("routing_list", ROUTING_LIST)
-        cape_class_instance.enforce_routing = cape_class_instance.config.get("enforce_routing", False)
+        cape_class_instance.enforce_routing = True
         cape_class_instance.config["machinery_supports_memory_dumps"] = True
         cape_class_instance._set_task_parameters(kwargs, parent_section)
         assert kwargs == expected_kwargs
