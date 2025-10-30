@@ -267,6 +267,9 @@ class CAPE(ServiceBase):
     def execute(self, request: ServiceRequest) -> None:
         self.request = request
 
+        if self.enforce_routing and (self.request.get_param("routing").lower() not in self.routes):
+            self.request.task.service_config["routing"] = "inetsim"
+
         update_period = self.config.get("update_period", DEFAULT_UPDATE_PERIOD) * 60 * 60
         current_epoch_time = int(time())
         floor_of_epoch_multiples = floor(current_epoch_time / update_period)
