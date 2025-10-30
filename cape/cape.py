@@ -1531,8 +1531,6 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
-        if self.enforce_routing and route not in self.routes:
-            route = "inetsim"
         password = self.request.get_param("password")
 
         if "dll" in self.request.file_type:
