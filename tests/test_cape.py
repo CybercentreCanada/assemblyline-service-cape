@@ -1789,7 +1789,7 @@ class TestCapeMain:
                     "deep_scan": False,
                     "package": "",
                     "dump_memory": False,
-                    "routing": "doesnotexist",
+                    "routing": "inetsim",
                     "password": "",
                 },
                 {
