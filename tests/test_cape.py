@@ -1228,6 +1228,7 @@ class TestCapeMain:
         cape_class_instance.connection_timeout_in_seconds = 30
         cape_class_instance.connection_attempts = 3
         cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+        cape_class_instance.routes = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
         cape_class_instance.request = dummy_request_class(routing="blah")
 
         with requests_mock.Mocker() as m:
@@ -1490,6 +1491,22 @@ class TestCapeMain:
             assert cape_class_instance.hosts[3]["machines"] == []
             assert cape_class_instance.hosts[4]["machines"] == []
             assert cape_class_instance.hosts[5]["machines"] == []
+
+            # Case 17: The submission is requested to have an inetsim connection with enforce_routing.
+            options = {"routing": "inetsim"}
+            cape_class_instance.request = dummy_request_class(**options)
+            cape_class_instance.enforce_routing = True
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 18: The submission is requested to have a connection that doesn't exist with enforce_routing.
+            correct_rest_response = {"data": []}
+            options = {"routing": "inetsim"}
+            cape_class_instance.enforce_routing = True
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
 
     @staticmethod
     @pytest.mark.parametrize("sample", samples)
@@ -1772,7 +1789,7 @@ class TestCapeMain:
                     "deep_scan": False,
                     "package": "",
                     "dump_memory": False,
-                    "routing": "doesnotexist",
+                    "routing": "inetsim",
                     "password": "",
                 },
                 {

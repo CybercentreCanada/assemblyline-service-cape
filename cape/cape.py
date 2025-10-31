@@ -267,6 +267,9 @@ class CAPE(ServiceBase):
     def execute(self, request: ServiceRequest) -> None:
         self.request = request
 
+        if self.enforce_routing and (self.request.get_param("routing").lower() not in self.routes):
+            self.request.task.service_config["routing"] = "inetsim"
+
         update_period = self.config.get("update_period", DEFAULT_UPDATE_PERIOD) * 60 * 60
         current_epoch_time = int(time())
         floor_of_epoch_multiples = floor(current_epoch_time / update_period)
@@ -1227,16 +1230,29 @@ class CAPE(ServiceBase):
 
                 # We have two cases where we only want to send files to certain machines, and it comes down to the
                 # selected routing option: Internet and INetSim
-                if not self._host_supports_routing(INTERNET, "internet_connected", host):
-                    fail_fast_count += 1
-                    if len(self.hosts) == 1:
-                        break
-                    continue
-                elif not self._host_supports_routing(INETSIM, "inetsim_connected", host):
-                    fail_fast_count += 1
-                    if len(self.hosts) == 1:
-                        break
-                    continue
+
+                if self.enforce_routing:
+                    if INTERNET in self.routes and not self._host_supports_routing(INTERNET, "internet_connected", host):
+                        fail_fast_count += 1
+                        if len(self.hosts) == 1:
+                            break
+                        continue
+                    elif INETSIM in self.routes and not self._host_supports_routing(INETSIM, "inetsim_connected", host):
+                        fail_fast_count += 1
+                        if len(self.hosts) == 1:
+                            break
+                        continue
+                else:
+                    if not self._host_supports_routing(INTERNET, "internet_connected", host):
+                        fail_fast_count += 1
+                        if len(self.hosts) == 1:
+                            break
+                        continue
+                    elif not self._host_supports_routing(INETSIM, "inetsim_connected", host):
+                        fail_fast_count += 1
+                        if len(self.hosts) == 1:
+                            break
+                        continue
 
                 # Try a host up until the number of connection attempts
                 # For timeouts and connection errors, we will try for all eternity. If there is an error response with a 200 status code from the REST API, then we will fail fast because this is most likely a configuration problem with the
@@ -1295,9 +1311,14 @@ class CAPE(ServiceBase):
                         break
 
         if fail_fast_count == len(self.hosts):
-            raise InvalidCapeRequest(
-                "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
-            )
+            if self.enforce_routing and (INETSIM not in self.routes or INTERNET not in self.routes):
+                raise InvalidCapeRequest(
+                    "You have enabled enforced routing and do not have internet or inetsim in the route list. Please add them to the route list and ensure there are VMs using those routes that can be reached"
+                )
+            else:
+                raise InvalidCapeRequest(
+                    "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
+                )
 
     def check_powershell(self, task_id: int, parent_section: ResultSection) -> None:
         """
@@ -1510,8 +1531,6 @@ class CAPE(ServiceBase):
         simulate_user = self.request.get_param("simulate_user")
         package = self.request.get_param("package")
         route = self.request.get_param("routing")
-        if self.enforce_routing and route not in self.routes:
-            route = "inetsim"
         password = self.request.get_param("password")
 
         if "dll" in self.request.file_type:
