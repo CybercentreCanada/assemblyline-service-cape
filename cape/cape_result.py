@@ -1,6 +1,6 @@
 import json
 import os
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
@@ -37,6 +37,7 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     Signature,
     attach_dynamic_ontology,
     extract_iocs_from_text_blob,
+    get_process_tree
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
@@ -763,7 +764,7 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
-    main_process_tuples = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, signatures, safelist, signature_map)
+    main_process_tuples = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, signatures, safelist, processtree_id_safelist, signature_map)
 
     #Process all the info from auxiliaries
         # Powershell logger
@@ -799,6 +800,7 @@ def load_ontology_and_result_section(
     http_calls: List[Dict[str, Any]],
     signatures: List[Dict[str, Any]],
     safelist:  Dict[str, Dict[str, List[str]]],
+    processtree_id_safelist: List[str],
     signature_map: Dict[str, Dict[str, Any]] = {},
     ):
     if len(ontres.sandboxes) == 0:
@@ -816,6 +818,7 @@ def load_ontology_and_result_section(
     }
     #Process ontology building 
     pids_of_interest = process_map.keys()
+    sysmon_enrichment = {}
     processes_still_to_create = list(pids_of_interest)
     for process_id, process_details in parsed_sysmon.items():
         created_process = False
@@ -865,10 +868,23 @@ def load_ontology_and_result_section(
                     created_process = True
                     process_dict = p.as_primitives()
                     process_dict["safelisted"] = safelisted
-                    process_events["processes"].append(process_dict)
+                    if process_dict["pid"] in sysmon_enrichment.keys():
+                        process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
+                    if event["pid"] in pids_of_interest:
+                        process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
+                        process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
+                    process_events["processes"].append(process_dict)   
+            elif created_process and event["event_id"] == 5:
+                end_time = event.get("end_time", "-")
+                for proc in process_events["processes"]:
+                    if proc["pid"] == event["pid"]:
+                        proc["end_time"] = end_time
+            elif event["event_id"] == 5:
+                sysmon_enrichment[event["pid"]] = event.get("end_time", "-")
+
         if created_process and process_id in pids_of_interest:
             processes_still_to_create.remove(process_id)
-
+        
     for process_id in processes_still_to_create:
         this_process = {
             "pid": process_id,
@@ -912,6 +928,12 @@ def load_ontology_and_result_section(
         ontres.add_process(p)
         process_dict = p.as_primitives()
         process_dict["safelisted"] = False
+        if process_dict["pid"] in sysmon_enrichment.keys():
+            process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
+        else:
+            process_dict["end_time"] = "-"
+        process_dict["file_count"] = len(process_map[process_id]["file_events"])
+        process_dict["registry_count"] = len(process_map[process_id]["registry_events"])
         process_events["processes"].append(process_dict)
     #DNS section
     dns_server_heur = Heuristic(1008)
@@ -1243,8 +1265,16 @@ def load_ontology_and_result_section(
 
     if len(sigs_res.subsections) > 0:
         al_result.add_subsection(sigs_res)
-    
+    #Build the process tree 
+    _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
+
+
     #TODO take the process_events and build the new section from it
+    if len(signature_list) > 0:
+        process_res.set_heuristic(56)
+        signature_dict = Counter(signature_list)
+        for signature,occurence in signature_dict.items():
+            process_res.heuristic.add_signature_id(signature, 0, occurence)
     
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
     """
@@ -2118,6 +2148,66 @@ def get_process_map(
             "interprocess_comm": interprocess_comm,# object-->NamedPipe object-->Event
         }
     return process_map
+
+def build_process_tree(
+        processtree: List[Dict[str, Any]], 
+        processtree_id_safelist: List[str],
+    ):
+    root_parent = 0
+    result = {
+        root_parent: {
+
+        }
+    }
+    for node in processtree:
+        if node.get("parent_id"):
+            if node["parent_id"] not in result[root_parent].keys():
+                result[root_parent][node["parent_id"]] = {node.get("pid"): {}}
+            else:
+                result[root_parent][node["parent_id"]][node.get("pid")] = {}
+        if node.get("children") and len(node.get("children")) > 0:
+            for child in node["children"]:
+                result[root_parent][node["parent_id"]][node.get("pid")][child["pid"]] = {}
+    return result
+    #"processtree": [
+    #  {
+    #    "name": "rundll32.exe",
+    #    "pid": 4600,
+    #    "parent_id": 276,
+    #    "module_path": "C:\\Windows\\SysWOW64\\rundll32.exe",
+    #    "children": [
+    #      {
+    #        "name": "wermgr.exe",
+    #        "pid": 7704,
+    #        "parent_id": 4600,
+    #        "module_path": "C:\\Windows\\SysWOW64\\wermgr.exe",
+    #        "children": [],
+    #      }
+    #    ],
+    #  },
+    #  {
+    #    "name": "services.exe",
+    #    "pid": 620,
+    #    "parent_id": 528,
+    #    "module_path": "C:\\Windows\\System32\\services.exe",
+    #    "children": [
+    #      {
+    #        "name": "svchost.exe",
+    #        "pid": 7248,
+    #        "parent_id": 620,
+    #        "module_path": "C:\\Windows\\System32\\svchost.exe",
+    #        "children": [],
+    #      },
+    #      {
+    #        "name": "svchost.exe",
+    #        "pid": 7392,
+    #        "parent_id": 620,
+    #        "module_path": "C:\\Windows\\System32\\svchost.exe",
+    #        "children": [],
+    #      }
+    #    ],
+    #  }
+    #],
 
 def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]):
     #Sysmon event id list:
