@@ -37,7 +37,6 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
     Signature,
     attach_dynamic_ontology,
     extract_iocs_from_text_blob,
-    get_process_tree
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
