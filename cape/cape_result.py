@@ -4,7 +4,7 @@ from collections import defaultdict, Counter
 from datetime import datetime
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
-from logging import getLogger
+from logging import getLogger, DEBUG
 from re import compile as re_compile
 from re import match as re_match
 from re import search, sub, findall
@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import pefile
 import lief
 from peutils import is_valid
+from time import strptime
+from cerberus import Validator
 
 from assemblyline.common import forge
 from assemblyline.common import log as al_log
@@ -20,7 +22,7 @@ from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms, LOCAL_FMT_WITH_MS, ensure_time_format
 from assemblyline.common.net import is_valid_ip, is_valid_domain
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
@@ -51,6 +53,7 @@ from assemblyline_v4_service.common.result import (
     ResultTextSection,
     TableRow,
     TextSectionBody,
+    #ResultSandboxSection
 )
 from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 from standard_http_headers import STANDARD_HTTP_HEADERS
@@ -592,6 +595,8 @@ UNIQUE_IP_LIMIT = 100
 GUEST_LOST_CONNECTIVITY = 5
 ENCRYPTED_BUFFER_LIMIT = 25
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
+DWORD_MAX = 2**32 - 1
+MAX_PORT_NUMBER = 65,535
 
 #Section title
 SIGNATURES_SECTION_TITLE = "Signatures"
@@ -624,6 +629,7 @@ MACHINE_NAME_REGEX = (
 
 #Network related name
 INETSIM = "INetSim"
+ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 
 #Ouptut file location
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
@@ -806,15 +812,19 @@ def load_ontology_and_result_section(
         return
     session = ontres.sandboxes[-1].objectid.session
     process_res = PROCESS_TREE_AND_EVENTS_SECTION_TITLE
+    #process_res = ResultSandboxSection(PROCESS_TREE_AND_EVENTS_SECTION_TITLE)
     sigs_res = ResultSection(SIGNATURES_SECTION_TITLE)
     network_res = ResultSection(NETWORK_SECTION_TITLE)
     process_events = {
         "signatures": [],
         "network_connections": [],
-        "network_dns": [],
-        "network_http": [],
         "processes": [],
     }
+    #Gather the analysis information and metadata
+    sandbox = ontres.sandboxes[-1]
+    analysis_information = sandbox.as_primitives()
+    analysis_information.pop("objectid")
+    process_events["analysis_information"] = analysis_information
     #Process ontology building 
     pids_of_interest = process_map.keys()
     sysmon_enrichment = {}
@@ -872,7 +882,20 @@ def load_ontology_and_result_section(
                     if event["pid"] in pids_of_interest:
                         process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
                         process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
-                    process_events["processes"].append(process_dict)   
+                    process_dict.pop("objectid")
+                    process_dict.pop("pimage")
+                    process_dict.pop("pcommand_line")
+                    process_dict.pop("pobjectid")
+                    process_dict.pop("loaded_modules")
+                    process_dict.pop("services_involved")
+                    validity = validate_sandbox_event(process_dict, "process")
+                    if validity:
+                        if isinstance(validity,bool):
+                            process_events["processes"].append(process_dict)  
+                        elif isinstance(validity,Dict):
+                            process_events["processes"].append(validity)
+                        else:
+                            log.debug(f"Validator misbehaving for processes {process_dict}") 
             elif created_process and event["event_id"] == 5:
                 end_time = event.get("end_time", "-")
                 for proc in process_events["processes"]:
@@ -933,7 +956,20 @@ def load_ontology_and_result_section(
             process_dict["end_time"] = "-"
         process_dict["file_count"] = len(process_map[process_id]["file_events"])
         process_dict["registry_count"] = len(process_map[process_id]["registry_events"])
-        process_events["processes"].append(process_dict)
+        process_dict.pop("objectid")
+        process_dict.pop("pimage")
+        process_dict.pop("pcommand_line")
+        process_dict.pop("pobjectid")
+        process_dict.pop("loaded_modules")
+        process_dict.pop("services_involved")
+        validity = validate_sandbox_event(process_dict, "process")
+        if validity:
+            if isinstance(validity,bool):
+                process_events["processes"].append(process_dict)  
+            elif isinstance(validity,Dict):
+                process_events["processes"].append(validity)
+            else:
+                log.debug(f"Validator misbehaving for processes {process_dict}")
     #DNS section
     dns_server_heur = Heuristic(1008)
     dns_server_sec = ResultTextSection(
@@ -1049,12 +1085,18 @@ def load_ontology_and_result_section(
                 nc.set_process(p)
             elif attempt["process_id"] and attempt["process_name"]:
                 nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
-            if nd:
-                dns_dict = nd.as_primitives()
-                process_events["network_dns"].append(dns_dict)
             if nc:
                 net_dict = nc.as_primitives()
-                process_events["network_connections"].append(net_dict) 
+                net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
+                net_dict.pop("objectid")
+                validity = validate_sandbox_event(net_dict, "network_connection")
+                if validity:
+                    if isinstance(validity,bool):
+                        process_events["network_connections"].append(net_dict)  
+                    elif isinstance(validity,Dict):
+                        process_events["network_connections"].append(validity)
+                    else:
+                        log.debug(f"Validator misbehaving for network connection {net_dict}")
 
     #TCP/UDP section and ontology
     netflows_sec = ResultTableSection("TCP/UDP Network Traffic")
@@ -1078,7 +1120,17 @@ def load_ontology_and_result_section(
             nc.update_process(image=flow["image"], pid=flow["pid"])
         if nc:
             netflow_dict = nc.as_primitives()
-            process_events["network_connections"].append(netflow_dict)
+            netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
+            netflow_dict.pop("objectid")
+            validity = validate_sandbox_event(netflow_dict, "network_connection")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["network_connections"].append(netflow_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["network_connections"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
+
 
     unique_netflows: List[Dict[str, Any]] = []
     if len(low_level_flow) > 0:
@@ -1190,10 +1242,16 @@ def load_ontology_and_result_section(
             nc.update_process(image=http_call["image"], pid=http_call["pid"])
         if nc:
             netflow_dict = nc.as_primitives()
-            process_events["network_connections"].append(netflow_dict)
-        if nh:
-            http_dict = nh.as_primitives()
-            process_events["network_http"].append(http_dict)
+            netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
+            netflow_dict.pop("objectid")
+            validity = validate_sandbox_event(netflow_dict, "network_connection")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["network_connections"].append(netflow_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["network_connections"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
 
         http_sec.add_row(
             TableRow(
@@ -1256,12 +1314,33 @@ def load_ontology_and_result_section(
             sigs_res.add_subsection(sig_res)
         if ontres_sig:
             signature_dict = ontres_sig.as_primitives()
-            signature_dict["data"] = signature["data"]
+            interesting_data = []
+            for data in signature["data"]:
+                if "type" not in data.keys() or data["type"]!="call":
+                    interesting_data.append(data) 
+            signature_dict["data"] = interesting_data 
             signature_dict["score"] = signature["score"]
             if len(pids) > 0:
                 signature_dict["pid"] = pids
-            process_events["signatures"].append(signature_dict)
-
+            else:
+                signature_dict["pid"] = None
+            signature_dict.pop("objectid")
+            signature_dict.pop("attributes")
+            signature_dict["description"] = signature["description"]
+            validity = validate_sandbox_event(signature_dict, "signature")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["signatures"].append(signature_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["signatures"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for signature {signature_dict}")
+            
+    validity = validate_sandbox_event(process_events, "complete")
+    if not validity:
+        log.debug("Invalid Sandbox format")
+    elif isinstance(validity, Dict):
+        process_events = validity
     if len(sigs_res.subsections) > 0:
         al_result.add_subsection(sigs_res)
     #Build the process tree 
@@ -1269,6 +1348,8 @@ def load_ontology_and_result_section(
 
 
     #TODO take the process_events and build the new section from it
+    with open("Section.json", "w") as f:
+        json.dump(process_events ,f)
     if len(signature_list) > 0:
         process_res.set_heuristic(56)
         signature_dict = Counter(signature_list)
@@ -1445,11 +1526,11 @@ def process_signatures(
                 for k, v in mark.items():
                     if not v or k in MARK_KEYS_TO_NOT_DISPLAY:
                         sig["data"].pop(k, None)
-                        mark_count += 1
-                    else:
                         fp_mark_count += 1
+                    else:
+                        mark_count +=1
 
-        # If there are more true positive marks than false positive marks, return signature result section
+        # If there are more true positive marks than false positive marks, return signature 
         if not fp_mark_count or fp_mark_count != len(sig["data"]) - call_count:
             signatures.append({
             "name": sig_name,
@@ -2127,6 +2208,7 @@ def get_process_map(
         first_seen = process.get("first_seen")
         if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
             first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
+        first_seen = first_seen.replace(",", ".")
         pid = process["process_id"]
         process_map[pid] = {
             "name": process["process_name"],
@@ -2748,7 +2830,7 @@ def _create_signature_result_section(
         if _is_mark_call(mark.keys()):
             call_count += 1
             _handle_mark_call(mark.get("pid"), action, attributes, ontres)
-            if mark.get("pid"):
+            if mark.get("pid") and mark.get("pid") not in pids:
                 pids.append(mark.get("pid"))
         else:
             iocs_found_in_data_res_sec = _handle_mark_data(
@@ -2844,7 +2926,7 @@ def _handle_mark_data(
         if not v or k in MARK_KEYS_TO_NOT_DISPLAY or json.dumps({k: v}) in sig_res.section_body.body:
             continue
 
-        # The mark_count limit only exists for diaply purposes
+        # The mark_count limit only exists for display purposes
         if mark_count < 10:
             if isinstance(v, str) and len(v) > 512:
                 v = truncate(v, 512)
@@ -3469,6 +3551,164 @@ def _massage_api_urls(api_url: str) -> str:
         return altered_api_url
     return api_url
 
+def same_dictionaries(d1, d2):
+    if len(d1) != len(d2):
+        return False
+    for key in d1:
+        if key not in d2 or d1[key] != d2[key]:
+            return False
+    return True
+
+class Sandbox_Validator(Validator):
+    def _check_with_is_time_format_valid(self, field, value):
+        valid_format = False
+        try:
+            if isinstance(value, str):
+                if value == "-":
+                    valid_format = True
+                else:
+                    strptime(value, LOCAL_FMT_WITH_MS)
+                    valid_format = True
+        except Exception as e:
+            pass
+        if not valid_format:
+            self._error(field, "The time format is invalid")
+
+def validate_sandbox_event(event_dict, type):
+    if not isinstance(event_dict, Dict):
+        return False
+    needed_normalization = False
+    process_schema = {
+            "image": {"type": 'string', "required": True}, 
+            "start_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+            "end_time": {"type": 'string', "nullable": True, "check_with": "is_time_format_valid"},
+            "pid": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "ppid": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "command_line": {"type": 'string', "nullable": True, "maxlength": 1024},
+            "safelisted": {"type": 'boolean', "required": True},
+            "integrity_level": {"type": "string", "nullable": True, "allowed": ["low", "medium", "high", "system", "appcontainer"]},
+            "image_hash": {"type": "string", "nullable": True, "regex": r'^[A-Fa-f0-9]{64}$'},
+            "original_file_name": {"type": "string", "nullable": True},
+            "file_count": {"type": "integer", 'coerce': int, "min": 0},
+            "registry_count": {"type": "integer", 'coerce': int, "min":0},
+    }
+    attack_schema = {
+        "attack_id" : {"type": "string", "required": True},
+        "pattern": {"type": "string", "required": True},
+        "categories": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": {"type": "string"}}
+    }
+    signature_schema = {
+            "name": {"type": 'string', "required": True, "maxlength": 256},
+            "type": {"type": 'string', "required": True, "allowed": ["CUCKOO", "CAPE"]},
+            "classification": {"type": "string", "required": True},
+            "attacks": {"type": "list", "required": True, "empty": True, "schema": {"type": "dict", "schema": attack_schema}},
+            "actors": {"type": "list", "required": True, "empty": True, "schema": {"type": "string"}},
+            "malware_families": {"type": "list", "required": True, "empty": True, "schema": {"type": "string"}},
+            "data": {"type": "list", "required": True, "empty": True, "schema": {"type": "dict", "empty": False}},
+            "score": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "pid": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX}},
+            "description": {"type": "string", "required": True, "empty": True, "maxlength": 256}
+    }
+    DOMAIN_REGEX, IP_REGEX
+    dns_connection_schema = {
+        "domain": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX]},
+        "resolved_ips": {"type": "list", "nullable": True, "empty": True, "schema": {}},
+        "resolved_domains": {"type": "list", "nullable": True, "empty": True, "schema": {}},
+        "lookup_type": {"type": "string", "required": True, "allowed": list(DNS_TYPE.values())},
+
+    }
+    http_connection_schema = {
+        "request_uri": {"type": "string", "required": True, "regex": FULL_URI},
+        "request_method": {"type": "string", "required": True},
+        "request_headers": {"type": "dict", "nullable": True, "empty": True, "schema": {"type": "string"}},
+        "response_headers": {"type": "dict", "nullable": True, "empty": True, "schema": {"type": "string"}},
+        "request_body": {"type": "string", "nullable": True, "empty": True},
+        "response_status_code": {"type": "integer", "nullable": True, 'coerce': int, "min": 0},
+        "response_body": {"type": "string", "nullable": True, "empty": True},
+        "request_body_path": {"type": "string", "regex": URI_PATH},
+        "response_body_path": {"type": "string", "regex": URI_PATH},
+        "response_content_fileinfo": {"type": "dict",  "nullable": True, "empty": True, "schema": {"type": "dict"}},
+        "response_content_mimetype": {"type": "string", "nullable": True, "empty": True}
+    }
+    smtp_connection_schema = {
+        "type": "dict"
+    }
+    network_connection_schema = {
+            "destination_ip": {"type": "string", "required": True, "regex": IP_REGEX},
+            "destination_port": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": MAX_PORT_NUMBER},
+            "transport_layer_protocol": {"type": "string", "required": True, "allowed": [NetworkConnection.TCP, NetworkConnection.UDP]},
+            "direction": {"type": "string", "required": True, "allowed": [NetworkConnection.OUTBOUND, NetworkConnection.INBOUND, NetworkConnection.UNKNOWN]},
+            "process": {"type": "integer", "nullable": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "source_ip": {"type": "string", "nullable": True, "empty": True, "regex": IP_REGEX},
+            "source_port": {"type": "integer", "nullable": True, "empty": True, 'coerce': int, "min": 0, "max": MAX_PORT_NUMBER},
+            "http_details": {"type": "dict", "nullable": True, "empty": True, "schema": http_connection_schema},
+            "dns_details": {"type": "dict", "nullable": True, "empty": True, "schema": dns_connection_schema},
+            "smtp_details": {"type": "dict", "nullable": True, "empty": True, "schema": smtp_connection_schema},
+            "connection_type": {"type": "string", "required": True, "allowed": [NetworkConnection.HTTP, NetworkConnection.DNS]},
+            "time_observed": {"type": 'string', "nullable": True, "empty": True, "check_with": "is_time_format_valid"},
+    }
+    machine_metadata_schema = {
+        "ip": {"type": "string", "required": True, "regex": IP_REGEX},
+        "hypervisor": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "hostname": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX]},
+        "platform": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "version": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "architecture": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256}
+    }
+    analysis_metadata_schema = {
+        "start_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+        "task_id": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+        "end_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+        "routing": {"type": "string", "required": True, "allowed": ROUTING_LIST},
+        "machine_metadata": {"type": "dict", "nullable": True, "empty": True, "schema": machine_metadata_schema},
+        "window_size": {"type": "string", "nullable": True, "empty": True}
+    }
+    analysis_info_schema = {
+        "analysis_metadata": {"type": "dict", "required": True, "schema": analysis_metadata_schema},
+        "sandbox_name": {"type": "string", "required": True, "allowed": ["CAPE"]},
+        "sandbox_version": {"type": "string", "required": True, "maxlength": 64}
+    }
+    complete_schema = {
+            "signatures": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": { "type": "dict", "schema": signature_schema}},
+            "network_connections": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": { "type": "dict", "schema": network_connection_schema}},
+            "processes": {"type": "list", "required": True, "schema": { "type": "dict", "schema": process_schema}},
+            "analysis_information": {"type": "dict", "required": True, "schema": analysis_info_schema},
+        }
+    used_schema = {}
+    if type == "process":
+        used_schema = process_schema
+        identifier = event_dict.get("pid", -1)
+    elif type == "signature":
+        used_schema = signature_schema
+        identifier = event_dict.get("name", "")
+    elif type == "network_connection":
+        used_schema = network_connection_schema
+        dest = event_dict.get("destination_ip", " ")
+        dest_port = event_dict.get("destination_port", 0)
+        src = event_dict.get("source_ip", " ")
+        src_port = event_dict.get("source_port", 0)
+        identifier = f"{src}:{src_port}-->{dest}:{dest_port}"
+    elif type == "complete":
+        used_schema = complete_schema
+        identifier = "Sandbox_full_schema"
+    else:
+        log.debug(f"Invalid format. Skipping {identifier}")
+        return False
+    v = Sandbox_Validator(used_schema, purge_unknown=True)
+    initial_event_dict = event_dict
+    event_dict = v.normalized(event_dict, always_return_document = True)
+    if not same_dictionaries(initial_event_dict, event_dict):
+        needed_normalization = True
+    return_value = v.validate(event_dict)
+    if not return_value:
+        log.debug(f"Invalid data format for event : {identifier} --> {v.errors}")
+        return False
+    else:
+        if needed_normalization:
+            return event_dict
+        else:
+            return True
+
 if __name__ == "__main__":
     from sys import argv
 
@@ -3479,7 +3719,7 @@ if __name__ == "__main__":
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
     from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-
+    log.setLevel(DEBUG)
     report_path = argv[1]
     file_ext = argv[2]
     random_ip_range = argv[3]

@@ -7,3 +7,4 @@ SetSimilaritySearch
 multidecoder
 lief
 plyara
+cerberus
