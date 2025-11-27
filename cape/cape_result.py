@@ -723,6 +723,7 @@ def generate_al_result(
                 f"{safe_str(file_ext)} OR see the '{ANALYSIS_ERRORS}' section for details."
             )
             al_result.add_subsection(noexec_res)
+        main_process_tuples = process_behavior(behaviour)
     #Process the network events from the report which came from PCAP
     if network:
         dns_servers, dns_requests, low_level_flow, http_calls = get_network_map(
@@ -769,7 +770,7 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
-    main_process_tuples = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, signatures, safelist, processtree_id_safelist, signature_map)
+    load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, signatures, safelist, processtree_id_safelist, signature_map)
 
     #Process all the info from auxiliaries
         # Powershell logger
@@ -970,6 +971,7 @@ def load_ontology_and_result_section(
                 process_events["processes"].append(validity)
             else:
                 log.debug(f"Validator misbehaving for processes {process_dict}")
+
     #DNS section
     dns_server_heur = Heuristic(1008)
     dns_server_sec = ResultTextSection(
@@ -1819,7 +1821,7 @@ def _process_http_calls(
                     http_call["Non_standard_request_headers"] = {}
                     http_call["Non_standard_request_headers"][header] = header_value
 
-            destination_ip = _get_destination_ip(http_call, dns_servers, host, ontres)
+            destination_ip = _get_destination_ip(http_call, dns_servers)
             if not destination_ip:
                 continue
             first_seen = http_call.get("first_seen")
@@ -2507,6 +2509,31 @@ def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, L
                 #if this point is reached, this is an orphan event
     return processes
 
+def process_behavior(behaviour):
+    processes = behaviour["processes"]
+    if len(processes) < 1:
+        return []
+    else:
+        parent_pid = processes[0]["parent_id"]
+        initial_process = processes[0]["process_name"]
+        initial_process_pid = processes[0]["process_id"]
+
+        # Adding special case for iexplore, since HH creates two dumps for the main process and it's child
+        if initial_process == "iexplore.exe":
+            return [
+                (process["process_id"], process["process_name"])
+                for process in processes
+                if process["parent_id"] == parent_pid
+                or process["process_name"] == initial_process
+                and process["parent_id"] == initial_process_pid
+            ]
+        else:
+            return [
+                (process["process_id"], process["process_name"])
+                for process in processes
+                if process["parent_id"] == parent_pid
+            ]
+
 def _remove_bytes_from_buffer(buffer: str) -> str:
     """
     This method removes byte characters from a buffer string
@@ -2699,7 +2726,7 @@ def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optio
     return request_body_path, response_body_path
 
 def _get_destination_ip(
-    http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults
+    http_call: Dict[str, Any], dns_servers: List[str]
 ) -> Optional[str]:
     """
     This method returns the destination IP used for the HTTP call
