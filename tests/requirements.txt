@@ -1,5 +1,6 @@
 assemblyline
 assemblyline-service-utilities
 pytest
+pytest-dependency
 requests-mock
 pytest-mock

@@ -770,7 +770,7 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
-    load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, signatures, safelist, processtree_id_safelist, signature_map)
+    load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, signature_map)
 
     #Process all the info from auxiliaries
         # Powershell logger
@@ -804,6 +804,7 @@ def load_ontology_and_result_section(
     dns_requests: Dict[str, List[Dict[str, Any]]],
     low_level_flow: List[Dict[str, Any]],
     http_calls: List[Dict[str, Any]],
+    uses_https_proxy_in_sandbox: bool,
     signatures: List[Dict[str, Any]],
     safelist:  Dict[str, Dict[str, List[str]]],
     processtree_id_safelist: List[str],
@@ -1352,11 +1353,11 @@ def load_ontology_and_result_section(
     #TODO take the process_events and build the new section from it
     with open("Section.json", "w") as f:
         json.dump(process_events ,f)
-    if len(signature_list) > 0:
-        process_res.set_heuristic(56)
-        signature_dict = Counter(signature_list)
-        for signature,occurence in signature_dict.items():
-            process_res.heuristic.add_signature_id(signature, 0, occurence)
+    #if len(signature_list) > 0:
+    #    process_res.set_heuristic(56)
+    #    signature_dict = Counter(signature_list)
+    #    for signature,occurence in signature_dict.items():
+    #        process_res.heuristic.add_signature_id(signature, 0, occurence)
     
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
     """
@@ -2252,45 +2253,6 @@ def build_process_tree(
             for child in node["children"]:
                 result[root_parent][node["parent_id"]][node.get("pid")][child["pid"]] = {}
     return result
-    #"processtree": [
-    #  {
-    #    "name": "rundll32.exe",
-    #    "pid": 4600,
-    #    "parent_id": 276,
-    #    "module_path": "C:\\Windows\\SysWOW64\\rundll32.exe",
-    #    "children": [
-    #      {
-    #        "name": "wermgr.exe",
-    #        "pid": 7704,
-    #        "parent_id": 4600,
-    #        "module_path": "C:\\Windows\\SysWOW64\\wermgr.exe",
-    #        "children": [],
-    #      }
-    #    ],
-    #  },
-    #  {
-    #    "name": "services.exe",
-    #    "pid": 620,
-    #    "parent_id": 528,
-    #    "module_path": "C:\\Windows\\System32\\services.exe",
-    #    "children": [
-    #      {
-    #        "name": "svchost.exe",
-    #        "pid": 7248,
-    #        "parent_id": 620,
-    #        "module_path": "C:\\Windows\\System32\\svchost.exe",
-    #        "children": [],
-    #      },
-    #      {
-    #        "name": "svchost.exe",
-    #        "pid": 7392,
-    #        "parent_id": 620,
-    #        "module_path": "C:\\Windows\\System32\\svchost.exe",
-    #        "children": [],
-    #      }
-    #    ],
-    #  }
-    #],
 
 def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]):
     #Sysmon event id list:
@@ -3579,10 +3541,17 @@ def _massage_api_urls(api_url: str) -> str:
     return api_url
 
 def same_dictionaries(d1, d2):
+    if not isinstance(d1, dict) or not isinstance(d2, dict):
+        if isinstance(d1, List) and isinstance(d2, List):
+            return d1.__hash__ == d2.__hash__
+        elif d1 == d2:
+            return True
+        else:
+            return False
     if len(d1) != len(d2):
         return False
     for key in d1:
-        if key not in d2 or d1[key] != d2[key]:
+        if key not in d2 or not same_dictionaries(d1[key], d2[key]):
             return False
     return True
 

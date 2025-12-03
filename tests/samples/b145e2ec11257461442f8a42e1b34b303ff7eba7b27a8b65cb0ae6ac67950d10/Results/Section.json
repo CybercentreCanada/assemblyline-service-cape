@@ -1,0 +1,120 @@
+{
+    "signatures": [
+        {
+            "name": "stealth_network",
+            "type": "CUCKOO",
+            "classification": "TLP:C",
+            "attacks": [
+                {
+                    "attack_id": "T1036",
+                    "pattern": "Masquerading",
+                    "categories": [
+                        "defense-evasion"
+                    ]
+                },
+                {
+                    "attack_id": "T1564.001",
+                    "pattern": "Hidden Files and Directories",
+                    "categories": [
+                        "defense-evasion"
+                    ]
+                },
+                {
+                    "attack_id": "T1070",
+                    "pattern": "Indicator Removal",
+                    "categories": [
+                        "defense-evasion"
+                    ]
+                }
+            ],
+            "actors": [],
+            "malware_families": [],
+            "data": [
+                {
+                    "ip": "135.233.95.144"
+                },
+                {
+                    "domain": "settings-win.data.microsoft.com"
+                },
+                {
+                    "domain": "activation-v2.sls.microsoft.com"
+                },
+                {
+                    "domain": "crl.microsoft.com"
+                },
+                {
+                    "domain": "www.microsoft.com"
+                },
+                {
+                    "domain": "slscr.update.microsoft.com"
+                }
+            ],
+            "score": 10,
+            "pid": null,
+            "description": "Network activity detected but not expressed in monitor API logs"
+        }
+    ],
+    "network_connections": [
+        {
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "1.128.254.169.in-addr.arpa",
+                "resolved_ips": null,
+                "resolved_domains": [
+                    "www.inetsim.org"
+                ],
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns",
+            "time_observed": "2025-11-18 21:11:25.155"
+        }
+    ],
+    "processes": [
+        {
+            "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\apc-inject.exe",
+            "start_time": "2025-11-18 21:11:22.948",
+            "ppid": 1508,
+            "pid": 5900,
+            "command_line": "\"C:\\Users\\buddy\\AppData\\Local\\Temp\\apc-inject.exe\" ",
+            "end_time": "-",
+            "integrity_level": null,
+            "image_hash": null,
+            "original_file_name": null,
+            "safelisted": false,
+            "file_count": 2,
+            "registry_count": 3
+        },
+        {
+            "image": "C:\\Windows\\System32\\svchost.exe",
+            "start_time": "2025-11-18 21:11:23.542",
+            "ppid": 600,
+            "pid": 2000,
+            "command_line": "C:\\WINDOWS\\System32\\svchost.exe -k LocalSystemNetworkRestricted -p -s AudioEndpointBuilder",
+            "end_time": "2025-11-18 21:12:28.964",
+            "integrity_level": null,
+            "image_hash": null,
+            "original_file_name": null,
+            "safelisted": false,
+            "file_count": 0,
+            "registry_count": 0
+        }
+    ],
+    "analysis_information": {
+        "analysis_metadata": {
+            "start_time": "2025-11-18 21:10:56.000",
+            "task_id": 214563,
+            "end_time": "2025-11-18 21:12:49.000",
+            "routing": "inetsim",
+            "machine_metadata": null
+        },
+        "sandbox_name": "CAPE",
+        "sandbox_version": "2.4-CAPE"
+    }
+}

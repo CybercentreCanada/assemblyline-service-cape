@@ -1,0 +1,228 @@
+{
+    "signatures": [
+        {
+            "name": "packer_unknown_pe_section_name",
+            "type": "CUCKOO",
+            "classification": "TLP:C",
+            "attacks": [
+                {
+                    "attack_id": "T1027.002",
+                    "pattern": "Software Packing",
+                    "categories": [
+                        "defense-evasion"
+                    ]
+                }
+            ],
+            "actors": [],
+            "malware_families": [],
+            "data": [
+                {
+                    "unknown section": {
+                        "name": "_RDATA",
+                        "raw_address": "0x00022200",
+                        "virtual_address": "0x00026000",
+                        "virtual_size": "0x0000015c",
+                        "size_of_data": "0x00000200",
+                        "characteristics": "IMAGE_SCN_CNT_INITIALIZED_DATA|IMAGE_SCN_MEM_READ",
+                        "characteristics_raw": "0x40000040",
+                        "entropy": "2.78"
+                    }
+                }
+            ],
+            "score": 30,
+            "pid": null,
+            "description": "The binary contains an unknown PE section name indicative of packing"
+        },
+        {
+            "name": "network_bind",
+            "type": "CUCKOO",
+            "classification": "TLP:C",
+            "attacks": [],
+            "actors": [],
+            "malware_families": [],
+            "data": [],
+            "score": 50,
+            "pid": [
+                8024
+            ],
+            "description": "Starts servers listening on 169.254.128.220:27015"
+        }
+    ],
+    "network_connections": [
+        {
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "1.128.254.169.in-addr.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns",
+            "time_observed": "2025-11-18 20:08:05.348"
+        },
+        {
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "128.76.178.74.in-addr.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns",
+            "time_observed": "2025-11-18 20:08:07.235"
+        }
+    ],
+    "processes": [
+        {
+            "image": "C:\\Windows\\System32\\slui.exe",
+            "start_time": "2025-11-18 20:08:18.599",
+            "ppid": 856,
+            "pid": 296,
+            "command_line": "C:\\WINDOWS\\System32\\slui.exe -Embedding",
+            "end_time": "2025-11-18 20:08:19.121",
+            "integrity_level": "high",
+            "image_hash": "25E7624D469A592934AB8C509D12C153C2799E604C2A4B8A83650A7268577DFF",
+            "original_file_name": "slui.exe",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\wbem\\WmiPrvSE.exe",
+            "start_time": "2025-11-18 20:08:18.047",
+            "ppid": 856,
+            "pid": 4984,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "system",
+            "image_hash": "2198A7B58BCCB758036B969DDAE6CC2ECE07565E2659A7C541A313A0492231A3",
+            "original_file_name": "Wmiprvse.exe",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\WaaSMedicAgent.exe",
+            "start_time": "2025-11-18 20:08:12.623",
+            "ppid": 640,
+            "pid": 7460,
+            "command_line": "C:\\WINDOWS\\System32\\WaaSMedicAgent.exe edbd51d9d4972f0cf541bde3cc9ee68f FNAsEz29BUWrgkELd51prQ.0.1.0.0.0",
+            "end_time": "2025-11-18 20:08:13.668",
+            "integrity_level": "system",
+            "image_hash": "3783660B2D4A5F502D96140C62D2376DDB41F61F9A41844835256FE8358F5C75",
+            "original_file_name": "WaasMedicAgent.exe",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:12.643",
+            "ppid": 7460,
+            "pid": 7684,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "system",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:12.103",
+            "ppid": 7476,
+            "pid": 7408,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "high",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:11.973",
+            "ppid": 2252,
+            "pid": 7528,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "high",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:11.802",
+            "ppid": 7704,
+            "pid": 8060,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "high",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:11.572",
+            "ppid": 7936,
+            "pid": 6416,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "high",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Windows\\System32\\conhost.exe",
+            "start_time": "2025-11-18 20:08:11.396",
+            "ppid": 6336,
+            "pid": 6824,
+            "command_line": null,
+            "end_time": "9999-12-31 23:59:59.999999",
+            "integrity_level": "high",
+            "image_hash": "57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684",
+            "original_file_name": "CONHOST.EXE",
+            "safelisted": false
+        },
+        {
+            "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\AcceptEx.exe",
+            "start_time": "2025-11-18 20:08:07.309",
+            "ppid": 4580,
+            "pid": 8024,
+            "command_line": "\"C:\\Users\\buddy\\AppData\\Local\\Temp\\AcceptEx.exe\" ",
+            "end_time": "-",
+            "integrity_level": null,
+            "image_hash": null,
+            "original_file_name": null,
+            "safelisted": false,
+            "file_count": 2,
+            "registry_count": 3
+        }
+    ],
+    "analysis_information": {
+        "analysis_metadata": {
+            "start_time": "2025-11-18 20:07:49.000",
+            "task_id": 222958,
+            "end_time": "2025-11-18 20:09:23.000",
+            "routing": "inetsim",
+            "machine_metadata": null
+        },
+        "sandbox_name": "CAPE",
+        "sandbox_version": "2.4-CAPE"
+    }
+}

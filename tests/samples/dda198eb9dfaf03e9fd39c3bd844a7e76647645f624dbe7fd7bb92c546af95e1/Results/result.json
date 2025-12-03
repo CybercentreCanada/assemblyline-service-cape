@@ -1,0 +1,205 @@
+{
+    "result": {
+        "score": 40,
+        "sections": [
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 0,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Parent",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"CAPE Task ID\": 228879, \"Duration\": \"00h 01m 38s\\t(2025-11-21 16:00:10.000 to 2025-11-21 16:01:48.000)\", \"Routing\": \"inetsim\", \"CAPE Version\": \"2.4-CAPE\"}",
+                "classification": "TLP:C",
+                "body_format": "KEY_VALUE",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Analysis Information",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Network Activity",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1004,
+                    "score": 10,
+                    "name": "TCP/UDP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "protocol": [
+                            "tcp"
+                        ],
+                        "dynamic": {
+                            "ip": [
+                                "135.233.95.144",
+                                "13.71.55.58"
+                            ]
+                        },
+                        "port": [
+                            443,
+                            49732,
+                            49733,
+                            49735,
+                            49736,
+                            49738
+                        ]
+                    }
+                },
+                "title_text": "TCP/UDP Network Traffic",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 3,
+                "heuristic": {
+                    "heur_id": 1010,
+                    "score": 10,
+                    "name": "TCP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {},
+                "title_text": "TCP Network Traffic Detected",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": true,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1005,
+                    "score": 10,
+                    "name": "Non-HTTP Traffic over HTTP ports",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "135.233.95.144",
+                                "13.71.55.58"
+                            ]
+                        },
+                        "port": [
+                            443
+                        ]
+                    }
+                },
+                "title_text": "Non-HTTP Traffic Over HTTP Ports",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Signatures",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Attempts to connect to a dead IP:Port (1 unique times)\", {}], [\"KEY_VALUE\", {\"IP\": \"2607:f8b0:4003:c00::6a:666\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 41,
+                    "score": 10,
+                    "name": "Network",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "dead_connect",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "network": {
+                        "port": [
+                            "f8b0"
+                        ]
+                    }
+                },
+                "title_text": "Signature: dead_connect",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            }
+        ]
+    }
+}

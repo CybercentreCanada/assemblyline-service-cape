@@ -1,0 +1,237 @@
+{
+    "result": {
+        "score": 40,
+        "sections": [
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 0,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Parent",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"CAPE Task ID\": 279605, \"Duration\": \"00h 01m 46s\\t(2025-11-21 15:49:06.000 to 2025-11-21 15:50:52.000)\", \"Routing\": \"inetsim\", \"CAPE Version\": \"2.4-CAPE\"}",
+                "classification": "TLP:C",
+                "body_format": "KEY_VALUE",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Analysis Information",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Network Activity",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.00829005241394043, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49742, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.118086099624634, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49744, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.186489105224609, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49746, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 9.257619142532349, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49748, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 12.331969022750854, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49749, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 15.400231122970581, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49750, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 18.549345016479492, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49751, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 21.608890056610107, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49753, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 24.685235023498535, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49754, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 27.755325078964233, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49756, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 30.827455043792725, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49758, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 33.89653301239014, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49759, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 36.969852924346924, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49761, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 40.04035401344299, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49763, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 43.33044099807739, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49764, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1004,
+                    "score": 10,
+                    "name": "TCP/UDP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "protocol": [
+                            "tcp"
+                        ],
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        },
+                        "port": [
+                            443,
+                            49742,
+                            49744,
+                            49746,
+                            49748,
+                            49749,
+                            49750,
+                            49751,
+                            49753,
+                            49754,
+                            49756,
+                            49758,
+                            49759,
+                            49761,
+                            49763,
+                            49764
+                        ]
+                    }
+                },
+                "title_text": "TCP/UDP Network Traffic",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 3,
+                "heuristic": {
+                    "heur_id": 1010,
+                    "score": 10,
+                    "name": "TCP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {},
+                "title_text": "TCP Network Traffic Detected",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": true,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.00829005241394043, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49742, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.118086099624634, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49744, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.186489105224609, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49746, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 9.257619142532349, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49748, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 12.331969022750854, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49749, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 15.400231122970581, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49750, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 18.549345016479492, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49751, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 21.608890056610107, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49753, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 24.685235023498535, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49754, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 27.755325078964233, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49756, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 30.827455043792725, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49758, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 33.89653301239014, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49759, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 36.969852924346924, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49761, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 40.04035401344299, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49763, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 43.33044099807739, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.89\", \"src_port\": 49764, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1005,
+                    "score": 10,
+                    "name": "Non-HTTP Traffic over HTTP ports",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        },
+                        "port": [
+                            443
+                        ]
+                    }
+                },
+                "title_text": "Non-HTTP Traffic Over HTTP Ports",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Signatures",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Network activity detected but not expressed in monitor API logs\", {}], [\"KEY_VALUE\", {\"ip\": \"74.178.240.61\"}, {}], [\"KEY_VALUE\", {\"domain\": \"online_nat.online_nat\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 52,
+                    "score": 10,
+                    "name": "Stealth",
+                    "attack": [
+                        {
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "stealth_network",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: stealth_network",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            }
+        ]
+    }
+}

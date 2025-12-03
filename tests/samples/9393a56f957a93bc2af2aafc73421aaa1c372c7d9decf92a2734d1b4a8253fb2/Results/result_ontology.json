@@ -1,0 +1,344 @@
+{
+    "sandboxes": [
+        {
+            "objectid": {
+                "tag": "CAPE",
+                "ontology_id": "sandbox_5dfadC06mRCiZPYTREH10C",
+                "service_name": "CAPE",
+                "guid": null,
+                "treeid": null,
+                "processtree": null,
+                "time_observed": null,
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "analysis_metadata": {
+                "start_time": "2025-11-21 15:59:42.000",
+                "task_id": 223261,
+                "end_time": "2025-11-21 16:01:30.000",
+                "routing": "inetsim",
+                "machine_metadata": {
+                    "ip": "1.1.1.1",
+                    "hypervisor": "blah",
+                    "hostname": "blahblahwin10x86",
+                    "platform": "Windows",
+                    "version": "10",
+                    "architecture": "x86"
+                }
+            },
+            "sandbox_name": "CAPE",
+            "sandbox_version": "2.4-CAPE"
+        }
+    ],
+    "signatures": [],
+    "network_connections": [
+        {
+            "objectid": {
+                "tag": "169.254.128.1:53",
+                "ontology_id": "network_dns_2tOxrGAfkBAsu89okIOAb9",
+                "service_name": "CAPE",
+                "guid": "{F9408C27-927C-4E8E-B02D-A2C72A2075C3}",
+                "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
+                "processtree": "169.254.128.1:53",
+                "time_observed": "2025-11-21 16:00:08.131",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "1.128.254.169.in-addr.arpa",
+                "resolved_ips": null,
+                "resolved_domains": [
+                    "www.inetsim.org"
+                ],
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns"
+        },
+        {
+            "objectid": {
+                "tag": "169.254.128.1:53",
+                "ontology_id": "network_dns_5QRHPNJpwzOTiUOhiSzWyJ",
+                "service_name": "CAPE",
+                "guid": "{A14DC73A-FCE6-431F-B6D2-A2AA3C2853B2}",
+                "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
+                "processtree": "169.254.128.1:53",
+                "time_observed": "2025-11-21 16:00:31.260",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "198.128.254.169.in-addr.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns"
+        },
+        {
+            "objectid": {
+                "tag": "169.254.128.1:53",
+                "ontology_id": "network_dns_ktSw1rws8RtBln1Uif4m2",
+                "service_name": "CAPE",
+                "guid": "{761CC199-9EAA-4C00-8D85-C8FF9CB47381}",
+                "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
+                "processtree": "169.254.128.1:53",
+                "time_observed": "2025-11-21 16:00:31.261",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "251.0.0.224.in-addr.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns"
+        },
+        {
+            "objectid": {
+                "tag": "169.254.128.1:53",
+                "ontology_id": "network_dns_5OVwNDMkVflkXE8KUwaKaw",
+                "service_name": "CAPE",
+                "guid": "{4AF0A029-E89E-459F-BA92-6863E74E9415}",
+                "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
+                "processtree": "169.254.128.1:53",
+                "time_observed": "2025-11-21 16:00:32.276",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "9.7.8.8.9.3.c.2.2.b.1.0.7.c.4.6.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns"
+        },
+        {
+            "objectid": {
+                "tag": "169.254.128.1:53",
+                "ontology_id": "network_dns_x1v3ZLiFKnb3Xo4haRTE8",
+                "service_name": "CAPE",
+                "guid": "{32E10947-A34E-434E-B277-AAF3B433D05F}",
+                "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
+                "processtree": "169.254.128.1:53",
+                "time_observed": "2025-11-21 16:00:32.276",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "169.254.128.1",
+            "destination_port": 53,
+            "transport_layer_protocol": "udp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": null,
+            "source_port": null,
+            "http_details": null,
+            "dns_details": {
+                "domain": "b.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.f.f.ip6.arpa",
+                "resolved_ips": [
+                    ""
+                ],
+                "resolved_domains": null,
+                "lookup_type": "PTR"
+            },
+            "connection_type": "dns"
+        },
+        {
+            "objectid": {
+                "tag": "20.72.205.209:443",
+                "ontology_id": "network_http_3uCzDfXe5dzPkg2LaiVkpO",
+                "service_name": "CAPE",
+                "guid": "{26755984-C6F4-4A02-8E00-A8DB253532EC}",
+                "treeid": "bdedf70d8bdbb1671422f49dc31233f44a1d9261ee82812bca9a455f7c8537c3",
+                "processtree": "20.72.205.209:443",
+                "time_observed": "1970-01-01 00:00:00.002",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "20.72.205.209",
+            "destination_port": 443,
+            "transport_layer_protocol": "tcp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": "169.254.128.207",
+            "source_port": 49734,
+            "http_details": null,
+            "dns_details": null,
+            "connection_type": null
+        },
+        {
+            "objectid": {
+                "tag": "135.232.92.137:443",
+                "ontology_id": "network_http_2ZH7szAoi6qtGTm2EcgBKx",
+                "service_name": "CAPE",
+                "guid": "{FE8E166F-E062-4A07-8F8F-CB77D8244318}",
+                "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
+                "processtree": "135.232.92.137:443",
+                "time_observed": "1970-01-01 00:00:06.673",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "destination_ip": "135.232.92.137",
+            "destination_port": 443,
+            "transport_layer_protocol": "tcp",
+            "direction": "outbound",
+            "process": null,
+            "source_ip": "169.254.128.207",
+            "source_port": 49733,
+            "http_details": null,
+            "dns_details": null,
+            "connection_type": null
+        }
+    ],
+    "network_dns": [
+        {
+            "domain": "1.128.254.169.in-addr.arpa",
+            "resolved_ips": null,
+            "resolved_domains": [
+                "www.inetsim.org"
+            ],
+            "lookup_type": "PTR"
+        },
+        {
+            "domain": "198.128.254.169.in-addr.arpa",
+            "resolved_ips": [
+                ""
+            ],
+            "resolved_domains": null,
+            "lookup_type": "PTR"
+        },
+        {
+            "domain": "251.0.0.224.in-addr.arpa",
+            "resolved_ips": [
+                ""
+            ],
+            "resolved_domains": null,
+            "lookup_type": "PTR"
+        },
+        {
+            "domain": "9.7.8.8.9.3.c.2.2.b.1.0.7.c.4.6.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa",
+            "resolved_ips": [
+                ""
+            ],
+            "resolved_domains": null,
+            "lookup_type": "PTR"
+        },
+        {
+            "domain": "b.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.f.f.ip6.arpa",
+            "resolved_ips": [
+                ""
+            ],
+            "resolved_domains": null,
+            "lookup_type": "PTR"
+        }
+    ],
+    "network_http": [],
+    "processes": [
+        {
+            "objectid": {
+                "tag": "?usrtmp\\etw-dns-app.exe",
+                "ontology_id": "process_hnExv8pSRFKeN0HX5rr9Q",
+                "service_name": "CAPE",
+                "guid": "{E636BAFC-DA7C-4C67-89B4-74EECE160AB0}",
+                "treeid": "fd5bb9b299efd21a1b6d24a6d40780968160cfca0be66b926c81ae715c3a08f5",
+                "processtree": "?usrtmp\\etw-dns-app.exe",
+                "time_observed": "2025-11-21 16:00:08.753",
+                "session": "LMs312AEJJCfXuK4K4nq9"
+            },
+            "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\etw-dns-app.exe",
+            "start_time": "2025-11-21 16:00:08.753",
+            "pobjectid": null,
+            "pimage": null,
+            "pcommand_line": null,
+            "ppid": 6456,
+            "pid": 2500,
+            "command_line": "\"C:\\Users\\buddy\\AppData\\Local\\Temp\\etw-dns-app.exe\" ",
+            "end_time": "2025-11-21 16:01:30.000",
+            "integrity_level": null,
+            "image_hash": null,
+            "original_file_name": null,
+            "loaded_modules": [
+                "api-ms-win-core-synch-l1-2-0",
+                "InitializeCriticalSectionEx",
+                "api-ms-win-core-fibers-l1-1-1",
+                "FlsAlloc",
+                "FlsSetValue",
+                "kernel32.dll",
+                "FlsFree",
+                "FlsGetValue",
+                "InitOnceExecuteOnce",
+                "CreateEventExW",
+                "CreateSemaphoreW",
+                "CreateSemaphoreExW",
+                "CreateThreadpoolTimer",
+                "SetThreadpoolTimer",
+                "WaitForThreadpoolTimerCallbacks",
+                "CloseThreadpoolTimer",
+                "CreateThreadpoolWait",
+                "SetThreadpoolWait",
+                "CloseThreadpoolWait",
+                "FlushProcessWriteBuffers",
+                "FreeLibraryWhenCallbackReturns",
+                "GetCurrentProcessorNumber",
+                "CreateSymbolicLinkW",
+                "GetCurrentPackageId",
+                "GetTickCount64",
+                "GetFileInformationByHandleEx",
+                "SetFileInformationByHandle",
+                "GetSystemTimePreciseAsFileTime",
+                "InitializeConditionVariable",
+                "WakeConditionVariable",
+                "WakeAllConditionVariable",
+                "SleepConditionVariableCS",
+                "InitializeSRWLock",
+                "AcquireSRWLockExclusive",
+                "TryAcquireSRWLockExclusive",
+                "ReleaseSRWLockExclusive",
+                "SleepConditionVariableSRW",
+                "CreateThreadpoolWork",
+                "SubmitThreadpoolWork",
+                "CloseThreadpoolWork",
+                "CompareStringEx",
+                "GetLocaleInfoEx",
+                "LCMapStringEx",
+                "api-ms-win-core-synch-l1-2-0.dll",
+                "tzres.dll",
+                "api-ms-win-appmodel-runtime-l1-1-2",
+                "AppPolicyGetThreadInitializationType",
+                "C:\\WINDOWS\\system32\\dnsapi.dll"
+            ],
+            "services_involved": null
+        }
+    ]
+}
