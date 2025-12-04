@@ -53,7 +53,15 @@ from assemblyline_v4_service.common.result import (
     ResultTextSection,
     TableRow,
     TextSectionBody,
-    #ResultSandboxSection
+    ResultSandboxSection,
+    SandboxAnalysisMetadata,
+    SandboxAttackItem,
+    SandboxNetflowItem,
+    SandboxNetworkDNS,
+    SandboxNetworkHTTP,
+    SandboxNetworkSMTP,
+    SandboxProcessItem,
+    SandboxSignatureItem,
 )
 from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
 from standard_http_headers import STANDARD_HTTP_HEADERS
@@ -770,7 +778,7 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
-    load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, signature_map)
+    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, signature_map)
 
     #Process all the info from auxiliaries
         # Powershell logger
@@ -792,7 +800,7 @@ def generate_al_result(
     if machine_info:
         process_machine_info(machine_info, ontres)
 
-    return cape_artifact_pids, main_process_tuples
+    return cape_artifact_pids, main_process_tuples, process_events
 
 def load_ontology_and_result_section(
     ontres: OntologyResults, 
@@ -813,8 +821,7 @@ def load_ontology_and_result_section(
     if len(ontres.sandboxes) == 0:
         return
     session = ontres.sandboxes[-1].objectid.session
-    process_res = PROCESS_TREE_AND_EVENTS_SECTION_TITLE
-    #process_res = ResultSandboxSection(PROCESS_TREE_AND_EVENTS_SECTION_TITLE)
+    process_res = ResultSandboxSection(PROCESS_TREE_AND_EVENTS_SECTION_TITLE)
     sigs_res = ResultSection(SIGNATURES_SECTION_TITLE)
     network_res = ResultSection(NETWORK_SECTION_TITLE)
     process_events = {
@@ -1346,18 +1353,146 @@ def load_ontology_and_result_section(
         process_events = validity
     if len(sigs_res.subsections) > 0:
         al_result.add_subsection(sigs_res)
+
+
     #Build the process tree 
     _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
 
+    if len(signature_list) > 0:
+        process_res.set_heuristic(56)
+        signature_dict = Counter(signature_list)
+        for signature,occurence in signature_dict.items():
+            process_res.heuristic.add_signature_id(signature, 0, occurence)
+    #Build the sandbox section
+    final_analysis_information = process_events["analysis_information"]
+    process_res.set_analysis_information(
+        sandbox_name = final_analysis_information["sandbox_name"],
+        sandbox_version = final_analysis_information["sandbox_version"],
+        analysis_metadata=SandboxAnalysisMetadata(
+            task_id = final_analysis_information["analysis_metadata"]["task_id"],
+            start_time = final_analysis_information["analysis_metadata"]["start_time"],
+            end_time = final_analysis_information["analysis_metadata"]["end_time"],
+            routing = final_analysis_information["analysis_metadata"]["routing"],
+            machine_metadata=None
+        ),
+    )
 
-    #TODO take the process_events and build the new section from it
-    with open("Section.json", "w") as f:
-        json.dump(process_events ,f)
-    #if len(signature_list) > 0:
-    #    process_res.set_heuristic(56)
-    #    signature_dict = Counter(signature_list)
-    #    for signature,occurence in signature_dict.items():
-    #        process_res.heuristic.add_signature_id(signature, 0, occurence)
+    for process in process_events["processes"]:
+        process_res.add_process(
+            SandboxProcessItem(
+                image = process["image"],
+                start_time = process["start_time"],
+                end_time = process["end_time"],
+                pid = process["pid"],
+                ppid = process["ppid"],
+                command_line = process["command_line"],
+                integrity_level = process["integrity_level"],
+                image_hash = process["image_hash"],
+                original_file_name = process["original_file_name"],
+                safelisted = process["safelisted"],
+            )
+        )
+    for netevent in process_events["network_connections"]:
+        if netevent["connection_type"] == "http":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    http_details=SandboxNetworkHTTP(
+                        request_uri = netevent["http_details"]["request_uri"],
+                        request_method = netevent["http_details"]["request_method"],
+                        response_status_code = netevent["http_details"]["response_status_code"],
+                        response_headers = netevent["http_details"]["response_headers"],
+                        request_headers = netevent["http_details"]["request_headers"],
+                        response_body_path = netevent["http_details"]["response_body_path"],
+                        request_body_path = netevent["http_details"]["request_body_path"] 
+                    ),
+                    connection_type = "http",
+                )
+            )
+        elif netevent["connection_type"] == "dns":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    dns_details=SandboxNetworkDNS(
+                        domain = netevent["dns_details"]["domain"],
+                        lookup_type = netevent["dns_details"]["lookup_type"],
+                        resolved_ips = netevent["dns_details"]["resolved_ips"],
+                        resolved_domains = netevent["dns_details"]["resolved_domains"]
+                    ),
+                    connection_type="dns",
+                )
+            )
+
+        elif netevent["connection_type"] == "smtp":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    smtp_details=SandboxNetworkSMTP(
+                        mail_from = netevent["smtp_details"]["mail_from"],
+                        mail_to = netevent["smtp_details"]["mail_to"],
+                        attachments = netevent["smtp_details"]["attachments"],
+                    ),
+                    connection_type="smtp",
+                )
+            )
+        else:
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    connection_type = netevent["connection_type"],
+                )
+            )
+    for sig in process_events["signatures"]:
+        attacks = []
+        for attack in sig["attacks"]:
+            attacks.append(
+                SandboxAttackItem(
+                    attack_id = attack["attack_id"],
+                    pattern = attack["pattern"],
+                    categories = attack["categories"],
+                )
+            )
+        process_res.add_signature(
+            SandboxSignatureItem(
+                name = sig["name"],
+                type = sig["type"],
+                classification = sig["classification"],
+                description = sig["description"],
+                score = sig["score"],
+                pid = sig["pid"],
+                attacks = attacks,
+                actors = sig["actors"],
+                malware_families = sig["malware_families"],
+            ))
+    al_result.add_subsection(process_res)
+    return process_events
     
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
     """

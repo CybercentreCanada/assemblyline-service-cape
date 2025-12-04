@@ -2004,7 +2004,7 @@ class CAPE(ServiceBase):
             if self.routing.lower() == INETSIM.lower():
                 inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
 
-            cape_artifact_pids, main_process_tuples = generate_al_result(
+            cape_artifact_pids, main_process_tuples, _ = generate_al_result(
                 cape_task.report,
                 parent_section,
                 file_ext,

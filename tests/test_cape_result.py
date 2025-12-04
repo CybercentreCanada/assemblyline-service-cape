@@ -1,1707 +1,2843 @@
 import json
-import shutil
 import os
-from ipaddress import IPv4Network, ip_network
-import yaml
+import re
+import shutil
+from multiprocessing import Process
+from sys import getrecursionlimit
 
 import pytest
-from assemblyline_service_utilities.common.dynamic_service_helper import (
-    Attribute,
-    NetworkConnection,
-    NetworkDNS,
-    NetworkHTTP,
-    ObjectID,
-    OntologyResults,
-    Process,
-    Signature,
-    attach_dynamic_ontology,
-)
-from assemblyline_v4_service.common.base import ServiceBase
-from assemblyline_v4_service.common.helper import get_heuristics
-from assemblyline.common.heuristics import HeuristicHandler, InvalidHeuristicException
-from assemblyline_service_utilities.common.sysmon_helper import UNKNOWN_PROCESS
+import requests_mock
+from assemblyline.common.exceptions import RecoverableError
+from assemblyline.common.identify_defaults import type_to_extension
+from assemblyline.common.str_utils import safe_str
+from assemblyline.odm.messages.task import Task as ServiceTask
+from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults
 from assemblyline_service_utilities.testing.helper import check_section_equality
-from assemblyline_v4_service.common.result import (
-    BODY_FORMAT,
-    Heuristic,
-    KVSectionBody,
-    ProcessItem,
-    ResultMultiSection,
-    ResultProcessTreeSection,
-    ResultSection,
-    ResultTableSection,
-    ResultTextSection,
-    TableRow,
-    TextSectionBody,
-    Result
-)
-from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-from cape.cape_result import (
-    ANALYSIS_ERRORS,
-    BUFFER_PATH,
-    generate_al_result,
-    load_ontology_and_result_section,
-    process_info,
-    process_machine_info,
-    process_debug,
-    get_process_map,
-    process_signatures,
-    get_network_map,
-    _get_dns_map,
-    _get_low_level_flows,
-    _process_http_calls,
-    process_curtain,
-    process_hollowshunter,
-    process_buffers,
-    process_cape,
-    get_process_map,
-    build_process_tree,
-    process_sysmon,
-    process_behavior,
-    _remove_bytes_from_buffer,
-    convert_processtree_id_to_tree_id,
-    _remove_network_http_noise,
-    _determine_dns_servers,
-    _remove_network_call,
-    _massage_host_data,
-    _massage_http_ex_data,
-    _get_important_fields_from_http_call,
-    _is_http_call_safelisted,
-    _massage_body_paths,
-    _get_destination_ip,
-    _uris_are_equal_despite_discrepancies,
-    _handle_similar_netloc_and_path,
-    _handle_http_headers,
-    _create_signature_result_section,
-    _is_mark_call,
-    _handle_mark_call,
-    _handle_mark_data,
-    _tag_mark_values,
-    _set_heuristic_signature,
-    _set_attack_ids,
-    _set_families,
-    _get_dns_sec,
-    _create_network_connection_for_network_flow,
-    _setup_network_connection_with_network_http,
-    _create_network_http,
-    _get_network_connection_by_details,
-    _create_network_connection_for_http_call,
-    _process_non_http_traffic_over_http,
-    _process_unseen_iocs,
-    _api_ioc_in_network_traffic,
-    _massage_api_urls,
-    same_dictionaries,
-)
+from assemblyline_v4_service.common.request import ServiceRequest
+from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
+from assemblyline_v4_service.common.task import Task
+from cape.cape import *
+from requests import ConnectionError, Session, exceptions
+from retrying import RetryError
 
-class DictToObject:
-    def __init__(self, dictionary):
-        for key, value in dictionary.items():
-            if isinstance(value, dict) and value:
-                setattr(self, key, DictToObject(value))
+# Getting absolute paths, names and regexes
+TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(TEST_DIR)
+SERVICE_CONFIG_NAME = "service_manifest.yml"
+SERVICE_CONFIG_PATH = os.path.join(ROOT_DIR, SERVICE_CONFIG_NAME)
+TEMP_SERVICE_CONFIG_PATH = os.path.join("/tmp", SERVICE_CONFIG_NAME)
+
+# Samples that we will be sending to the service
+samples = [
+    dict(
+        sid=1,
+        metadata={},
+        service_name="cape",
+        service_config={},
+        fileinfo=dict(
+            magic="ASCII text, with no line terminators",
+            md5="fda4e701258ba56f465e3636e60d36ec",
+            mime="text/plain",
+            sha1="af2c2618032c679333bebf745e75f9088748d737",
+            sha256="dadc624d4454e10293dbd1b701b9ee9f99ef83b4cd07b695111d37eb95abcff8",
+            size=19,
+            type="unknown",
+        ),
+        filename="dadc624d4454e10293dbd1b701b9ee9f99ef83b4cd07b695111d37eb95abcff8",
+        min_classification="TLP:WHITE",
+        max_files=501,  # TODO: get the actual value
+        ttl=3600,
+        safelist_config={"enabled": False, "hash_types": ["sha1", "sha256"], "enforce_safelist_service": False},
+    ),
+]
+
+
+def create_tmp_manifest():
+    temp_service_config_path = os.path.join("/tmp", SERVICE_CONFIG_NAME)
+    if not os.path.exists(temp_service_config_path):
+        # Placing the service_manifest.yml in the tmp directory
+        shutil.copyfile(SERVICE_CONFIG_PATH, temp_service_config_path)
+
+
+def remove_tmp_manifest():
+    temp_service_config_path = os.path.join("/tmp", SERVICE_CONFIG_NAME)
+    if os.path.exists(temp_service_config_path):
+        os.remove(temp_service_config_path)
+
+
+@pytest.fixture
+def cape_task_class():
+    create_tmp_manifest()
+    try:
+        yield CapeTask
+    finally:
+        remove_tmp_manifest()
+
+
+@pytest.fixture
+def cape_class_instance():
+    create_tmp_manifest()
+    try:
+        yield CAPE()
+    finally:
+        remove_tmp_manifest()
+
+
+@pytest.fixture
+def dummy_task_class():
+    class DummyTask:
+        def __init__(self):
+            self.supplementary = []
+            self.extracted = []
+
+    yield DummyTask
+
+
+@pytest.fixture
+def dummy_request_class(dummy_task_class):
+    class DummyRequest(dict):
+        def __init__(self, **some_dict):
+            super(DummyRequest, self).__init__()
+            self.task = dummy_task_class()
+            self.file_type = None
+            self.sha256 = True
+            self.deep_scan = False
+            self.temp_submission_data = {}
+            self.routing = "inetsim"
+            self.update(some_dict)
+
+        def add_supplementary(self, path, name, description):
+            self.task.supplementary.append({"path": path, "name": name, "description": description})
+
+        def add_extracted(self, path, name, description):
+            self.task.extracted.append({"path": path, "name": name, "description": description})
+
+        def get_param(self, key):
+            val = self.get(key, None)
+            if val is None:
+                raise Exception(f"Service submission parameter not found: {key}")
             else:
-                setattr(self, key, value)
+                return val
 
-class TestCapeResult:
-    @pytest.fixture(autouse=True)
-    def loaded_samples(self):
-        LOADED_SAMPLES = []
-        SAMPLES = []
-        for sample_path in os.listdir("tests/samples"):
-            if os.path.isdir(f"tests/samples/{sample_path}"):
-                sample_dict = {
-                    "Sample_identifier": sample_path,
-                    "Report_path": f"tests/samples/{sample_path}/Report/reports/lite.json",
-                    "Files_path": f"tests/samples/{sample_path}/Report/files.json",
-                    "Ontology_path": f"tests/samples/{sample_path}/Results/result_ontology.json",
-                    "Result_path": f"tests/samples/{sample_path}/Results/result.json",
-                    "Sandbox_section": f"tests/samples/{sample_path}/Results/Section.json"
-                }
-                SAMPLES.append(sample_dict)
-        FILES = []
-        for sample in SAMPLES:
-            report = json.loads(open(sample["Report_path"], "rb").read().decode("utf-8"))
-            REPORT_SECTIONS = {
-                "info": report.get("info", {}),
-                "debug": report.get("debug", {}),
-                "signatures": report.get("signatures", {}),
-                "network": report.get("network", {}),
-                "behavior": report.get("behavior", {}),
-                "curtain": report.get("curtain", {}),
-                "sysmon": report.get("sysmon", {}),
-                "hollowshunter": report.get("hollowshunter", {}),
-                "CAPE": report.get("CAPE", {})
+        @staticmethod
+        def add_image(path, name, description, classification=None, ocr_heuristic_id=None, ocr_io=None):
+            return {
+                "img": {"path": path, "name": name, "description": description, "classification": classification},
+                "thumb": {
+                    "path": path,
+                    "name": f"{name}.thumb",
+                    "description": description,
+                    "classification": classification,
+                },
             }
-            with open(sample["Files_path"], "r") as f:
-                for line in f.readlines():
-                    FILES.append(json.loads(line))
-            ontology = json.loads(open(sample["Ontology_path"], "rb").read().decode("utf-8"))
-            ONTOLOGY_SECTIONS = {
-                "sandboxes": ontology.get("sandboxes", {}),
-                "signatures": ontology.get("signatures", {}),
-                "network_connections": ontology.get("network_connections", {}),
-                "network_dns": ontology.get("network_dns", {}),
-                "network_http": ontology.get("network_http", {}),
-                "processes": ontology.get("processes", {}),
-            }
-            al_results = json.loads(open(sample["Result_path"], "rb").read().decode("utf-8"))
-            SCORE = al_results.get("result", {}).get("score", -1)
-            RESULT_SECTIONS = al_results
-            sandbox = json.loads(open(sample["Sandbox_section"], "rb").read().decode("utf-8"))
-            SANDBOX_SECTION = {
-                "signatures": sandbox.get("signatures", {}),
-                "network_connections": sandbox.get("network_connections", {}),
-                "processes": sandbox.get("processes", {}),
-                "analysis_information": sandbox.get("analysis_information", {}),
-            }
-            fully_loaded_sample = {
-                "Sample_identifier": sample["Sample_identifier"],
-                "Score": SCORE,
-                "Report": REPORT_SECTIONS,
-                "Ontology": ONTOLOGY_SECTIONS,
-                "Result": RESULT_SECTIONS,
-                "Sandbox": SANDBOX_SECTION
-            }
-            LOADED_SAMPLES.append(fully_loaded_sample)
-        yield LOADED_SAMPLES
 
-    @pytest.fixture()
-    def file_ext(self):
-        return "html"
+    yield DummyRequest
 
-    @pytest.fixture()
-    def random_ip_range(self):
-        return "169.254.128.0/24"
 
-    @pytest.fixture()
-    def routing(self):
-        return "internet"
+@pytest.fixture
+def dummy_zip_class():
+    class DummyZip:
+        def __init__(self, members=[]):
+            self.supplementary = None
+            self.members = members
+            self.filelist = self.members
 
-    @pytest.fixture()
-    def inetsim_dns_servers(self):
-        return "169.254.128.2"
-
-    @pytest.fixture()
-    def uses_https_proxy_in_sandbox(self):
-        return False
-
-    @pytest.fixture()
-    def suspicious_accepted_languages(self):
-        return "us"
-
-    @pytest.fixture()
-    def safelist(self, random_ip_range):
-        safelist_path = "al_config/system_safelist.yaml"
-        with open(safelist_path, "r") as f:
-            safelist = yaml.safe_load(f)
-        safelist["regex"]["network.dynamic.ip"].append(random_ip_range.replace(".", "\\.").replace("0/24", ".*"))
-        return safelist
-
-    @pytest.fixture()
-    def custom_tree_id_safelist(self):
-        custom_processtree_id_safelist = {}
-        custom_tree_id_safelist = list(SAFE_PROCESS_TREE_LEAF_HASHES.values())
-        custom_tree_id_safelist.extend(
-            [
-            convert_processtree_id_to_tree_id(item)
-            for item in custom_processtree_id_safelist
-            if item not in custom_tree_id_safelist
+        def namelist(self):
+            return [
+                "reports/lite.json",
+                "hollowshunter/hh_process_123_dump_report.json",
+                "hollowshunter/hh_process_123_scan_report.json",
+                "hollowshunter/hh_process_123_blah.exe",
+                "hollowshunter/hh_process_321_main.exe",
+                "hollowshunter/hh_process_123_blah.shc",
+                "hollowshunter/hh_process_123_blah.dll",
+                "hollowshunter/hh_process_231_fp.dll",
+                "shots/0005.jpg",
+                "shots/0010.jpg",
+                "shots/0001_small.jpg",
+                "shots/0001.jpg",
+                "network/blahblah",
+                "CAPE/ohmy.exe",
+                "CAPE/yarahit.exe",
+                "files/yaba.exe",
+                "files/README.txt",
+                "dump.pcap",
+                "sum.pcap",
+                "files.json",
             ]
-        )
-        return custom_tree_id_safelist
 
-    @pytest.fixture()
-    def submission_params(self, file_ext, random_ip_range, routing, inetsim_dns_servers, uses_https_proxy_in_sandbox, suspicious_accepted_languages, safelist, custom_tree_id_safelist):
-        my_params = {
-            "file_ext": file_ext,
-            "random_ip_range": random_ip_range,
-            "routing": routing,
-            "inetsim_dns_servers": inetsim_dns_servers,
-            "uses_https_proxy_in_sandbox": uses_https_proxy_in_sandbox,
-            "suspicious_accepted_languages": suspicious_accepted_languages,
-            "safelist": safelist,
-            "custom_tree_id_safelist": custom_tree_id_safelist
-        }
-        return my_params
+        def extract(self, output, path=None):
+            pass
 
-    @pytest.fixture()
-    def machine_info(self):
-        return {
-            "Name": "blahblahwin10x86",
-            "Manager": "blah",
-            "Platform": "Windows",
-            "IP": "1.1.1.1",
-            "Tags": [],
-        }
+        def getnames(self):
+            return self.members
 
+        def close(self):
+            pass
+
+        def get_artifacts(self):
+            return self.namelist()
+
+    yield DummyZip
+
+
+@pytest.fixture
+def dummy_zip_member_class():
+    class DummyZipMember:
+        def __init__(self, name, size):
+            self.filename = name
+            self.file_size = size
+
+        def isfile(self):
+            return True
+
+        def startswith(self, val):
+            return val in self.name
+
+    yield DummyZipMember
+
+
+@pytest.fixture
+def dummy_json_doc_class_instance():
+    # This class is just to create a doc to pass to JSONDecodeError for construction
+    class DummyJSONDoc:
+        def count(self, *args):
+            return 0
+
+        def rfind(self, *args):
+            return 0
+
+    yield DummyJSONDoc()
+
+
+@pytest.fixture
+def dummy_result_class_instance():
+    class DummyResult:
+        def __init__(self):
+            self.sections = []
+
+        def add_section(self, res_sec: ResultSection):
+            self.sections.append(res_sec)
+
+    return DummyResult()
+
+
+@pytest.fixture
+def dummy_api_interface_class():
+    class DummyApiInterface:
+        @staticmethod
+        def get_safelist():
+            return []
+
+    return DummyApiInterface
+
+
+def yield_sample_file_paths():
+    samples_path = os.path.join(TEST_DIR, "samples")
+    # For some reason os.listdir lists the same file twice, but with a trailing space on the second entry
+    paths = set([path.rstrip() for path in os.listdir(samples_path)])
+    for sample in paths:
+        yield os.path.join(samples_path, sample)
+
+
+class TestModule:
     @staticmethod
-    def _process_process_info(sample):
-        result = Result()
-        al_result = ResultSection("Parent")
-        result.add_section(al_result)
-        ontres = OntologyResults(service_name='CAPE')
-        info = sample["Report"].get("info", {})
-        process_info(info, al_result, ontres)
-        return al_result, ontres
-
-
-    @staticmethod
-    def _process_get_process_map(sample, safelist):
-        api_report = sample.get("Report")
-        behaviour = api_report.get("behavior", {})
-        if behaviour:
-            process_map = get_process_map(behaviour.get("processes", {}), safelist)
-        else:
-            process_map = []
-        return process_map
-    
-    @staticmethod
-    def _process_process_sysmon(sample, safelist):
-        api_report = sample.get("Report")
-        sysmon = api_report.get("sysmon", [])
-        if sysmon:
-            parsed_sysmon = process_sysmon(sysmon, safelist)
-        else:
-            parsed_sysmon = []
-        return parsed_sysmon
-    
-    @staticmethod
-    def _process_get_dns_map(dns, process_map, parsed_sysmon, routing, dns_servers):
-        return _get_dns_map(
-                dns,
-                process_map, 
-                parsed_sysmon, 
-                routing, 
-                dns_servers
-            )
-    
-    @staticmethod
-    def _process_get_network_map(network, validated_random_ip_range, routing, process_map, safelist, inetsim_dns_servers, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_sysmon):
-        return get_network_map(
-                network,
-                validated_random_ip_range,
-                routing,
-                process_map,
-                safelist,
-                inetsim_dns_servers,
-                uses_https_proxy_in_sandbox,
-                suspicious_accepted_languages,
-                parsed_sysmon
-            )
-    
-    @staticmethod
-    def _process_process_signatures(sigs):
-        return process_signatures(sigs)
-# Main function for functionality requiring real results
-    @pytest.mark.dependency(depends="load_ontology_and_result_section")
-    @pytest.mark.usefixtures("submission_params", "machine_info")
-    def test_generate_al_result(self, loaded_samples, submission_params, machine_info):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            ontres = OntologyResults(service_name='CAPE')
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            _,_ = generate_al_result(
-                api_report,
-                al_result,
-                submission_params["file_ext"],
-                submission_params["random_ip_range"],
-                submission_params["routing"],
-                submission_params["safelist"],
-                machine_info,
-                ontres,
-                submission_params["custom_tree_id_safelist"],
-                submission_params["inetsim_dns_servers"],
-                submission_params["uses_https_proxy_in_sandbox"],
-                submission_params["suspicious_accepted_languages"],
-            )
-            service = ServiceBase()
-            ontres.preprocess_ontology(submission_params["custom_tree_id_safelist"])
-            attach_dynamic_ontology(service, ontres)
-            #Need to process it the same way as the result generated
-            output = dict(result=result.finalize())
-            # Load heuristics
-            heuristics = get_heuristics()
-            # Transform heuristics and calculate score
-            total_score = 0
-            for section in output["result"]["sections"]:
-                if section["heuristic"]:
-                    heur_id = section["heuristic"]["heur_id"]
-                    try:
-                        section["heuristic"], new_tags = HeuristicHandler().service_heuristic_to_result_heuristic(
-                            section["heuristic"], heuristics
-                        )
-                        for tag in new_tags:
-                            section["tags"].setdefault(tag[0], [])
-                            if tag[1] not in section["tags"][tag[0]]:
-                                section["tags"][tag[0]].append(tag[1])
-                        total_score += section["heuristic"]["score"]
-                    except InvalidHeuristicException:
-                        section["heuristic"] = None
-                    section["heuristic"]["name"] = heuristics[heur_id]["name"]
-            output["result"]["score"] = total_score
-            #They should be equal at this point
-            for i in range(0, len(output["result"]["sections"])):
-                section_name = output["result"]["sections"][i]["title_text"]
-                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different"
-            assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different"
-            assert same_dictionaries(ontres.as_primitives(), sample["Ontology"]), f"{identifier} ontology is different"
-
-    @pytest.mark.dependency(name="load_ontology_and_result_section", depends=["network_map","signatures"])
-    @pytest.mark.usefixtures("submission_params")
-    def test_load_ontology_and_result_section(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            ontres = OntologyResults(service_name='CAPE')
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            network = api_report.get("network", {})
-            sigs = api_report.get("signatures", [])
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-            dns_servers, dns_requests, low_level_flow, http_calls = self._process_get_network_map(
-                network,
-                submission_params["validated_random_ip_range"],
-                submission_params["routing"],
-                process_map,
-                submission_params["safelist"],
-                submission_params["inetsim_dns_servers"],
-                submission_params["uses_https_proxy_in_sandbox"],
-                submission_params["suspicious_accepted_languages"],
-                parsed_sysmon
-            )
-            signatures = self._process_process_signatures(sigs)
-            load_ontology_and_result_section(
-                ontres,
-                al_result,
-                process_map,
-                parsed_sysmon,
-                dns_servers,
-                submission_params["validated_random_ip_range"],
-                dns_requests,
-                low_level_flow,
-                http_calls,
-                submission_params["uses_https_proxy_in_sandbox"],
-                signatures,
-                submission_params["safelist"],
-                submission_params["processtree_id_safelist"],
-            )
-            sandbox_section = sample["Sandbox"]
-    
-    @pytest.mark.dependency(name="info_section")
-    def test_process_info(self, loaded_samples):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            al_result, ontres = self._process_process_info(sample)
-            info_section = [section for section in sample["Result"]["result"].get("sections", []) if section["title_text"] == "Analysis Information"][0]
-            info_section_object = DictToObject(info_section)
-            info_ontology = sample["Ontology"].get("sandboxes", {})[0]
-            result_ontology = ontres.sandboxes[0].as_primitives()
-            #Fixing the depth, dropped section and unique value
-            al_result.subsections[0].depth = 1
-            info_section_object.subsections = []
-            result_ontology["objectid"].pop("session")
-            info_ontology["objectid"].pop("session")
-            info_ontology["analysis_metadata"]["machine_metadata"] = None
-            assert check_section_equality(al_result.subsections[0], info_section_object), f"{identifier} info section is different"
-            assert same_dictionaries(result_ontology, info_ontology), f"{identifier} sandbox ontology is different"
-
-    @pytest.mark.dependency(depends="info_section")
-    @pytest.mark.usefixtures("machine_info")
-    def test_process_machine_info(self, loaded_samples, machine_info):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            _, ontres = self._process_process_info(sample)
-            process_machine_info(machine_info, ontres)
-            result_ontology = ontres.sandboxes[0].as_primitives()
-            info_ontology = sample["Ontology"].get("sandboxes", {})[0]
-            result_metadata = result_ontology["analysis_metadata"]["machine_metadata"]
-            info_metadata = info_ontology["analysis_metadata"]["machine_metadata"]
-            assert same_dictionaries(result_metadata, info_metadata), f"{identifier} machine metadata info is different"
-
-    def test_process_debug(self, loaded_samples):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            api_report = sample.get("Report")
-            debug_report_section = api_report["debug"]
-            process_debug(debug_report_section, al_result)
-            debug_section = [section for section in sample["Result"]["result"].get("sections", []) if section["title_text"] == "Analysis Errors"][0]
-            debug_section_object = DictToObject(debug_section)
-            assert check_section_equality(al_result.subsections[0], debug_section_object), f"{identifier} debug section is different"
-
-    @pytest.mark.dependency(name="signatures")
-    def test_process_signatures(self, loaded_samples):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            sigs = api_report.get("signatures", [])
-            if sigs:
-                signatures = self._process_process_signatures(sigs)
-            else:
-                signatures = []
-            essential_signatures = sample["Sandbox"].get("signatures", {})
-            for sig in essential_signatures:
-                assert sig["name"] in [signature["name"] for signature in signatures],  f"{identifier} signature(s) extracted from report are differents"
-
-    @pytest.mark.dependency(name= "network_map", depends=["process_map", "process_sysmon", "dns_map", "low_level_flows", "http_calls"])
-    @pytest.mark.usefixtures("submission_params")
-    def test_get_network_map(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            network = api_report.get("network", {})
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-            dns_servers, dns_requests, low_level_flow, http_calls = self._process_get_network_map(
-                network,
-                submission_params["validated_random_ip_range"],
-                submission_params["routing"],
-                process_map,
-                submission_params["safelist"],
-                submission_params["inetsim_dns_servers"],
-                submission_params["uses_https_proxy_in_sandbox"],
-                submission_params["suspicious_accepted_languages"],
-                parsed_sysmon
-            )
-            output_connections = sample["Sandbox"]["network_connections"]
-            for output_connection in output_connections:
-                if output_connection["destination_port"] == 53 or output_connection.get("dns_details", {}):
-                    pass
-                elif output_connection["destination_port"] in [80,443] or output_connection.get("http_details", {}):
-                    pass
-                else:
-                    pass
-
-    @pytest.mark.dependency(name="dns_map", depends=["process_map", "process_sysmon"])
-    @pytest.mark.usefixtures("submission_params")
-    def test_get_dns_map(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            network = api_report.get("network", {})
-            dns = network.get("dns", [])
-            dns_servers = _determine_dns_servers(network, submission_params["inetsim_dns_servers"])
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-            dns_requests = self._process_get_dns_map(dns, process_map, parsed_sysmon, submission_params["routing"], dns_servers)
-            output_connections = sample["Sandbox"]["network_connections"]
-            #There is no safelisting for dns traffic so should be a mapping 1:1
-            for output_connection in output_connections:
-                if output_connection["destination_port"] == 53 or output_connection.get("dns_details", {}):
-                    pass
-
-    @pytest.mark.dependency(name="low_level_flows", depends=["process_map", "process_sysmon"])
-    @pytest.mark.usefixtures("submission_params")
-    def test_get_low_level_flows(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            network = api_report.get("network", {})
-            low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-            network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows)
-            output_connections = sample["Sandbox"]["network_connections"]
-            for output_connection in output_connections:
-                pass
-        
-    @pytest.mark.dependency(name="http_calls", depends=["process_map", "process_sysmon", "dns_map"])
-    @pytest.mark.usefixtures("submission_params")
-    def test_process_http_calls(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            network = api_report.get("network", {})
-            dns = network.get("dns", [])
-            http_level_flows = {
-                "http": network.get("http", []),
-                "https": network.get("https", []),
-                "http_ex": network.get("http_ex", []),
-                "https_ex": network.get("https_ex", []),
-            }
-            dns_servers = _determine_dns_servers(network, submission_params["inetsim_dns_servers"])
-            dns_requests = self._process_get_dns_map(dns, process_map, parsed_sysmon, submission_params["routing"], dns_servers)
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-            http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, submission_params["safelist"], submission_params["uses_https_proxy_in_sandbox"], submission_params["suspicious_accepted_languages"])
-            output_connections = sample["Sandbox"]["network_connections"]
-            for output_connection in output_connections:
-                if output_connection["destination_port"] in [80,443] or output_connection.get("http_details", {}):
-                    pass
-
-    @pytest.mark.dependency(depends="process_map")
-    @pytest.mark.usefixtures("submission_params")
-    def test_process_curtain(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            curtain = api_report.get("curtain", {})
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            process_curtain(curtain, al_result, process_map)
-            curtain_section = [section for section in sample["Result"]["Sections"] if section["title_text"] == "PowerShell Activity"][0]
-            assert check_section_equality(al_result.subsections[0], curtain_section), f"{identifier} curtain section is different"
-
-    @pytest.mark.dependency(depends="process_map")
-    @pytest.mark.usefixtures("submission_params")
-    def test_process_hollowshunter(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            hollowshunter = api_report.get("hollowshunter", {})
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            process_hollowshunter(hollowshunter, al_result, process_map)
-            hollows_section = [section for section in sample["Result"]["Sections"] if section["title_text"] == "HollowsHunter Analysis"][0]
-            assert check_section_equality(al_result.subsections[0], hollows_section)
-
-    @pytest.mark.dependency(depends="process_map")
-    @pytest.mark.usefixtures("submission_params")
-    def test_process_buffers(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            identifier = sample["Sample_identifier"]
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-            process_buffers(process_map, submission_params["safelist"], al_result)
-            buffers_section = [section for section in sample["Result"]["Sections"] if section["title_text"] == "Buffers"][0]
-            assert check_section_equality(al_result.subsections[0], buffers_section)
-
-    def test_process_cape(self, loaded_samples):
-        for sample in loaded_samples:
-            result = Result()
-            al_result = ResultSection("Parent")
-            result.add_section(al_result)
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            cape = api_report.get("CAPE", {})
-            _ = process_cape(cape, al_result)
-            cape_section = [section for section in sample["Result"]["Sections"] if section["title_text"] == "Configs Extracted By CAPE"][0]
-            assert check_section_equality(al_result.subsections[0], cape_section)
-
-
-    @pytest.mark.dependency(name="process_map")
-    @pytest.mark.usefixtures("submission_params")
-    def test_get_process_map(self, loaded_samples, submission_params):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            process_map = self._process_get_process_map(sample, submission_params["safelist"])
-
-    @pytest.mark.dependency(name="process_sysmon")
-    @pytest.mark.usefixtures("submission_params")
-    def test_process_sysmon(self, loaded_samples, submission_params):
-         for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            parsed_sysmon = self._process_process_sysmon(sample, submission_params["safelist"])
-
-    def test_process_behavior(self, loaded_samples):
-        for sample in loaded_samples:
-            identifier = sample["Sample_identifier"]
-            api_report = sample.get("Report")
-            behaviour = api_report.get("behavior", {})
-            main_process_tuples = process_behavior(behaviour)
-# Utility function which don't need full context or reports and thus will be not added to dependency to other tests
-    @staticmethod
-    @pytest.mark.parametrize(
-        "buffer, expected_output",
-        [
-            ("", ""),
-            ("blah", ""),
-            ("blahblah", "blahblah"),
-            ("\\x12blahblah", "blahblah"),
-            ("\\x12\\x23\\x34\\x45\\x56blahblah\\x67\\x78", "blahblah"),
-            ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78", "blahblah"),
-            ("\\x12a\\x23b\\x34c\\x45de\\x56blahblah\\x67\\x78http/1.1", "blahblah"),
-        ],
-    )
-    def test_remove_bytes_from_buffer(buffer, expected_output):
-        assert _remove_bytes_from_buffer(buffer) == expected_output
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        "sigs, correct_sigs",
-        [
-            ([], []),
-            ([{"name": "network_cnc_http"}], [{"name": "network_cnc_http"}]),
-            ([{"name": "network_cnc_http"}, {"name": "network_http"}], [{"name": "network_cnc_http"}]),
-        ],
-    )
-    def test_remove_network_http_noise(sigs, correct_sigs):
-        assert _remove_network_http_noise(sigs) == correct_sigs
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        "network, inetsim_dns_servers, expected_result",
-        [
-            # Nothing
-            ({}, [], []),
-            # UDP with no 53 entries
-            ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, [], []),
-            # UDP with no 53 entries and INetSim DNS server configured
-            ({"udp": [{"dst": "127.0.0.1", "dport": 35}]}, ["10.10.10.10"], ["10.10.10.10"]),
-            # UDP with a 53 entry
-            ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, [], ["127.0.0.1"]),
-            # UDP with a 53 entry and different INetSim DNS server configured
-            ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["10.10.10.10"], ["127.0.0.1", "10.10.10.10"]),
-            # UDP with a 53 entry and same INetSim DNS server configured
-            ({"udp": [{"dst": "127.0.0.1", "dport": 53}]}, ["127.0.0.1"], ["127.0.0.1"]),
-        ],
-    )
-    def test_determine_dns_servers(network, inetsim_dns_servers, expected_result):
-        assert _determine_dns_servers(network, inetsim_dns_servers) == expected_result
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        "dom, dest_ip, dns_servers, resolved_ips, expected_result",
-        [
-            # No domain, IP should not be removed
-            ("", "1.1.1.1", [], {}, False),
-            # Domain is not safelisted
-            ("blah.com", "1.1.1.1", [], {}, False),
-            # Domain is safelisted
-            ("blah.ca", "1.1.1.1", [], {}, True),
-            # No domain and IP is safelisted
-            ("", "127.0.0.1", [], {}, True),
-            # No domain and IP is not safelisted but is in the dns servers list
-            ("", "8.8.8.8", ["8.8.8.8"], {}, True),
-            # Domain is not safelisted but dest_ip is part of the resolved IPs and IP is in the INetSim network
-            ("blah.com", "192.0.2.123", [], {"request": [{"answers": "192.0.2.123"}]}, False),
-            # Domain is not safelisted but dest_ip is not part of the resolved IPs and IP is in the INetSim network
-            ("blah.com", "192.0.2.123", [], {}, True),
-        ],
-    )
-    def test_remove_network_call(dom, dest_ip, dns_servers, resolved_ips, expected_result):
-        inetsim_network = IPv4Network("192.0.2.0/24")
-        safelist = {
-            "match": {"network.dynamic.domain": ["blah.ca"]},
-            "regex": {"network.dynamic.ip": ["127\.0\.0\..*"]},
-        }
+    def test_hollowshunter_constants():
+        assert HOLLOWSHUNTER_REPORT_REGEX == "hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
         assert (
-            _remove_network_call(dom, dest_ip, dns_servers, resolved_ips, inetsim_network, safelist) == expected_result
+            HOLLOWSHUNTER_DUMP_REGEX
+            == "hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
         )
 
     @staticmethod
-    def test_massage_host_data():
-        assert _massage_host_data("blah.blah") == "blah.blah"
-        assert _massage_host_data("blah.blah:80") == "blah.blah"
+    def test_cape_api_constants():
+        assert CAPE_API_SUBMIT == "tasks/create/file/"
+        assert CAPE_API_QUERY_TASK == "tasks/view/%s/"
+        assert CAPE_API_DELETE_TASK == "tasks/delete/%s/"
+        assert CAPE_API_QUERY_REPORT == "tasks/get/report/%s/"
+        assert CAPE_API_QUERY_MACHINES == "machines/list/"
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call",
-        [
-            # normal host, no dns servers, no resolved_ips, normal http_call
-            (
-                "blah.com",
-                [],
-                {},
-                {"uri": "/blah", "protocol": "http", "dst": "127.0.0.1"},
-                "http://blah.com/blah",
-                {"uri": "/blah", "protocol": "http", "dst": "127.0.0.1"},
-            ),
-            # host in path/uri, no dns servers, no resolved_ips, normal http_call
-            (
-                "blah.com",
-                [],
-                {},
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
-                "http://blah.com/blah",
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
-            ),
-            # http_call[dst] is in dns_servers, but no resolved_ips, normal http_call
-            (
-                "blah.com",
-                ["127.0.0.1"],
-                {},
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
-                "http://blah.com/blah",
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
-            ),
-            # http_call[dst] is in dns_servers, with resolved_ips, normal http_call
-            (
-                "blah.com",
-                ["127.0.0.1"],
-                {"blah.com": [{"answers": ["1.1.1.1"]}], "1": [{"answers": "blah"}]},
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
-                "http://blah.com/blah",
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"},
-            ),
-        ],
-    )
-    def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
-        assert _massage_http_ex_data(host, dns_servers, resolved_ips, http_call) == (expected_uri, expected_http_call)
-    
+    def test_retry_constants():
+        assert CAPE_POLL_DELAY == 5
+        assert GUEST_VM_START_TIMEOUT == 360
+        assert REPORT_GENERATION_TIMEOUT == 420
+
     @staticmethod
-    @pytest.mark.parametrize(
-        "protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call",
-        [
-            # non-ex protocol
-            # normal host, no dns servers, no resolved_ips, normal http_call
-            (
-                "http",
-                "blah.com",
-                [],
-                {},
-                {"data": "GET blah.com", "uri": "http://blah.com/blah", "port": 123},
-                "GET blah.com",
-                123,
-                "http://blah.com/blah",
-                {"data": "GET blah.com", "uri": "http://blah.com/blah", "port": 123},
-            ),
-            # ex protocol
-            # normal host, no dns servers, no resolved_ips, normal http_call
-            (
-                "http_ex",
-                "blah.com",
-                [],
-                {},
-                {"request": "GET blah.com", "dport": 123, "uri": "/blah", "protocol": "http", "dst": "127.0.0.1"},
-                "GET blah.com",
-                123,
-                "http://blah.com/blah",
-                {"request": "GET blah.com", "dport": 123, "uri": "/blah", "protocol": "http", "dst": "127.0.0.1"},
-            ),
-        ],
-    )
-    def test_get_important_fields_from_http_call(
-        protocol,
-        host,
-        dns_servers,
-        resolved_ips,
-        http_call,
-        expected_request,
-        expected_port,
-        expected_uri,
-        expected_http_call,
-    ):
-        assert _get_important_fields_from_http_call(protocol, host, dns_servers, resolved_ips, http_call) == (
-            expected_request,
-            expected_port,
-            expected_uri,
-            expected_http_call,
+    def test_analysis_constants():
+        assert ANALYSIS_TIMEOUT == 150
+
+    @staticmethod
+    def test_image_tag_constants():
+        assert LINUX_IMAGE_PREFIX == "ub"
+        assert WINDOWS_IMAGE_PREFIX == "win"
+        assert x86_IMAGE_SUFFIX == "x86"
+        assert x64_IMAGE_SUFFIX == "x64"
+        assert RELEVANT_IMAGE_TAG == "auto"
+        assert ALL_IMAGES_TAG == "all"
+        assert (
+            MACHINE_NAME_REGEX
+            == f"(?:{('|').join([LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX])})(.*)(?:{('|').join([x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX])})"
         )
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "host, safelist, uri, is_http_call_safelisted",
-        [
-            # Not safelisted
-            ("blah.com", {}, "http://blah.com/blah", False),
-            # Host is safelisted domain
-            ("blah.com", {"match": {"network.dynamic.domain": ["blah.com"]}}, "http://blah.com/blah", True),
-            # URI is safelisted URI
-            ("blah.com", {"match": {"network.dynamic.uri": ["http://blah.com/blah"]}}, "http://blah.com/blah", True),
-            # /wpad.dat is in URI
-            ("blah.com", {}, "http://blah.com/wpad.dat", True),
-            # URI is not a URI
-            ("blah.com", {}, "yabadabadoo", True),
-        ],
-    )
-    def test_is_http_call_safelisted(host, safelist, uri, is_http_call_safelisted):
-        assert _is_http_call_safelisted(host, safelist, uri) == is_http_call_safelisted
+    def test_file_constants():
+        assert set(LINUX_x86_FILES) == {
+            "executable/linux/elf32",
+            "executable/linux/so32",
+            "executable/linux/coff32",
+            "executable/linux/pie32",
+        }
+        assert set(LINUX_x64_FILES) == {
+            "executable/linux/elf64",
+            "executable/linux/so64",
+            "executable/linux/ia/coff64",
+            "executable/linux/coff64",
+            "executable/linux/pie64",
+        }
+        assert set(WINDOWS_x86_FILES) == {"executable/windows/pe32", "executable/windows/dll32"}
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "http_call, expected_request_body_path, expected_response_body_path",
-        [
-            # No body paths
-            ({}, None, None),
-            # Body paths with network/ (note that this always exists if a path exists)
-            (
-                {"req": {"path": "blah/network/blahblah"}, "resp": {"path": "blah/network/blahblah"}},
-                "network/blahblah",
-                "network/blahblah",
-            ),
-        ],
-    )
-    def test_massage_body_paths(http_call, expected_request_body_path, expected_response_body_path):
-        assert _massage_body_paths(http_call) == (expected_request_body_path, expected_response_body_path)
+    def test_illegal_filename_chars_constant():
+        assert ILLEGAL_FILENAME_CHARS == set('<>:"/\|?*')
 
     @staticmethod
-    @pytest.mark.parametrize(
-        "http_call, dns_servers, host, expected_destination_ip",
-        [
-            # http_call has no dst and NetworkDNS object does not exist in ontres, no dns_servers
-            ({}, [], "blah.com", None),
-            # http_call has dst and dst in dns_servers and NetworkDNS object does not exist in ontres
-            ({"dst": "127.0.0.1"}, ["127.0.0.1"], "blah.com", None),
-            # http_call has dst and dst not in dns_servers and NetworkDNS object does not exist in ontres
-            ({"dst": "127.0.0.1"}, [], "blah.com", "127.0.0.1"),
-            # http_call has no dst and NetworkDNS object does exists in ontres
-            ({}, [], "blah.ca", "1.1.1.1"),
-        ],
-    )
-    def test_get_destination_ip(http_call, dns_servers):
+    def test_status_enumeration_constants():
+        assert TASK_MISSING == "missing"
+        assert TASK_STOPPED == "stopped"
+        assert INVALID_JSON == "invalid_json_report"
+        assert REPORT_TOO_BIG == "report_too_big"
+        assert SERVICE_CONTAINER_DISCONNECTED == "service_container_disconnected"
+        assert MISSING_REPORT == "missing_report"
+        assert TASK_STARTED == "started"
+        assert TASK_STARTING == "starting"
+        assert TASK_COMPLETED == "completed"
+        assert TASK_REPORTED == "reported"
+        assert ANALYSIS_FAILED == "failed_analysis"
+        assert PROCESSING_FAILED == "failed_processing"
+
+    @staticmethod
+    def test_misc_constants():
+        MACHINE_INFORMATION_SECTION_TITLE == "Machine Information"
+        PE_INDICATORS == [b"MZ", b"This program cannot be run in DOS mode"]
+        DEFAULT_TOKEN_KEY == "Token"
+        CONNECTION_ERRORS == ["RemoteDisconnected", "ConnectionResetError"]
+
+    @staticmethod
+    def test_retry_on_none():
+        from cape.cape import _retry_on_none
+
+        assert _retry_on_none(None) is True
+        assert _retry_on_none("blah") is False
+
+    @staticmethod
+    def test_generate_random_words():
+        pattern = r"[a-zA-Z0-9]+"
+        for num_words in [1, 2, 3]:
+            test_result = generate_random_words(num_words)
+            split_words = test_result.split(" ")
+            for word in split_words:
+                assert re.match(pattern, word)
+
+    @staticmethod
+    def test_tasks_are_similar():
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+
+        item_to_find_1 = CapeTask(
+            "blahblah",
+            host_to_use,
+            timeout=123,
+            custom="",
+            package="blah",
+            route="blah",
+            options="blah",
+            memory="blah",
+            enforce_timeout="blah",
+            tags="blah",
+            clock="blah",
+        )
+
+        item_to_find_2 = CapeTask(
+            "blah",
+            host_to_use,
+            timeout=123,
+            custom="",
+            package="blah",
+            route="blah",
+            options="blah",
+            memory="blah",
+            enforce_timeout="blah",
+            tags="blah",
+            clock="blah",
+        )
+
+        items = [
+            {"status": ANALYSIS_FAILED},
+            {
+                "status": "success",
+                "target": "blah",
+                "timeout": 321,
+                "custom": "",
+                "package": "blah",
+                "route": "blah",
+                "options": "blah",
+                "memory": "blah",
+                "enforce_timeout": "blah",
+                "tags": ["blah"],
+                "clock": "blah",
+            },
+            {
+                "status": "success",
+                "target": "blah",
+                "timeout": 123,
+                "custom": "",
+                "package": "blah",
+                "route": "blah",
+                "options": "blah",
+                "memory": "blah",
+                "enforce_timeout": "blah",
+                "tags": ["blah"],
+                "clock": "blah",
+            },
+        ]
+
+        assert tasks_are_similar(item_to_find_1, items) is False
+        assert tasks_are_similar(item_to_find_2, items) is True
+
+
+class TestCapeMain:
+    @classmethod
+    def setup_class(cls):
+        # Placing the samples in the tmp directory
+        samples_path = os.path.join(TEST_DIR, "samples")
+        for sample in os.listdir(samples_path):
+            sample_path = os.path.join(samples_path, sample)
+            shutil.copyfile(sample_path, os.path.join("/tmp", sample))
+
+    @classmethod
+    def teardown_class(cls):
+        # Cleaning up the tmp directory
+        samples_path = os.path.join(TEST_DIR, "samples")
+        for sample in os.listdir(samples_path):
+            temp_sample_path = os.path.join("/tmp", sample)
+            os.remove(temp_sample_path)
+
+    @staticmethod
+    def test_init(cape_class_instance):
+        assert cape_class_instance.file_name is None
+        assert cape_class_instance.file_res is None
+        assert cape_class_instance.request is None
+        assert cape_class_instance.session is None
+        assert cape_class_instance.connection_timeout_in_seconds is None
+        assert cape_class_instance.timeout is None
+        assert cape_class_instance.connection_attempts is None
+        assert cape_class_instance.allowed_images == []
+        assert cape_class_instance.artifact_list is None
+        assert cape_class_instance.hosts == []
+        assert cape_class_instance.routing == ""
+        assert cape_class_instance.routes == []
+        assert cape_class_instance.enforce_routing is False
+        assert cape_class_instance.safelist == {}
+        # assert cape_class_instance.identify == ""
+        assert cape_class_instance.retry_on_no_machine is False
+        assert cape_class_instance.uwsgi_with_recycle is False
+
+    @staticmethod
+    def test_start(cape_class_instance, dummy_api_interface_class, mocker):
+        mocker.patch.object(cape_class_instance, "get_api_interface", return_value=dummy_api_interface_class)
+        cape_class_instance.start()
+        assert cape_class_instance.hosts == cape_class_instance.config["remote_host_details"]["hosts"]
+        assert cape_class_instance.connection_timeout_in_seconds == cape_class_instance.config.get(
+            "connection_timeout_in_seconds", 30
+        )
+        assert cape_class_instance.timeout == cape_class_instance.config.get("rest_timeout_in_seconds", 150)
+        assert cape_class_instance.connection_attempts == cape_class_instance.config.get("connection_attempts", 3)
+        assert cape_class_instance.allowed_images == cape_class_instance.config.get("allowed_images", [])
+        assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
+        assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
+        assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
+        assert cape_class_instance.routes == cape_class_instance.config.get("routing_list", ROUTING_LIST)
+        assert cape_class_instance.enforce_routing == cape_class_instance.config.get("enforce_routing", False)
+
+    @staticmethod
+    @pytest.mark.parametrize("sample", samples)
+    def test_execute(sample, cape_class_instance, mocker):
+        mocker.patch("cape.cape.generate_random_words", return_value="blah")
+        mocker.patch.object(CAPE, "_decode_mime_encoded_file_name", return_value=None)
+        mocker.patch.object(CAPE, "_remove_illegal_characters_from_file_name", return_value=None)
+        mocker.patch.object(CAPE, "query_machines", return_value={})
+        mocker.patch.object(CAPE, "_handle_specific_machine", return_value=(False, True))
+        mocker.patch.object(CAPE, "_handle_specific_image", return_value=(False, {}))
+        mocker.patch.object(CAPE, "_handle_specific_platform", return_value=(False, {}))
+        mocker.patch.object(CAPE, "_general_flow")
+        # mocker.patch.object(CAPE, "attach_ontological_result")
+
+        sample["service_config"]["monitored_and_unmonitored"] = False
+        sample["service_config"]["no_monitor"] = False
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        service_request = ServiceRequest(task)
+
+        # Coverage test
+        mocker.patch.object(CAPE, "_assign_file_extension", return_value=None)
+
+        cape_class_instance.hosts = [{"ip": "1.1.1.1"}]
+        cape_class_instance.execute(service_request)
+        assert True
+
+        mocker.patch.object(CAPE, "_assign_file_extension", return_value="blah")
+
+        # Actually executing the sample
+        cape_class_instance.execute(service_request)
+
+        # Assert values of the class instance are expected
+        assert cape_class_instance.file_res == service_request.result
+
+        with mocker.patch.object(CAPE, "_handle_specific_machine", return_value=(True, False)):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(CAPE, "_handle_specific_machine", return_value=(True, True)):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(CAPE, "_handle_specific_machine", return_value=(False, False)):
+            with mocker.patch.object(CAPE, "_handle_specific_image", return_value=(True, {})):
+                # Cover that code!
+                cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(CAPE, "_handle_specific_image", return_value=(True, {"blah": ["blah"]})):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(
+            CAPE, "_handle_specific_image", return_value=(True, {"blah": ["blah"], "blahblah": ["blah"]})
+        ):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(CAPE, "_handle_specific_platform", return_value=(True, {"blah": []})):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        with mocker.patch.object(CAPE, "_handle_specific_platform", return_value=(True, {"blah": ["blah"]})):
+            # Cover that code!
+            cape_class_instance.execute(service_request)
+
+        # We want two tasks per submission
+        sample["service_config"]["monitored_and_unmonitored"] = True
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        service_request = ServiceRequest(task)
+        cape_class_instance.execute(service_request)
+        assert True
+        assert cape_class_instance.file_res == service_request.result
+
+        # We actually only want one task with no monitor
+        sample["service_config"]["monitored_and_unmonitored"] = True
+        sample["service_config"]["no_monitor"] = True
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        service_request = ServiceRequest(task)
+        cape_class_instance.execute(service_request)
+        assert True
+        assert cape_class_instance.file_res == service_request.result
+
+    @staticmethod
+    def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
+        from assemblyline.common.exceptions import RecoverableError
+        from cape.cape import CAPE
+
         ontres = OntologyResults(service_name="blah")
-        dns = NetworkDNS("blah.ca", ["1.1.1.1"], None, "A")
-        ontres.add_network_dns(dns)
+        ontres.add_sandbox(
+            ontres.create_sandbox(
+                objectid=ontres.create_objectid(tag="blah", ontology_id="blah"),
+                sandbox_name="blah",
+            ),
+        )
+        hosts = []
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        mocker.patch.object(CAPE, "submit")
+        mocker.patch.object(CAPE, "_generate_report")
+        mocker.patch.object(CAPE, "delete_task")
+        mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=False)
+        mocker.patch.object(CAPE, "_determine_host_to_use", return_value=host_to_use)
+        mocker.patch.object(CAPE, "_set_task_parameters")
 
-        assert _get_destination_ip(http_call, dns_servers) == expected_destination_ip
+        cape_class_instance.file_name = "blah"
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.request.file_contents = "blah"
+        cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.sandbox_ontologies = []
+
+        kwargs = dict()
+        file_ext = "blah"
+        parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
+        # Purely for code coverage
+        with pytest.raises(Exception):
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
+
+        # For code coverage
+        kwargs["options"] = "blah;free=yes;blah"
+
+        # Reboot coverage
+        cape_class_instance.config["reboot_supported"] = True
+        cape_class_instance._general_flow(
+            kwargs,
+            file_ext,
+            parent_section,
+            [{"auth_header": "blah", "ip": "blah", "port": "blah"}],
+            ontres,
+            custom_tree_id_safelist,
+            True,
+            1,
+        )
+
+        with mocker.patch.object(CAPE, "submit", side_effect=Exception("blah")):
+            with pytest.raises(Exception):
+                cape_class_instance._general_flow(
+                    kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist
+                )
+
+        with mocker.patch.object(CAPE, "submit", side_effect=RecoverableError("blah")):
+            with pytest.raises(RecoverableError):
+                cape_class_instance._general_flow(
+                    kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist
+                )
+
+        with mocker.patch.object(CAPE, "_is_invalid_analysis_timeout", return_value=True):
+            cape_class_instance._general_flow(kwargs, file_ext, parent_section, hosts, ontres, custom_tree_id_safelist)
 
     @staticmethod
     @pytest.mark.parametrize(
-        "api_uri, pcap_uri, expected_result",
+        "task_id, poll_started_status, poll_report_status",
         [
-            # These aren't real URIs
-            ("", "", False),
-            # Both uris start with different schemes but are not the same
-            ("https://blah.com/blah", "http://blah.com", False),
-            # Both uris start with different schemes and are the same
-            ("https://blah.com", "http://blah.com", True),
-            # Both uris start with different schemes and are the same with a trailing /
-            ("https://blah.com/blah/", "http://blah.com/blah", True),
+            (None, None, None),
+            (1, "missing", None),
+            (1, "started", None),
+            (1, "started", "blah"),
+            (1, "started", "missing"),
+            (1, "started", "stopped"),
+            (1, "started", "invalid_json"),
+            (1, "started", "report_too_big"),
+            (1, "started", "service_container_disconnected"),
+            (1, "started", "missing_report"),
+            (1, "started", "analysis_failed"),
+            (1, "started", "processing_failed"),
+            (1, "started", "reboot"),
         ],
     )
-    def test_uris_are_equal_despite_discrepancies(api_uri, pcap_uri, expected_result):
-        assert _uris_are_equal_despite_discrepancies(api_uri, pcap_uri) == expected_result
+    def test_submit(task_id, poll_started_status, poll_report_status, cape_class_instance, dummy_request_class, mocker):
+        all_statuses = [
+            TASK_STARTED,
+            TASK_MISSING,
+            TASK_STOPPED,
+            INVALID_JSON,
+            REPORT_TOO_BIG,
+            SERVICE_CONTAINER_DISCONNECTED,
+            MISSING_REPORT,
+            ANALYSIS_FAILED,
+            PROCESSING_FAILED,
+        ]
+        file_content = b"blah"
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.id = task_id
+        parent_section = ResultSection("blah")
+        cape_class_instance.request = dummy_request_class()
+
+        mocker.patch.object(cape_class_instance, "sha256_check", return_value=False)
+        mocker.patch.object(cape_class_instance, "submit_file", return_value=task_id)
+        mocker.patch.object(cape_class_instance, "delete_task", return_value=True)
+        if poll_started_status:
+            mocker.patch.object(cape_class_instance, "poll_started", return_value=poll_started_status)
+        if poll_report_status:
+            mocker.patch.object(cape_class_instance, "poll_report", return_value=poll_report_status)
+        else:
+            mocker.patch.object(cape_class_instance, "poll_report", side_effect=RetryError("blah"))
+
+        if task_id is None:
+            cape_class_instance.submit(file_content, cape_task, parent_section)
+            assert cape_task.id is None
+            mocker.patch.object(cape_class_instance, "submit_file", side_effect=Exception)
+            cape_task.id = 1
+            with pytest.raises(Exception):
+                cape_class_instance.submit(file_content, cape_task, parent_section)
+        elif (poll_started_status == ANALYSIS_FAILED and poll_report_status is None) or (
+            poll_report_status in [ANALYSIS_FAILED, PROCESSING_FAILED] and poll_started_status == TASK_STARTED
+        ):
+            with pytest.raises(NonRecoverableError):
+                cape_class_instance.submit(file_content, cape_task, parent_section)
+        elif poll_report_status == "reboot":
+            cape_class_instance.session = Session()
+            with requests_mock.Mocker() as m:
+                m.get(cape_task.reboot_task_url % task_id, status_code=404)
+                cape_class_instance.submit(file_content, cape_task, parent_section, True)
+                assert cape_task.id == task_id
+
+                m.get(cape_task.reboot_task_url % task_id, status_code=200, json={"reboot_id": 2, "task_id": task_id})
+                cape_class_instance.submit(file_content, cape_task, parent_section, True)
+                assert cape_task.id == 2
+
+        elif poll_started_status not in all_statuses or (poll_started_status and poll_report_status):
+            cape_class_instance.submit(file_content, cape_task, parent_section)
+            assert cape_task.id == task_id
+
+    @staticmethod
+    def test_stop(cape_class_instance):
+        # Get that coverage!
+        cape_class_instance.stop()
+        assert True
 
     @staticmethod
     @pytest.mark.parametrize(
-        "api_uri", "pcap_uri", "expected_result"
-    [
-        ("http://google.com", "https://google.com", True),
-        ("http://google.com", "http://gooooogle.com", False),
-        ("http://google.com/", "http://google.com", True),
-        ("http://google.com", "https://google.com/", False),
-        ("https://google.com/", "http://google.com", True)
-    ]
-    )
-    def test_handle_similar_netloc_and_path(api_uri, pcap_uri, expected_result):
-        assert _handle_similar_netloc_and_path(api_uri, pcap_uri) == expected_result, "Difference between handling of similar netloc and path"
-
-    @staticmethod
-    @pytest.mark.parametrize(
-        "header_string, expected_header_dict",
+        "return_value",
         [
-            ("", {}),
-            (None, {}),
-            ("GET /blah/blah/blah.doc HTTP/1.1", {}),
-            ("GET /blah/blah/blah.doc HTTP/1.1\r\n", {}),
-            ("GET /blah/blah/blah.doc HTTP/1.1\r\nblah", {}),
-            (
-                "GET /blah/blah/blah.doc HTTP/1.1\r\nConnection: Keep-Alive\r\nAccept: */*\r\nIf-Modified-Since: Sat, 01 Jul 2022"
-                " 00:00:00 GMT\r\nUser-Agent: Microsoft-CryptoAPI/10.0\r\nHost: blah.blah.com",
+            {"id": 2},
+            {"id": 1, "guest": {"status": "starting"}},
+            {"id": 1, "task": {"status": "missing"}},
+            {"id": 1, "guest": {"status": "blah"}},
+        ],
+    )
+    def test_poll_started(return_value, cape_class_instance, mocker):
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use)
+        cape_task.id = 1
+
+        # Mocking the time.sleep method that Retry uses, since decorators are loaded and immutable following module import
+        with mocker.patch("time.sleep", side_effect=lambda _: None):
+            # Mocking the CAPE.query_task method results since we only care about the output
+            with mocker.patch.object(CAPE, "query_task", return_value=return_value):
+                if (
+                    return_value.get("guest", {}).get("status") == TASK_STARTING
+                    or return_value.get("task", {}).get("status") == TASK_MISSING
+                ):
+                    p1 = Process(
+                        target=cape_class_instance.poll_started, args=(cape_task, None), name="poll_started with task status"
+                    )
+                    p1.start()
+                    p1.join(timeout=2)
+                    p1.terminate()
+                    assert p1.exitcode is None
+                else:
+                    test_result = cape_class_instance.poll_started(cape_task, None)
+                    assert TASK_STARTED == test_result
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "return_value",
+        [
+            {"id": 1, "status": "fail", "errors": []},
+            {"id": 1, "status": "completed"},
+            {"id": 1, "status": "reported"},
+            {"id": 1, "status": "still_trucking"},
+            {"id": 1, "status": "failed_analysis", "errors": ["blah"]},
+            {"id": 1, "status": "failed_processing"},
+        ],
+    )
+    def test_poll_report(return_value, cape_class_instance, mocker):
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use)
+        cape_task.id = 1
+        parent_section = ResultSection("blah")
+
+        # Mocking the time.sleep method that Retry uses, since decorators are loaded and immutable following module import
+        with mocker.patch("time.sleep", side_effect=lambda _: None):
+            # Mocking the CAPE.query_task method results since we only care about the output
+            with mocker.patch.object(CAPE, "query_task", return_value=return_value):
+                if return_value is None or return_value == {}:
+                    test_result = cape_class_instance.poll_report(cape_task, parent_section)
+                    assert TASK_MISSING == test_result
+                elif return_value["id"] != cape_task.id:
+                    with pytest.raises(RetryError):
+                        cape_class_instance.poll_report(cape_task, parent_section)
+                elif ANALYSIS_FAILED == return_value["status"]:
+                    test_result = cape_class_instance.poll_report(cape_task, parent_section)
+                    correct_result = ResultSection(ANALYSIS_ERRORS, body=return_value["errors"][0])
+                    assert check_section_equality(parent_section.subsections[0], correct_result)
+                    assert ANALYSIS_FAILED == test_result
+                elif PROCESSING_FAILED == return_value["status"]:
+                    test_result = cape_class_instance.poll_report(cape_task, parent_section)
+                    correct_result = ResultSection(ANALYSIS_ERRORS, body="Processing has failed for task 1.")
+                    assert check_section_equality(parent_section.subsections[0], correct_result)
+                    assert PROCESSING_FAILED == test_result
+                elif return_value["status"] == TASK_COMPLETED:
+                    with pytest.raises(RetryError):
+                        cape_class_instance.poll_report(cape_task, parent_section)
+                elif return_value["status"] == TASK_REPORTED:
+                    # Mocking the CAPE.query_report method results since we only care about the output
+                    with mocker.patch.object(CAPE, "query_report", return_value=return_value):
+                        test_result = cape_class_instance.poll_report(cape_task, parent_section)
+                        assert return_value["status"] == test_result
+                else:
+                    with pytest.raises(RetryError):
+                        cape_class_instance.poll_report(cape_task, parent_section)
+
+    @staticmethod
+    def test_sha256_check(cape_class_instance, mocker):
+        sha256 = "blah"
+        cape_class_instance.session = Session()
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        correct_rest_response = {"data": [{"id": 1}]}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        weird_rest_response = {}
+        correct_no_match_rest_response = {"error": False, "data": []}
+
+        with requests_mock.Mocker() as m:
+            # Case 1: We get a timeout
+            m.get(cape_task.sha256_search_url % sha256, exc=exceptions.Timeout)
+            p1 = Process(
+                target=cape_class_instance.sha256_check, args=(sha256, cape_task), name="sha256_check with Timeout"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 2: We get a ConnectionError
+            m.get(cape_task.sha256_search_url % sha256, exc=ConnectionError("blah"))
+            p1 = Process(
+                target=cape_class_instance.sha256_check,
+                args=(sha256, cape_task),
+                name="sha256_check with ConnectionError",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 3: We get a non-200 status code
+            m.get(cape_task.sha256_search_url % sha256, status_code=500)
+            p1 = Process(
+                target=cape_class_instance.sha256_check,
+                args=(sha256, cape_task),
+                name="sha256_check with non-200 status code",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We get a 200 status code with an error message
+            m.get(cape_task.sha256_search_url % sha256, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.sha256_check(sha256, cape_task)
+
+            # Case 5: We get a 200 status code with a weird message
+            m.get(cape_task.sha256_search_url % sha256, json=weird_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.sha256_check,
+                args=(sha256, cape_task),
+                name="sha256_check with weird message",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: We get a 200 status code with data and there is a similar task
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=True):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is True
+                assert cape_task.id == 1
+
+            # Case 7: We get a 200 status code with data and there is not a similar task
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=False):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_rest_response, status_code=200)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is False
+
+            # Case 8: We get a 200 status code with no data and there is not a similar task
+            with mocker.patch("cape.cape.tasks_are_similar", return_value=False):
+                m.get(cape_task.sha256_search_url % sha256, json=correct_no_match_rest_response, status_code=200)
+                test_result = cape_class_instance.sha256_check(sha256, cape_task)
+                assert test_result is False
+
+    @staticmethod
+    def test_submit_file(cape_class_instance):
+        # Prerequisites before we can mock query_machines response
+        cape_class_instance.session = Session()
+
+        file_content = b"submit me!"
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+
+        correct_rest_response = {"data": {"task_ids": [1, 2]}}
+        correct_with_only_data_rest_response = {"data": {}}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
+        weird_rest_response = {}
+        parent_section = ResultSection("blah")
+
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.post(cape_task.submit_url, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance.submit_file(file_content, cape_task, parent_section)
+            assert test_result == 1
+
+            # Case 2: Successful call, status code 200, error response
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.submit_file(file_content, cape_task, parent_section)
+
+            # Case 3: Successful call, status code 200, error with details response
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, json=error_with_details_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.submit_file(file_content, cape_task, parent_section)
+
+            # Case 4: Timeout
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, exc=exceptions.Timeout)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with Timeout",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, exc=ConnectionError)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with ConnectionError",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, status_code=500)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with non-200 status code",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: 200 status code, bad response data, Example 1
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, json=correct_with_only_data_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with 200 status code and bad response",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 8: 200 status code, bad response data, Example 2
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with 200 status code and bad response",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 9: ChunkedEncodingError
+            parent_section = ResultSection("blah")
+            m.post(cape_task.submit_url, exc=exceptions.ChunkedEncodingError)
+            p1 = Process(
+                target=cape_class_instance.submit_file,
+                args=(
+                    file_content,
+                    cape_task,
+                    parent_section
+                ),
+                name="submit_file with ChunkedEncodingError",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+    @staticmethod
+    def test_query_report(cape_class_instance):
+        # Prerequisites before we can mock query_report response
+        cape_class_instance.session = Session()
+        cape_class_instance.timeout = 30
+
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.id = 1
+        correct_rest_response = {"a": "b"}
+
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.get(
+                cape_task.query_report_url % cape_task.id + "lite" + "/zip/",
+                json=correct_rest_response,
+                status_code=200,
+            )
+            test_result = cape_class_instance.query_report(cape_task)
+            correct_result = json.dumps(correct_rest_response).encode()
+            assert correct_result == test_result
+
+            # Case 2: Successful call, status code 200, invalid response
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + "/zip/", json=None, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.query_report, args=(cape_task,), name="query_report with empty report data"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 3: Timeout
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + "/zip/", exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_report, args=(cape_task,), name="query_report with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: ConnectionError
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + "/zip/", exc=ConnectionError)
+            p1 = Process(
+                target=cape_class_instance.query_report, args=(cape_task,), name="query_report with ConnectionError"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: Non-200 status code
+            m.get(cape_task.query_report_url % cape_task.id + "lite" + "/zip/", status_code=500)
+            p1 = Process(
+                target=cape_class_instance.query_report, args=(cape_task,), name="query_report with non-200 status code"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+    @staticmethod
+    def test_query_task(cape_class_instance):
+        # Prerequisites before we can mock query_machines response
+        task_id = 1
+        cape_class_instance.session = Session()
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.id = task_id
+
+        correct_rest_response = {"data": {"task": "blah"}}
+        correct_with_only_data_rest_response = {"data": {}}
+        error_rest_response = {"error": True, "error_value": "blah"}
+        error_with_details_rest_response = {"error": True, "error_value": "blah", "errors": [{"error": "blah"}]}
+        weird_rest_response = {}
+        parent_section = ResultSection("blah")
+
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance.query_task(cape_task, parent_section)
+            assert test_result == {"task": "blah"}
+
+            # Case 2: Successful call, status code 200, error response
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, json=error_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_task(cape_task, parent_section)
+
+            # Case 3: Successful call, status code 200, error with details response
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, json=error_with_details_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_task(cape_task, parent_section)
+
+            # Case 4: Timeout
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, exc=ConnectionError)
+            p1 = Process(
+                target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with ConnectionError"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, status_code=500)
+            p1 = Process(
+                target=cape_class_instance.query_task, args=(cape_task, parent_section), name="query_task with non-200 status code"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: Successful call, status code 404
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, json=correct_rest_response, status_code=404)
+            test_result = cape_class_instance.query_task(cape_task, parent_section)
+            assert test_result == {"task": {"status": TASK_MISSING}, "id": task_id}
+
+            # Case 8: 200 status code, bad response data, Example 1
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, json=correct_with_only_data_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.query_task,
+                args=(cape_task, parent_section),
+                name="query_task with 200 status code and bad response",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 9: 200 status code, bad response data, Example 2
+            parent_section = ResultSection("blah")
+            m.get(cape_task.query_task_url % task_id, json=weird_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance.query_task,
+                args=(cape_task, parent_section),
+                name="query_task with 200 status code and bad response",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+    @staticmethod
+    def test_delete_task(cape_class_instance, mocker):
+        # Prerequisites before we can mock query_report response
+        cape_class_instance.session = Session()
+
+        task_id = 1
+        host_to_use = {"auth_header": {"blah": "blah"}, "ip": "1.1.1.1", "port": 8000}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.id = task_id
+
+        correct_rest_response = {"data": {"task": "blah"}}
+        with requests_mock.Mocker() as m:
+            # Case 1: Successful call, status code 200, valid response
+            m.get(cape_task.delete_task_url % task_id, json=correct_rest_response, status_code=200)
+            cape_class_instance.delete_task(cape_task)
+            assert cape_task.id is None
+
+            # Case 4: Timeout
+            m.get(cape_task.delete_task_url % task_id, exc=exceptions.Timeout)
+            cape_task.id = task_id
+            p1 = Process(target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with Timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: ConnectionError
+            m.get(cape_task.delete_task_url % task_id, exc=ConnectionError)
+            cape_task.id = task_id
+            p1 = Process(
+                target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with ConnectionError"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 6: Non-200 status code
+            m.get(
+                cape_task.delete_task_url % task_id,
+                status_code=500,
+                text='{"message": "The task is currently being processed, cannot delete"}',
+            )
+            cape_task.id = task_id
+            p1 = Process(
+                target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with non-200 status code"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: Successful call, status code 404
+            m.get(cape_task.delete_task_url % task_id, json=correct_rest_response, status_code=404)
+            cape_task.id = task_id
+            p1 = Process(
+                target=cape_class_instance.delete_task, args=(cape_task,), name="delete_task with non-200 status code"
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+    @staticmethod
+    def test_query_machines(cape_class_instance, dummy_request_class):
+        # Prerequisites before we can mock query_machines response
+        query_machines_url_1 = f"http://1.1.1.1:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_2 = f"http://2.2.2.2:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_3 = f"http://3.3.3.3:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_4 = f"http://4.4.4.4:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_5 = f"http://5.5.5.5:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        query_machines_url_6 = f"http://6.6.6.6:8000/apiv2/{CAPE_API_QUERY_MACHINES}"
+        cape_class_instance.session = Session()
+        cape_class_instance.connection_timeout_in_seconds = 30
+        cape_class_instance.connection_attempts = 3
+        cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+        cape_class_instance.request = dummy_request_class(routing="blah")
+
+        with requests_mock.Mocker() as m:
+            # Case 1: We have one host, and we are able to connect to it
+            # with a successful response
+            correct_rest_response = {"data": [{"blah": "blahblah"}]}
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 2: We have one host, and we are able to connect to it
+            # with errors
+            errors_rest_response = {"error": True, "error_value": "blah"}
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_machines()
+
+            # Case 3: We have one host, and we are able to connect to it
+            # with a bad status code
+            m.get(query_machines_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We have more than one host, and we are able to connect to all with a successful response
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 5: We have more than one host, and we are able to connect to all with errors
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance.query_machines()
+
+            # Case 6: We have more than one host, and we are able to connect to all with a bad status code
+            m.get(query_machines_url_1, status_code=500)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with non-200 status code")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 7: We have more than one host, and we are able to connect to one with a successful response, and another with errors
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=errors_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == []
+
+            # Case 8: We have more than one host, and we are able to connect to one with a successful response, and another with errors, but flipped
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_1, json=errors_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[0]["machines"] == []
+
+            # Case 9: We have one host, and we get a Timeout
+            cape_class_instance.hosts = [{"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}}]
+            m.get(query_machines_url_1, exc=exceptions.Timeout)
+            p1 = Process(target=cape_class_instance.query_machines, name="query_machines with timeout")
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 10: We have one host, and we get a ConnectionError
+            m.get(query_machines_url_1, exc=ConnectionError("blah"))
+            p2 = Process(target=cape_class_instance.query_machines, name="query_machines with connectionerror")
+            p2.start()
+            p2.join(timeout=2)
+            p2.terminate()
+            assert p2.exitcode is None
+
+            # Case 11: We have more than one host, and we get a Timeout for one and a successful response for another
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(query_machines_url_1, exc=exceptions.Timeout)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 12: We have more than one host, and we get a ConnectionError for one and a successful response for another
+            m.get(query_machines_url_1, exc=ConnectionError("blah"))
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 13: We have more than one host, and we are able to connect to two with a successful response, another with errors, another with a non-200 status code, another with Timeout, another with ConnectionError
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(query_machines_url_1, status_code=500)
+            m.get(query_machines_url_2, json=errors_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, exc=exceptions.Timeout)
+            m.get(query_machines_url_5, exc=ConnectionError("blah"))
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == []
+            assert cape_class_instance.hosts[1]["machines"] == []
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == []
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == [{"blah": "blahblah"}]
+
+            # Case 14: The submission is requested to have Internet-connection. Host 1 does not have the
+            # internet_connected key. Host 4 has the key set to True. The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False},
+                {"ip": "3.3.3.3", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False},
+                {"ip": "4.4.4.4", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": True},
+                {"ip": "5.5.5.5", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False},
+                {"ip": "6.6.6.6", "port": 8000, "auth_header": {"blah": "blah"}, "internet_connected": False},
+            ]
+            options = {"routing": "internet"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == []
+            assert cape_class_instance.hosts[2]["machines"] == []
+            assert cape_class_instance.hosts[3]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
+
+            # Case 15: The submission is requested to have Internet-connection.
+            # Host 1 does not have the inetsim_connected or internet_connected keys.
+            # Host 2 has the inetsim_connected key set to True and no internet_connected key.
+            # Host 3 has the inetsim_connected key set to True and the internet_connected key set to True.
+            # Host 4 has the inetsim_connected key set to False and the internet_connected key set to True.
+            # The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True},
                 {
-                    "Connection": "Keep-Alive",
-                    "Accept": "*/*",
-                    "IfModifiedSince": "Sat, 01 Jul 2022 00:00:00 GMT",
-                    "UserAgent": "Microsoft-CryptoAPI/10.0",
-                    "Host": "blah.blah.com",
+                    "ip": "3.3.3.3",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": True,
+                    "internet_connected": True,
+                },
+                {
+                    "ip": "4.4.4.4",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": True,
+                },
+                {
+                    "ip": "5.5.5.5",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": False,
+                },
+                {
+                    "ip": "6.6.6.6",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": False,
+                },
+            ]
+            options = {"routing": "internet"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
+
+            # Case 16: The submission is requested to have INetSim-connection.
+            # Host 1 does not have the inetsim_connected or internet_connected keys.
+            # Host 2 has the inetsim_connected key set to True and no internet_connected key.
+            # Host 3 has the inetsim_connected key set to True and the internet_connected key set to True.
+            # Host 4 has the inetsim_connected key set to False and the internet_connected key set to True.
+            # The rest of the hosts have the key set to False
+            cape_class_instance.hosts = [
+                {"ip": "1.1.1.1", "port": 8000, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 8000, "auth_header": {"blah": "blah"}, "inetsim_connected": True},
+                {
+                    "ip": "3.3.3.3",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": True,
+                    "internet_connected": True,
+                },
+                {
+                    "ip": "4.4.4.4",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": True,
+                },
+                {
+                    "ip": "5.5.5.5",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": False,
+                },
+                {
+                    "ip": "6.6.6.6",
+                    "port": 8000,
+                    "auth_header": {"blah": "blah"},
+                    "inetsim_connected": False,
+                    "internet_connected": False,
+                },
+            ]
+            options = {"routing": "inetsim"}
+            cape_class_instance.request = dummy_request_class(**options)
+            m.get(query_machines_url_1, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_2, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_3, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_4, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_5, json=correct_rest_response, status_code=200)
+            m.get(query_machines_url_6, json=correct_rest_response, status_code=200)
+            cape_class_instance.query_machines()
+            assert cape_class_instance.hosts[0]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[1]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[2]["machines"] == [{"blah": "blahblah"}]
+            assert cape_class_instance.hosts[3]["machines"] == []
+            assert cape_class_instance.hosts[4]["machines"] == []
+            assert cape_class_instance.hosts[5]["machines"] == []
+
+    @staticmethod
+    @pytest.mark.parametrize("sample", samples)
+    def test_check_powershell(sample, cape_class_instance):
+        task_id = 1
+        parent_section = ResultSection("blah")
+        correct_subsection = ResultSection("PowerShell Activity")
+        correct_subsection.set_body(json.dumps([{"original": "blah"}]))
+        parent_section.add_subsection(correct_subsection)
+
+        # Creating the required objects for execution
+        service_task = ServiceTask(sample)
+        task = Task(service_task)
+        cape_class_instance._task = task
+        cape_class_instance.request = ServiceRequest(task)
+        cape_class_instance.artifact_list = []
+
+        cape_class_instance.check_powershell(task_id, parent_section)
+        assert cape_class_instance.artifact_list[0]["name"] == "1_powershell_logging.ps1"
+        assert cape_class_instance.artifact_list[0]["description"] == "Deobfuscated PowerShell log from CAPE analysis"
+        assert cape_class_instance.artifact_list[0]["to_be_extracted"] == False
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "machines",
+        [
+            [],
+            [{"name": "blah", "platform": "blah", "ip": "blah"}],
+            [{"name": "blah", "platform": "blah", "ip": "blah", "tags": ["blah", "blah"]}],
+        ],
+    )
+    def test_report_machine_info(machines, cape_class_instance, mocker):
+        machine_name = "blah"
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah", "machines": machines}
+        cape_class_instance.hosts = [host_to_use]
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.report = {"info": {"machine": {"manager": "blah"}}}
+        parent_section = ResultSection("blah")
+        mocker.patch.object(cape_class_instance, "query_machines")
+
+        machine_name_exists = False
+        machine = None
+        for machine in machines:
+            if machine["name"] == machine_name:
+                machine_name_exists = True
+                break
+        if machine_name_exists:
+            correct_result_section = ResultSection("Machine Information")
+            body = {
+                "Name": str(machine["name"]),
+                "Manager": cape_task.report["info"]["machine"]["manager"],
+                "Platform": str(machine["platform"]),
+                "IP": str(machine["ip"]),
+                "Tags": [],
+            }
+            for tag in machine.get("tags", []):
+                body["Tags"].append(safe_str(tag).replace("_", " "))
+            correct_result_section.set_body(json.dumps(body), BODY_FORMAT.KEY_VALUE)
+            correct_result_section.add_tag("dynamic.operating_system.platform", "Blah")
+            output = cape_class_instance.report_machine_info(machine_name, cape_task, parent_section)
+            assert check_section_equality(correct_result_section, parent_section.subsections[0])
+            assert output == {
+                "IP": "blah",
+                "Manager": "blah",
+                "Name": "blah",
+                "Platform": "blah",
+                "Tags": [safe_str(tag).replace("_", " ") for tag in machine.get("tags", [])],
+            }
+        else:
+            body = cape_class_instance.report_machine_info(machine_name, cape_task, parent_section)
+            assert parent_section.subsections == []
+            assert body is None
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "machine_name, platform, expected_tags",
+        [
+            ("", "", []),
+            ("blah", "blah", [("dynamic.operating_system.platform", "Blah")]),
+            (
+                "vmss-udev-win10x64",
+                "windows",
+                [("dynamic.operating_system.platform", "Windows"), ("dynamic.operating_system.processor", "x64")],
+            ),
+            (
+                "vmss-udev-win7x86",
+                "windows",
+                [("dynamic.operating_system.platform", "Windows"), ("dynamic.operating_system.processor", "x86")],
+            ),
+            (
+                "vmss-udev-ub1804x64",
+                "linux",
+                [("dynamic.operating_system.platform", "Linux"), ("dynamic.operating_system.processor", "x64")],
+            ),
+        ],
+    )
+    def test_add_operating_system_tags(machine_name, platform, expected_tags, cape_class_instance):
+        expected_section = ResultSection("blah")
+        for tag_name, tag_value in expected_tags:
+            expected_section.add_tag(tag_name, tag_value)
+
+        machine_section = ResultSection("blah")
+        cape_class_instance._add_operating_system_tags(machine_name, platform, machine_section)
+        assert check_section_equality(expected_section, machine_section)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "test_file_name, correct_file_name",
+        [("blah", "blah"), ("=?blah?=", "random_blah"), ("=?iso-8859-1?q?blah?=", "blah")],
+    )
+    def test_decode_mime_encoded_file_name(test_file_name, correct_file_name, cape_class_instance, mocker):
+        mocker.patch("cape.cape.generate_random_words", return_value="random_blah")
+        cape_class_instance.file_name = test_file_name
+        cape_class_instance._decode_mime_encoded_file_name()
+        assert cape_class_instance.file_name == correct_file_name
+
+    @staticmethod
+    def test_remove_illegal_characters_from_file_name(cape_class_instance):
+        test_file_name = " " + "".join(ch for ch in ILLEGAL_FILENAME_CHARS) + "blah"
+        correct_file_name = "blah"
+
+        cape_class_instance.file_name = test_file_name
+        cape_class_instance._remove_illegal_characters_from_file_name()
+        assert cape_class_instance.file_name == correct_file_name
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "file_type, test_file_name, correct_file_extension, correct_file_name",
+        [
+            ("blah", "blah", None, "blah"),
+            ("document/office/unknown", "blah", None, "blah"),
+            ("unknown", "blah.blah", None, "blah.blah"),
+            ("unknown", "blah.bin", ".bin", "blah.bin"),
+            ("code/html", "blah", ".html", "blah.html"),
+            ("unknown", "blah.html", ".html", "blah.html"),
+        ],
+    )
+    def test_assign_file_extension(
+        file_type, test_file_name, correct_file_extension, correct_file_name, cape_class_instance, dummy_request_class
+    ):
+        cape_class_instance.file_name = test_file_name
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.request.file_type = file_type
+
+        original_ext = cape_class_instance.file_name.rsplit(".", 1)
+        tag_extension = type_to_extension.get(file_type)
+        if tag_extension is not None and "unknown" not in file_type:
+            file_ext = tag_extension
+        elif len(original_ext) == 2:
+            submitted_ext = original_ext[1]
+            if submitted_ext not in SUPPORTED_EXTENSIONS:
+                assert cape_class_instance._assign_file_extension() == ""
+                assert cape_class_instance.file_name == correct_file_name
+                return
+            else:
+                file_ext = "." + submitted_ext
+        else:
+            assert cape_class_instance._assign_file_extension() == ""
+            assert cape_class_instance.file_name == correct_file_name
+            return
+
+        if file_ext:
+            assert cape_class_instance._assign_file_extension() == correct_file_extension
+            assert cape_class_instance.file_name == correct_file_name
+        else:
+            assert cape_class_instance._assign_file_extension() == ""
+            assert cape_class_instance.file_name == correct_file_name
+
+    @staticmethod
+    def test_set_hosts_that_contain_image(cape_class_instance, mocker):
+        mocker.patch.object(cape_class_instance, "_does_image_exist", return_value=True)
+        cape_class_instance.hosts = [{"machines": None, "ip": "blah"}]
+        relevant_images = {"blah": []}
+        cape_class_instance._set_hosts_that_contain_image("blah", relevant_images)
+        assert relevant_images["blah"] == ["blah"]
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "guest_image, machines, allowed_images, correct_results",
+        [
+            ("blah", [], [], False),
+            ("blah", [{"name": "blah"}], [], False),
+            ("blah", [{"name": "blah"}], ["blah"], True),
+            ("win7x86", [{"name": "ub1804x64"}], ["win7x86"], False),
+        ],
+    )
+    def test_does_image_exist(guest_image, machines, allowed_images, correct_results, cape_class_instance):
+        cape_class_instance.machines = {"machines": machines}
+        cape_class_instance.machines = {"machines": machines}
+        assert cape_class_instance._does_image_exist(guest_image, machines, allowed_images) == correct_results
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "params, expected_kwargs",
+        [
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "none",
+                    "password": "",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "none",
+                    "options": "file=,nohuman=true,password=infected:123,enable_multi_password=true,",
+                },
+            ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 1,
+                    "dll_function": "",
+                    "arguments": "blah",
+                    "no_monitor": True,
+                    "custom_options": "blah",
+                    "clock": "blah",
+                    "force_sleepskip": True,
+                    "simulate_user": True,
+                    "deep_scan": True,
+                    "package": "doc",
+                    "dump_memory": True,
+                    "routing": "tor",
+                    "password": "blah",
+                },
+                {
+                    "enforce_timeout": True,
+                    "timeout": 1,
+                    "clock": "blah",
+                    "package": "doc",
+                    "memory": True,
+                    "route": "tor",
+                    "options": "file=,arguments=blah,free=yes,force-sleepskip=1,hollowshunter=all,password=blah,blah",
+                },
+            ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "none",
+                    "password": "blah:tryme",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "none",
+                    "options": "file=,nohuman=true,password=blah:tryme,enable_multi_password=true,",
+                },
+            ),
+            (
+                {
+                    "analysis_timeout_in_seconds": 0,
+                    "dll_function": "",
+                    "arguments": "",
+                    "no_monitor": False,
+                    "custom_options": "",
+                    "clock": "",
+                    "force_sleepskip": False,
+                    "simulate_user": False,
+                    "deep_scan": False,
+                    "package": "",
+                    "dump_memory": False,
+                    "routing": "doesnotexist",
+                    "password": "",
+                },
+                {
+                    "enforce_timeout": False,
+                    "timeout": 150,
+                    "clock": "",
+                    "route": "inetsim",
+                    "options": "file=,nohuman=true,password=infected:123,enable_multi_password=true,",
                 },
             ),
         ],
     )
-    def test_handle_http_headers(header_string, expected_header_dict):
-        assert _handle_http_headers(header_string) == expected_header_dict
-
-    @staticmethod
-    def test_is_mark_call():
-        assert _is_mark_call(["blah"]) is False
-        assert _is_mark_call(["type", "pid", "cid", "call"]) is True
-
-    @staticmethod
-    def test_api_ioc_in_network_traffic():
-        ioc_list = ["blah.com", "127.0.0.1", "http://blah.com", "http://blah.org:443"]
-        # Domain is present
-        assert _api_ioc_in_network_traffic("blah.com", ioc_list) is True
-        # Domain is not present
-        assert _api_ioc_in_network_traffic("blah.ca", ioc_list) is False
-        # URI is present
-        assert _api_ioc_in_network_traffic("http://blah.com", ioc_list) is True
-        # URI is present after requires massaging /
-        assert _api_ioc_in_network_traffic("http://blah.com/", ioc_list) is True
-        # URI is present after requires massaging, https+443
-        assert _api_ioc_in_network_traffic("https://blah.org:443", ioc_list) is True
-
-    @staticmethod
-    def test_massage_api_urls():
-        # Not a URL
-        assert _massage_api_urls("blah") == "blah"
-        # :80 spotted, but no scheme
-        assert _massage_api_urls("blah.com:80/blah") == "blah.com:80/blah"
-        # :80 spotted, and scheme
-        assert _massage_api_urls("http://blah.com:80/blah") == "http://blah.com/blah"
-        # :443 spotted, and wrong scheme
-        assert _massage_api_urls("http://blah.com:443/blah") == "http://blah.com:443/blah"
-        # :443 spotted, and scheme
-        assert _massage_api_urls("https://blah.com:443/blah") == "https://blah.com/blah"
+    def test_set_task_parameters(params, expected_kwargs, cape_class_instance, dummy_request_class, mocker):
+        mocker.patch.object(CAPE, "_prepare_dll_submission", return_value=None)
+        kwargs = dict()
+        parent_section = ResultSection("blah")
+        cape_class_instance.request = dummy_request_class(**params)
+        cape_class_instance.request.deep_scan = params.pop("deep_scan")
+        cape_class_instance.request.file_type = "archive/iso"
+        cape_class_instance.request.temp_submission_data["passwords"] = ["infected", "123"]
+        cape_class_instance.routes = cape_class_instance.config.get("routing_list", ROUTING_LIST)
+        cape_class_instance.enforce_routing = True
+        cape_class_instance.config["machinery_supports_memory_dumps"] = True
+        cape_class_instance._set_task_parameters(kwargs, parent_section)
+        assert kwargs == expected_kwargs
 
     @staticmethod
     @pytest.mark.parametrize(
-        "dict1", "dict2", "expected_result"
-    [
-        ({}, {}, True),
-        ({'a': 1}, {'a': 1}, True),
-        ({'a': 1, 'b': 2}, {'b': 2, 'a': 1}, True),
-        ({'a': {'aa': 1}}, {'a': {'aa': 1}}, True),
-        ({'a': {'aa': 1}, 'b': 2}, {'b':2 ,'a': {'aa': 1}}, True),
-        ({'a': 2}, {'ab': 2}, False),
-        ({'a': [1,2,3]}, {'a': [1,2,3]}, True),
-        ({'a': [1,2,3]}, {'a': [1,2,4]}, False),
-        ({'a':1, 'b': 2}, {'a': 1}, False)
-    ]
+        "params",
+        [
+            ({"dll_function": ""}),
+            ({"dll_function": "blah"}),
+            ({"dll_function": "blah:blah"}),
+            ({"dll_function": ""}),
+        ],
     )
-    def test_same_dictionaries(dict1, dict2, expected_result):
-        assert same_dictionaries(dict1, dict2) == expected_result, "Different dictionnaries found"
+    def test_prepare_dll_submission(params, cape_class_instance, dummy_request_class, mocker):
+        mocker.patch.object(CAPE, "_parse_dll", return_value=None)
+        task_options = []
+        correct_task_options = []
+        parent_section = ResultSection("blah")
 
-  # Secondary function which require context
+        dll_function = params["dll_function"]
+        if dll_function:
+            correct_task_options.append(f"function={dll_function}")
+            if ":" in dll_function:
+                correct_task_options.append("enable_multi=true")
 
-    def test_create_signature_result_section():
-        # Case 1: Bare minimum
-        name = "blah"
-        signature = {"data": []}
-        translated_score = 0
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
+        cape_class_instance.request = dummy_request_class(**params)
+        cape_class_instance._prepare_dll_submission(task_options, parent_section)
+        assert task_options == correct_task_options
+
+    @staticmethod
+    @pytest.mark.parametrize("dll_parsed", [None, "blah"])
+    def test_parse_dll(dll_parsed, cape_class_instance, mocker):
+        task_options = []
+
+        # Dummy Symbol class
+        class Symbol(object):
+            def __init__(self, name):
+                self.name = name
+                self.ordinal = "blah"
+
+        # Dummy DIRECTORY_ENTRY_EXPORT class
+        class DirectoryEntryExport(object):
+            def __init__(self):
+                self.symbols = [
+                    Symbol(None),
+                    Symbol("blah"),
+                    Symbol(b"blah"),
+                    Symbol("blah2"),
+                    Symbol("blah3"),
+                    Symbol("blah4"),
+                ]
+
+        # Dummy PE class
+        class FakePE(object):
+            def __init__(self):
+                self.DIRECTORY_ENTRY_EXPORT = DirectoryEntryExport()
+
+        parent_section = ResultSection("blah")
+
+        if dll_parsed is None:
+            PE = None
+            correct_task_options = ["function=DllMain:DllRegisterServer", "enable_multi=true"]
+            correct_result_section = ResultSection(
+                title_text="Executed Multiple DLL Exports",
+                body=f"The following exports were executed: DllMain, DllRegisterServer",
+            )
+        else:
+            PE = FakePE()
+            correct_task_options = ["function=DllMain:DllRegisterServer:#blah:blah4:blah2", "enable_multi=true"]
+            correct_result_section = ResultSection(
+                title_text="Executed Multiple DLL Exports",
+                body="The following exports were executed: DllMain, DllRegisterServer, #blah, blah4, blah2",
+            )
+            correct_result_section.add_line("There were 2 other exports: blah, blah3")
+
+        mocker.patch.object(CAPE, "_create_pe_from_file_contents", return_value=PE)
+        cape_class_instance._parse_dll(task_options, parent_section)
+        assert task_options == correct_task_options
+        assert check_section_equality(parent_section.subsections[0], correct_result_section)
+
+    @staticmethod
+    @pytest.mark.parametrize("zip_report", [None, "blah"])
+    def test_generate_report(zip_report, cape_class_instance, mocker):
+        mocker.patch.object(CAPE, "query_report", return_value=zip_report)
+        mocker.patch.object(CAPE, "_extract_console_output", return_value=None)
+        mocker.patch.object(CAPE, "_extract_injected_exes", return_value=None)
+        mocker.patch.object(CAPE, "check_powershell", return_value=None)
+        mocker.patch.object(CAPE, "_unpack_zip", return_value=None)
+
+        ontres = OntologyResults()
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use)
+        file_ext = "blah"
+        parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
+
+        cape_class_instance._generate_report(file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
+        # Get that coverage!
+        assert True
+
+    @staticmethod
+    def test_unpack_zip(cape_class_instance, dummy_zip_class, mocker):
+        ontres = OntologyResults()
+        zip_report = b"blah"
+        file_ext = "blah"
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use)
+        parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
+
+        mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
+        mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
+        mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
+        mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
+        mocker.patch.object(CAPE, "_extract_hollowshunter")
+        mocker.patch.object(CAPE, "_extract_artifacts")
+        mocker.patch.object(CAPE, "_extract_commands")
+        mocker.patch("cape.cape.ZipFile", return_value=dummy_zip_class())
+
+        cape_class_instance._unpack_zip(
+            zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+        )
+        assert True
+
+        with mocker.patch.object(CAPE, "_add_json_as_supplementary_file", side_effect=MissingCapeReportException):
+            cape_class_instance._unpack_zip(
+                zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+            assert True
+
+        # Exception test for _extract_console_output or _extract_hollowshunter or _extract_artifacts
+        with mocker.patch.object(CAPE, "_extract_console_output", side_effect=Exception):
+            mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
+            cape_class_instance._unpack_zip(
+                zip_report, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+            assert True
+
+    @staticmethod
+    def test_add_zip_as_supplementary_file(cape_class_instance, dummy_request_class, mocker):
+        zip_file_name = "blah"
+        zip_report_path = f"/tmp/{zip_file_name}"
+        zip_report = b"blah"
+        cape_class_instance.request = dummy_request_class()
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_class_instance.artifact_list = []
+        cape_task = CapeTask("blah", host_to_use)
+        cape_task.id = 1
+        cape_class_instance._add_zip_as_supplementary_file(zip_file_name, zip_report_path, zip_report, cape_task)
+        assert cape_class_instance.artifact_list[0]["path"] == zip_report_path
+        assert cape_class_instance.artifact_list[0]["name"] == zip_file_name
+        assert cape_class_instance.artifact_list[0]["description"] == "CAPE Sandbox analysis report archive (zip)"
+        assert cape_class_instance.artifact_list[0]["to_be_extracted"] == False
+
+        cape_class_instance.request.task.supplementary = []
+
+        mocker.patch("builtins.open", side_effect=Exception())
+        cape_class_instance._add_zip_as_supplementary_file(zip_file_name, zip_report_path, zip_report, cape_task)
+
+        # Cleanup
+        os.remove(zip_report_path)
+
+    @staticmethod
+    def test_add_json_as_supplementary_file(cape_class_instance, dummy_request_class, dummy_zip_class, mocker):
+        json_file_name = "lite.json"
+        json_report_path = f"{cape_class_instance.working_directory}/1/reports/{json_file_name}"
+        zip_obj = dummy_zip_class()
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.artifact_list = []
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use)
+        cape_task.id = 1
+        report_json_path = cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
+        assert cape_class_instance.artifact_list[0]["path"] == json_report_path
+        assert cape_class_instance.artifact_list[0]["name"] == f"1_report.json"
+        assert cape_class_instance.artifact_list[0]["description"] == "CAPE Sandbox report (json)"
+        assert cape_class_instance.artifact_list[0]["to_be_extracted"] == False
+        assert report_json_path == json_report_path
+
+        cape_class_instance.artifact_list = []
+
+        with mocker.patch.object(dummy_zip_class, "namelist", return_value=[]):
+            with pytest.raises(MissingCapeReportException):
+                cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
+
+        mocker.patch.object(dummy_zip_class, "namelist", side_effect=Exception())
+        report_json_path = cape_class_instance._add_json_as_supplementary_file(zip_obj, cape_task)
+        assert cape_class_instance.artifact_list == []
+        assert report_json_path == ""
+
+    @staticmethod
+    @pytest.mark.parametrize("report_info", [{}, {"info": {"machine": {"name": "blah"}}}])
+    def test_build_report(report_info, cape_class_instance, dummy_json_doc_class_instance, mocker):
         ontres = OntologyResults(service_name="blah")
-        process_map = {}
-        safelist = {}
-        uses_https_proxy_in_sandbox = False
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
+        ontres.add_sandbox(
+            ontres.create_sandbox(
+                objectid=ontres.create_objectid(tag="blah", ontology_id="blah"),
+                sandbox_name="blah",
+            ),
+        )
+        report_json_path = "blah"
+        file_ext = "blah"
+        report_json = report_info
+
+        mocker.patch("builtins.open")
+        mocker.patch("cape.cape.loads", return_value=report_json)
+        mocker.patch.object(CAPE, "report_machine_info")
+        mocker.patch("cape.cape.generate_al_result", return_value=({}, [], {}))
+        mocker.patch.object(CAPE, "delete_task")
+
+        host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
+        cape_task = CapeTask("blah", host_to_use, blah="blah")
+        cape_task.id = 1
+
+        cape_class_instance.query_report_url = "%s"
+
+        parent_section = ResultSection("blah")
+        custom_tree_id_safelist = list()
+
+        results = cape_class_instance._build_report(
+            report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
         )
 
-        assert actual_res_sec.title_text == "Signature: blah"
-        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
-        assert actual_res_sec.heuristic.heur_id == 9999
-        assert ontres_sig.as_primitives() == {
-            "actors": [],
-            "attacks": [],
-            "attributes": [],
-            "malware_families": [],
-            "name": "blah",
-            'classification': 'TLP:C',
-            "objectid": {
-                "guid": None,
-                "ontology_id": "blah",
-                "processtree": None,
-                "service_name": "blah",
-                "session": None,
-                "tag": "blah",
-                "time_observed": None,
-                "treeid": None,
-            },
-            "type": "CUCKOO",
-        }
+        assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
+        assert cape_task.report == report_info
+        assert results == ({}, [])
 
-        # Case 2: More than 10 marks
-        signature = {
-            "data": [
-                {"a": "b"},
-                {"b": "b"},
-                {"c": "b"},
-                {"d": "b"},
-                {"e": "b"},
-                {"f": "b"},
-                {"g": "b"},
-                {"h": "b"},
-                {"i": "b"},
-                {"j": "b"},
-                {"k": "b"},
-                {"l": "b"},
-            ]
-        }
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-        )
-        assert (
-            actual_res_sec.body
-            == '[["TEXT", "No description for signature.", {}], ["KEY_VALUE", {"a": "b"}, {}], ["KEY_VALUE", {"b": "b"}, {}], ["KEY_VALUE", {"c": "b"}, {}], ["KEY_VALUE", {"d": "b"}, {}], ["KEY_VALUE", {"e": "b"}, {}], ["KEY_VALUE", {"f": "b"}, {}], ["KEY_VALUE", {"g": "b"}, {}], ["KEY_VALUE", {"h": "b"}, {}], ["KEY_VALUE", {"i": "b"}, {}], ["KEY_VALUE", {"j": "b"}, {}], ["TEXT", "There were 2 more marks that were not displayed.", {}]]'
-        )
-        assert ontres_sig.as_primitives() == {
-            "actors": [],
-            "attacks": [],
-            "attributes": [],
-            "malware_families": [],
-            "name": "blah",
-            'classification': 'TLP:C',
-            "objectid": {
-                "guid": None,
-                "ontology_id": "blah",
-                "processtree": None,
-                "service_name": "blah",
-                "session": None,
-                "tag": "blah",
-                "time_observed": None,
-                "treeid": None,
-            },
-            "type": "CUCKOO",
-        }
-
-        # Case 3: Attribute is added
-        p = ontres.create_process(
-            start_time="1970-01-01 00:00:02",
-            pid=1,
-            image="blah",
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-        )
-        ontres.add_process(p)
-        signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}]}
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-        )
-        assert actual_res_sec.body == '[["TEXT", "No description for signature.", {}]]'
-        attr_as_primitives = ontres_sig.attributes[0].as_primitives()
-        attr_as_primitives["source"].pop("guid")
-        assert attr_as_primitives == {
-            "action": None,
-            "domain": None,
-            "event_record_id": None,
-            "file_hash": None,
-            "meta": None,
-            "source": {
-                "ontology_id": "blah",
-                "processtree": None,
-                "service_name": "CAPE",
-                "session": None,
-                "tag": "blah",
-                "time_observed": "1970-01-01 00:00:02",
-                "treeid": None,
-            },
-            "target": None,
-            "uri": None,
-        }
-
-        # Case 4: False Positive Signature with False Positive mark
-        signature = {"data": [{"pid": 1, "type": "blah", "cid": "blah", "call": {}}, {"domain": "google.com"}]}
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-        )
-        assert actual_res_sec is None
-
-        # Case 5: True Positive Signature with False Positive mark
-        signature = {
-            "data": [
-                {"pid": 1, "type": "blah", "cid": "blah", "call": {}},
-                {"domain": "google.com"},
-                {"domain": "google.ru"},
-            ]
-        }
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-        )
-        assert (
-            actual_res_sec.body
-            == '[["TEXT", "No description for signature.", {}], ["KEY_VALUE", {"domain": "google.ru"}, {}]]'
-        )
-
-        # Case 6: Procmem_yara signature special case
-        name = "procmem_yara"
-        signature = {
-            'name': 'procmem_yara',
-            'description': 'Yara detections observed in process dumps, payloads or dropped files',
-            'severity': 4,
-            'weight': 1,
-            'confidence': 100,
-            'references': [],
-            'data': [{'Hit': "PID  trigged the Yara rule 'embedded_win_api'"}, {'Hit': "PID 4876 trigged the Yara rule 'INDICATOR_EXE_Packed_GEN01'"}],
-            'new_data': [],
-            'alert': False,
-            'families': []
-        }
-        translated_score = 500
-        actual_res_sec = _create_signature_result_section(
-            name,
-            signature,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-        )
-        assert actual_res_sec.heuristic.score == 500
-        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
-
-    def test_handle_mark_call():
-        # Case 1: pid is None
-        pid = None
-        action = "blah"
-        attributes = []
-        ontres = OntologyResults(service_name="blah")
-        _handle_mark_call(pid, action, attributes, ontres)
-        assert attributes == []
-
-        # Case 2: Source does not exist
-        pid = 1
-        _handle_mark_call(pid, action, attributes, ontres)
-        assert attributes == []
-
-        # Case 3: Source does exist and attributes is empty
-        p = ontres.create_process(
-            start_time="1970-01-01 00:00:02",
-            pid=1,
-            image="blah",
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-        )
-        ontres.add_process(p)
-        _handle_mark_call(pid, action, attributes, ontres)
-        attribute_as_prim = attributes[0].as_primitives()
-        attribute_as_prim["source"].pop("guid")
-        assert attribute_as_prim == {
-            "action": "blah",
-            "domain": None,
-            "event_record_id": None,
-            "file_hash": None,
-            "meta": None,
-            "source": {
-                "ontology_id": "blah",
-                "processtree": None,
-                "service_name": "CAPE",
-                "session": None,
-                "tag": "blah",
-                "time_observed": "1970-01-01 00:00:02",
-                "treeid": None,
-            },
-            "target": None,
-            "uri": None,
-        }
-
-        # Case 4: action is None
-        action = None
-        _handle_mark_call(pid, action, attributes, ontres)
-        attribute_as_prim = attributes[1].as_primitives()
-        attribute_as_prim["source"].pop("guid")
-        assert attribute_as_prim == {
-            "action": None,
-            "domain": None,
-            "event_record_id": None,
-            "file_hash": None,
-            "meta": None,
-            "source": {
-                "ontology_id": "blah",
-                "processtree": None,
-                "service_name": "CAPE",
-                "session": None,
-                "tag": "blah",
-                "time_observed": "1970-01-01 00:00:02",
-                "treeid": None,
-            },
-            "target": None,
-            "uri": None,
-        }
-
-    def test_handle_mark_data():
-        # Case 1: Bare minimum
-        mark_items = {}
-        sig_res = ResultMultiSection("blah")
-        sig_res.add_section_part(TextSectionBody(body="blah"))
-        sig_res.add_section_part(KVSectionBody(body={"b": "a"}))
-        mark_count = 0
-        mark_body = KVSectionBody()
-        attributes = []
-        process_map = {}
-        safelist = {}
-        ontres = OntologyResults(service_name="blah")
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body is None
-        assert ioc_res is None
-
-        # Case 2: Basic mark items
-        mark_items = [("a", "b")]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b"}'
-        assert ioc_res is None
-
-        # Case 3: not v, k in MARK_KEYS_TO_NOT_DISPLAY, dumps({k: v}) in sig_res.section_body.body
-        mark_items = [("a", None), ("data_being_encrypted", "blah"), ("b", "a")]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b"}'
-        assert ioc_res is None
-
-        # Case 4: mark_count >= 10
-        mark_count = 10
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b"}'
-        assert ioc_res is None
-
-        # Case 5: Add multiple mark items
-        mark_count = 0
-        mark_items = [("c", "d"), ("d", "e")]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
-        assert ioc_res is None
-
-        # Case 6: Add mark item of type bytes
-        mark_items = [("f", b"blah")]
-        with pytest.raises(TypeError):
-            _handle_mark_data(mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres)
-
-        # Case 7: Mark item contains a safelisted value
-        safelist = {"match": {"network.dynamic.domain": ["google.com"]}}
-        mark_items = [("f", "google.com")]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b", "c": "d", "d": "e"}'
-        assert ioc_res is None
-
-        # Case 8: Mark item value is a list
-        mark_items = [("g", [0, 1, 2])]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2]}'
-        assert ioc_res is None
-
-        # Case 8: Mark item value is not a string or a list
-        mark_items = [("h", 999)]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert mark_body.body == '{"a": "b", "c": "d", "d": "e", "g": [0, 1, 2], "h": 999}'
-        assert ioc_res is None
-
-        # Case 9: Add mark item (str) with long value
-        mark_items = [("f", "blah" * 150)]
-        ioc_res = _handle_mark_data(
-            mark_items, sig_res, mark_count, mark_body, attributes, process_map, safelist, ontres
-        )
-        assert json.loads(mark_body.body)["f"] == "blah" * 128 + "..."
-        assert ioc_res is None
-
-    def test_tag_mark_values(key, value, expected_tags, uses_https_proxy_in_sandbox):
-        ontres = OntologyResults("CAPE")
-        actual_res_sec = ResultSection("blah")
-        iocs_res = _tag_mark_values(actual_res_sec, key, value, [], {}, ontres, None, uses_https_proxy_in_sandbox)
-        assert actual_res_sec.tags == expected_tags
-        if key == "data":
-            correct_iocs_res = ResultTableSection("IOCs found in Signature data")
-            correct_iocs_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
-            correct_iocs_res.add_row(TableRow({"ioc_type": "uri", "ioc": "http://blah.com"}))
-            correct_iocs_res.add_tag("network.static.domain", "blah.com")
-            correct_iocs_res.add_tag("network.static.uri", "http://blah.com")
-            assert check_section_equality(iocs_res, correct_iocs_res)
-
-    def test_set_heuristic_signature():
-        # Case 1: Unknown signature with 0 score
-        name = "blah"
-        signature = {"a": "b"}
-        sig_res = ResultMultiSection("blah")
-        translated_score = 0
-        _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 9999
-        assert sig_res.heuristic.signatures == {name: 1}
-        assert sig_res.heuristic.score == 0
-
-        # Case 2: Known signature with 100 score
-        name = "http_request"
-        signature = {"http_request": "b"}
-        sig_res = ResultMultiSection("blah")
-        translated_score = 100
-        _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 41
-        assert sig_res.heuristic.signatures == {name: 1}
-        assert sig_res.heuristic.score == 100
-
-        # Case 3: Known signature exception "procmem_yara"
-        name = "procmem_yara"
-        signature = {"procmem_yara": "anything"}
-        sig_res = ResultMultiSection("blah")
-        translated_score = 0
-        _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 55
-        assert sig_res.heuristic.signatures == {name: 1}
-        assert sig_res.heuristic.score == 0
-
-    def test_set_attack_ids():
-        # Case 1: No Attack IDs
-        attack_ids = {}
-        sig_res = ResultMultiSection("blah")
-        sig_res.set_heuristic(1)
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
-        _set_attack_ids(attack_ids, sig_res, ontres_sig)
-        assert sig_res.heuristic.attack_ids == []
-        assert ontres_sig.attacks == []
-
-        # Case 2: Multiple Attack IDs
-        attack_ids = {"T1001": {"a": "b"}, "T1003": {"a": "b"}, "T1021": {"a": "b"}}
-        _set_attack_ids(attack_ids, sig_res, ontres_sig)
-        assert sig_res.heuristic.attack_ids == ["T1001", "T1003", "T1021"]
-        assert [attack_id["attack_id"] for attack_id in ontres_sig.attacks] == ["T1001", "T1003", "T1021"]
-
-        # Case 3: Attack ID in revoke_map
-        attack_ids = {"G0042": {"a": "b"}}
-        _set_attack_ids(attack_ids, sig_res, ontres_sig)
-        assert sig_res.heuristic.attack_ids == ["T1001", "T1003", "T1021", "G0040"]
-        assert [attack_id["attack_id"] for attack_id in ontres_sig.attacks] == ["T1001", "T1003", "T1021", "G0040"]
-
-    def test_set_families():
-        # Case 1: No families
-        families = []
-        sig_res = ResultMultiSection("blah")
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
-        _set_families(families, sig_res, ontres_sig)
-        assert sig_res.body is None
-        assert ontres_sig.malware_families == []
-
-        # Case 2: Multiple families
-        families = ["blah", "blahblah", "blahblahblah"]
-        _set_families(families, sig_res, ontres_sig)
-        assert sig_res.body == '[["TEXT", "\\tFamilies: blah,blahblah,blahblahblah", {}]]'
-        assert ontres_sig.malware_families == ["blah", "blahblah", "blahblahblah"]
-
-        # Case 3: Families in SKIPPED_FAMILIES
-        families = ["generic", "wow"]
-        sig_res = ResultMultiSection("blah")
-        ontres_sig = Signature(ObjectID("blah", "blah", "blah"), "blah", "CUCKOO", "TLP:C")
-        _set_families(families, sig_res, ontres_sig)
-        assert sig_res.body == '[["TEXT", "\\tFamilies: wow", {}]]'
-        assert ontres_sig.malware_families == ["wow"]
-
-    def test_get_dns_sec():
-        # Nothing test
-        resolved_ips = {}
-        safelist = []
-        assert _get_dns_sec(resolved_ips, safelist) is None
-
-        # Standard test with no type
-        resolved_ips = {"blah.com": [{"answers": "1.1.1.1"}]}
-        expected_res_sec = ResultSection(
-            "Protocol: DNS",
-            body_format=BODY_FORMAT.TABLE,
-            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": None}]),
-        )
-        expected_res_sec.set_heuristic(1000)
-        expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
-        actual_res_sec = _get_dns_sec(resolved_ips, safelist)
-        assert check_section_equality(actual_res_sec, expected_res_sec)
-
-        # Standard test with type
-        resolved_ips = {"blah.com": [{"answers": "1.1.1.1", "type": "A"}]}
-        expected_res_sec = ResultSection(
-            "Protocol: DNS",
-            body_format=BODY_FORMAT.TABLE,
-            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "A"}]),
-        )
-        expected_res_sec.set_heuristic(1000)
-        expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
-        actual_res_sec = _get_dns_sec(resolved_ips, safelist)
-        assert check_section_equality(actual_res_sec, expected_res_sec)
-
-        # No answer test --> Disabling since seem prone to FP of saying the DNS is down when it's not.
-        # resolved_ips = {"blah.com": [{"answers": ["0"]}]}
-        # expected_res_sec = ResultSection(
-        #    "Protocol: DNS", body_format=BODY_FORMAT.TABLE, body=json.dumps([{"domain": "blah.com", "type": None}])
-        # )
-        # expected_res_sec.set_heuristic(1000)
-        # expected_res_sec.add_tag("network.protocol", "dns")
-        # expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
-        # expected_res_sec.add_subsection(
-        #    ResultSection(
-        #        title_text="DNS services are down!",
-        #        body="Contact the CAPE administrator for details.",
-        #    )
-        # )
-        # actual_res_sec = _get_dns_sec(resolved_ips, safelist)
-        # assert check_section_equality(actual_res_sec, expected_res_sec)
-
-        # Non-standard DNS query
-        resolved_ips = {"blah.com": [{"answers": "1.1.1.1", "type": "TXT"}]}
-        expected_res_sec = ResultSection(
-            "Protocol: DNS",
-            body_format=BODY_FORMAT.TABLE,
-            body=json.dumps([{"domain": "blah.com", "answer": "1.1.1.1", "type": "TXT"}]),
-        )
-        expected_res_sec.set_heuristic(1000)
-        expected_res_sec.add_tag("network.protocol", "dns")
-        expected_res_sec.add_tag("network.dynamic.ip", "1.1.1.1")
-        expected_res_sec.add_tag("network.dynamic.domain", "blah.com")
-        expected_dns_query_res_sec = ResultSection(
-            "Non-Standard DNS Query Used", body="CAPE detected a non-standard DNS query being used"
-        )
-        expected_dns_query_res_sec.set_heuristic(1009)
-        expected_dns_query_res_sec.add_line(f"\t-\tTXT")
-        expected_res_sec.add_subsection(expected_dns_query_res_sec)
-        actual_res_sec = _get_dns_sec(resolved_ips, safelist)
-        assert check_section_equality(actual_res_sec, expected_res_sec)
-
-    def test_create_network_connection_for_network_flow(network_flow, expected_netflow):
-        session = "blah"
-        ontres = OntologyResults(service_name="CAPE")
-        p = Process(
-            objectid=OntologyResults.create_objectid(tag="blah.exe", ontology_id="blah", service_name="CAPE"),
-            image="blah.exe",
-            start_time="1970-01-01 00:00:01",
-            end_time="1970-01-01 00:00:10",
-            pid=123,
-        )
-        ontres.add_process(p)
-
-        _create_network_connection_for_network_flow(network_flow, session, ontres)
-        prims = ontres.netflows[0].as_primitives()
-        prims["objectid"].pop("guid")
-        assert prims == expected_netflow
-
-    def test_setup_network_connection_with_network_http(
-        uri,
-        http_call,
-        request_headers,
-        response_headers,
-        request_body_path,
-        response_body_path,
-        port,
-        destination_ip,
-        expected_nc,
-        expected_nh,
-    ):
-        ontres = OntologyResults(service_name="blah")
-
-        sandbox = ontres.create_sandbox(
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-            sandbox_name="CAPE",
-        )
-        ontres.add_sandbox(sandbox)
-
-        nc = NetworkConnection(
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-            destination_ip="1.1.1.1",
-            destination_port=123,
-            transport_layer_protocol="tcp",
-            direction="outbound",
-        )
-        ontres.add_network_connection(nc)
-
-        actual_nc, actual_nh = _setup_network_connection_with_network_http(
-            uri,
-            http_call,
-            request_headers,
-            response_headers,
-            request_body_path,
-            response_body_path,
-            port,
-            destination_ip,
-            ontres,
-        )
-
-        assert actual_nc.as_primitives() == expected_nc
-        assert actual_nh.as_primitives() == expected_nh
-
-    def test_create_network_http(
-        uri, http_call, request_headers, response_headers, request_body_path, response_body_path, expected_nh
-    ):
-        ontres = OntologyResults(service_name="blah")
-        assert (
-            _create_network_http(
-                uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres
-            ).as_primitives()
-            == expected_nh
-        )
-
-    def test_get_network_connection_by_details(destination_ip, destination_port, expected_nc):
-        ontres = OntologyResults(service_name="blah")
-        nc = NetworkConnection(
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-            destination_ip="1.1.1.1",
-            destination_port=123,
-            transport_layer_protocol="tcp",
-            direction="outbound",
-        )
-        ontres.add_network_connection(nc)
-
-        if destination_ip == "127.0.0.1":
-            assert _get_network_connection_by_details(destination_ip, destination_port, ontres) == expected_nc
-        elif destination_ip == "1.1.1.1":
-            assert (
-                _get_network_connection_by_details(destination_ip, destination_port, ontres).as_primitives()
-                == expected_nc
+        # Exception tests for generate_al_result
+        mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
+        with pytest.raises(RecoverableError):
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
-    def test_create_network_connection_for_http_call(http_call, destination_ip, destination_port, expected_nc):
-        ontres = OntologyResults(service_name="blah")
-        sandbox = ontres.create_sandbox(
-            objectid=OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE"),
-            sandbox_name="CAPE",
+        mocker.patch("cape.cape.generate_al_result", side_effect=CapeProcessingException("blah"))
+        with pytest.raises(CapeProcessingException):
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+
+        mocker.patch("cape.cape.generate_al_result", side_effect=Exception("blah"))
+        with pytest.raises(Exception):
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+
+        # Exception tests for json.loads
+        mocker.patch("cape.cape.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
+        with pytest.raises(JSONDecodeError):
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+
+        mocker.patch("cape.cape.loads", side_effect=Exception("blah"))
+        with pytest.raises(Exception):
+            _ = cape_class_instance._build_report(
+                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
+
+    @staticmethod
+    def test_get_files_json_contents(cape_class_instance, dummy_zip_class):
+        task_id = 1
+        zip_obj = dummy_zip_class()
+        # No such file
+        output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
+        assert output == {}
+        directory = os.path.join(cape_class_instance.working_directory, f"{task_id}")
+        os.makedirs(directory, exist_ok=True)
+        file_path = os.path.join(directory, "files.json")
+        with open(file_path, "a+") as f:
+            f.write(json.dumps({"path": "CAPE/ohmy.exe", "filepath": "C:\\Windows\\System32\\blah\\ohmy.exe"}))
+            f.write("\n")
+            f.write(json.dumps({"path": "files/yaba.exe", "filepath": "C:\\Windows\\Users\\buddy\\AppData\\yaba.exe"}))
+
+        # File exists
+        output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
+        assert output == {
+            "CAPE/ohmy.exe": "ohmy.exe",
+            "files/yaba.exe": "yaba.exe",
+        }
+        os.remove(file_path)
+        os.removedirs(directory)
+
+    @staticmethod
+    def test_extract_console_output(cape_class_instance, dummy_request_class, mocker):
+        mocker.patch("os.path.exists", return_value=True)
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.artifact_list = []
+        task_id = 1
+        cape_class_instance._extract_console_output(task_id)
+        assert cape_class_instance.artifact_list[0]["path"] == "/tmp/1_console_output.txt"
+        assert cape_class_instance.artifact_list[0]["name"] == "1_console_output.txt"
+        assert cape_class_instance.artifact_list[0]["description"] == "Console Output Observed"
+        assert not cape_class_instance.artifact_list[0]["to_be_extracted"]
+
+    @staticmethod
+    def test_extract_injected_exes(cape_class_instance, dummy_request_class, mocker):
+        mocker.patch("os.listdir", return_value=["1_injected_memory_0.exe"])
+        mocker.patch("os.path.isfile", return_value=True)
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.artifact_list = []
+        task_id = 1
+        cape_class_instance._extract_injected_exes(task_id)
+        assert cape_class_instance.artifact_list[0]["path"] == "/tmp/1_injected_memory_0.exe"
+        assert cape_class_instance.artifact_list[0]["name"] == "/tmp/1_injected_memory_0.exe"
+        assert cape_class_instance.artifact_list[0]["description"] == "Injected executable was found written to memory"
+        assert cape_class_instance.artifact_list[0]["to_be_extracted"]
+
+    @staticmethod
+    def test_extract_artifacts(
+        cape_class_instance, dummy_request_class, dummy_zip_class, dummy_zip_member_class, mocker
+    ):
+        ontres = OntologyResults()
+
+        parent_section = ResultSection("blah")
+        correct_artifact_list = []
+        zip_obj = dummy_zip_class()
+        [zip_obj.members.append(dummy_zip_member_class(f, 1)) for f in zip_obj.get_artifacts()]
+        task_id = 1
+        cape_class_instance.artifact_list = []
+        cape_class_instance.request = dummy_request_class()
+        cape_class_instance.request.deep_scan = False
+        cape_class_instance.config["extract_cape_dumps"] = True
+
+        correct_image_section = ResultMultiSection(
+            f"Screenshots taken during Task {task_id}",
         )
-        ontres.add_sandbox(sandbox)
-        nh = NetworkHTTP("http://blah.com/blah", "GET")
-        assert (
-            _create_network_connection_for_http_call(
-                http_call, destination_ip, destination_port, nh, ontres
-            ).as_primitives()
-            == expected_nc
+        correct_image_section_body = ImageSectionBody(dummy_request_class)
+
+        correct_image_section_body.add_image(
+            f"{cape_class_instance.working_directory}/{task_id}/shots/0001.jpg",
+            f"{task_id}_shots/0001.jpg",
+            "Screenshot captured during analysis",
+        )
+        correct_image_section_body.add_image(
+            f"{cape_class_instance.working_directory}/{task_id}/shots/0005.jpg",
+            f"{task_id}_shots/0005.jpg",
+            "Screenshot captured during analysis",
+        )
+        correct_image_section_body.add_image(
+            f"{cape_class_instance.working_directory}/{task_id}/shots/0010.jpg",
+            f"{task_id}_shots/0010.jpg",
+            "Screenshot captured during analysis",
+        )
+        correct_image_section.add_section_part(correct_image_section_body)
+        correct_artifact_list.append(
+            {
+                "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
+                "name": f"{task_id}_files/README.txt",
+                "description": "File extracted during analysis",
+                "to_be_extracted": False,
+            }
+        )
+        # This is NOT added to the artifact list because it does not have a yara hit
+        # correct_artifact_list.append(
+        #     {
+        #         "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/ohmy.exe",
+        #         "name": f"{task_id}_3_ohmy.exe",
+        #         "description": "Memory Dump",
+        #         "to_be_extracted": True,
+        #     }
+        # )
+        # This IS added to the artifact list because it does have a yara hit
+        correct_artifact_list.append(
+            {
+                "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/yarahit.exe",
+                "name": f"{task_id}_3_yarahit.exe",
+                "description": "Memory Dump",
+                "to_be_extracted": True,
+            }
+        )
+        correct_artifact_list.append(
+            {
+                "path": f"{cape_class_instance.working_directory}/{task_id}/sum.pcap",
+                "name": f"{task_id}_sum.pcap",
+                "description": "TCPDUMP captured during analysis",
+                "to_be_extracted": True,
+            }
+        )
+        correct_artifact_list.append(
+            {
+                "path": f"{cape_class_instance.working_directory}/{task_id}/dump.pcap",
+                "name": f"{task_id}_dump.pcap",
+                "description": "TCPDUMP captured during analysis",
+                "to_be_extracted": True,
+            }
         )
 
-    def test_process_non_http_traffic_over_http():
-        test_parent_section = ResultSection("blah")
-        network_flows = [
-            {"dest_port": 80, "dest_ip": "127.0.0.1", "domain": "blah.com"},
-            {"dest_port": 443, "dest_ip": "127.0.0.2", "domain": "blah2.com"},
+        cape_artifact_pids = [
+            {"sha256": "ohmy.exe", "pid": 3, "is_yara_hit": False},
+            {"sha256": "yarahit.exe", "pid": 3, "is_yara_hit": True},
         ]
-        correct_result_section = ResultSection("Non-HTTP Traffic Over HTTP Ports")
-        correct_result_section.set_heuristic(1005)
-        correct_result_section.add_tag("network.dynamic.ip", "127.0.0.1")
-        correct_result_section.add_tag("network.dynamic.ip", "127.0.0.2")
-        correct_result_section.add_tag("network.dynamic.domain", "blah.com")
-        correct_result_section.add_tag("network.dynamic.domain", "blah2.com")
-        correct_result_section.add_tag("network.port", 80)
-        correct_result_section.add_tag("network.port", 443)
-        correct_result_section.set_body(json.dumps(network_flows), BODY_FORMAT.TABLE)
-        _process_non_http_traffic_over_http(test_parent_section, network_flows)
-        assert check_section_equality(test_parent_section.subsections[0], correct_result_section)
-
-    def test_process_unseen_iocs():
-        default_so = OntologyResults(service_name="CAPE")
-        nh = default_so.create_network_http(request_uri="http://blah.ca/blah", request_method="get")
-        default_so.add_network_http(nh)
-        nh2 = default_so.create_network_http(request_uri="https://blah.ca/blah", request_method="get")
-        default_so.add_network_http(nh2)
-        nd = default_so.create_network_dns(domain="blah.ca", resolved_ips=["1.1.1.1"], lookup_type="A")
-        default_so.add_network_dns(nd)
-
-        # Do nothing
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        _process_unseen_iocs(parent_result_section, {}, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
-
-        # Unseen URI
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        unseen_res = ResultTableSection(
-            "Unseen IOCs found in API calls",
-            tags={
-                "network.dynamic.domain": ["blah.com"],
-                "network.dynamic.uri": ["http://blah.com/blah"],
-                "network.dynamic.uri_path": ["/blah"],
-            },
+        file_name_map = {"CAPE/ohmy.exe": "ohmy.exe", "CAPE/yarahit.exe": "yarahit.exe"}
+        mocker.patch.object(
+            cape_class_instance.identify,
+            "fileinfo",
+            side_effect=[
+                {"type": "text/plain", "mime": "text/plain", "magic": "ASCII text, with CRLF line terminators"},
+                {"type": "unknown", "mime": "application/octet-stream", "magic": "SQLite Rollback Journal"},
+            ],
         )
-        unseen_res.add_row(TableRow({"ioc_type": "domain", "ioc": "blah.com"}))
-        unseen_res.add_row(TableRow({"ioc_type": "uri", "ioc": "http://blah.com/blah"}))
-        unseen_res.set_heuristic(1013)
-        correct_result_section.add_subsection(unseen_res)
-        process_map = {123: {"network_calls": [{"something": {"uri": "http://blah.com/blah"}}]}}
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
+        cape_class_instance._extract_artifacts(
+            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
+        )
+        all_files = True
+        assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
+        for f in cape_class_instance.artifact_list:
+            if f not in correct_artifact_list:
+                all_files = False
+                break
+        assert all_files
 
-        # Seen URI
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        process_map = {123: {"network_calls": [{"something": {"uri": "http://blah.ca/blah"}}]}}
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
+        assert check_section_equality(parent_section.subsections[0], correct_image_section)
 
-        # Seen URI after massaging
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        process_map = {
-            123: {
-                "network_calls": [{"something": {"uri": "http://blah.ca/blah:80", "uri2": "https://blah.ca/blah:443"}}]
-            }
+    @staticmethod
+    def test_extract_hollowshunter(cape_class_instance, dummy_request_class, dummy_zip_class):
+        cape_class_instance.request = dummy_request_class()
+        zip_obj = dummy_zip_class()
+        task_id = 1
+        cape_class_instance.artifact_list = []
+        main_process_tuples = [(321, "main.exe")]
+        ontres = OntologyResults(service_name="blah")
+        p_objectid = OntologyResults.create_objectid(tag="blah", ontology_id="blah", service_name="CAPE")
+        p = ontres.create_process(
+            pid=123,
+            ppid=1,
+            guid="{12345678-1234-5678-1234-567812345679}",
+            command_line="blah blah.com",
+            image="blah",
+            start_time="1970-01-01 00:00:01.000",
+            pguid="{12345678-1234-5678-1234-567812345679}",
+            objectid=p_objectid,
+        )
+        ontres.add_process(p)
+        safelist = []
+        cape_class_instance.use_process_tree_inspection = False
+        cape_class_instance._extract_hollowshunter(zip_obj, task_id, main_process_tuples, ontres, safelist)
+
+        assert cape_class_instance.artifact_list[0] == {
+            "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_dump_report.json",
+            "name": f"{task_id}_hollowshunter/hh_process_123_dump_report.json",
+            "description": "HollowsHunter report (json)",
+            "to_be_extracted": False,
         }
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
-
-        # Seen URI in blob
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        process_map = {
-            123: {
-                "network_calls": [
-                    {
-                        "something": {
-                            "uri": "blahblahblah http://blah.ca/blah blahblahblah",
-                            "uri2": "blahblahblah https://blah.ca/blah blahblahblah",
-                        }
-                    }
-                ]
-            }
+        assert cape_class_instance.artifact_list[1] == {
+            "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_scan_report.json",
+            "name": f"{task_id}_hollowshunter/hh_process_123_scan_report.json",
+            "description": "HollowsHunter report (json)",
+            "to_be_extracted": False,
         }
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
-
-        # Seen URI in blob after massaging
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        process_map = {
-            123: {
-                "network_calls": [
-                    {
-                        "something": {
-                            "uri": "blahblahblah http://blah.ca/blah blahblahblah",
-                            "uri2": "blahblahblah https://blah.ca/blah blahblahblah",
-                        }
-                    }
-                ]
-            }
+        assert cape_class_instance.artifact_list[2] == {
+            "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.exe",
+            "name": f"{task_id}_hollowshunter/hh_process_123_blah.exe",
+            "description": "Memory Dump",
+            "to_be_extracted": True,
         }
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
-
-        # Unseen domain in blob but it is too short
-        parent_result_section = ResultSection("blah")
-        correct_result_section = ResultSection("blah")
-        process_map = {
-            123: {
-                "network_calls": [
-                    {
-                        "something": {
-                            "uri": "blahblahblah a.com blahblahblah",
-                            "uri2": "blahblahblah b.org blahblahblah",
-                        }
-                    }
-                ]
-            }
+        assert cape_class_instance.artifact_list[3] == {
+            "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.shc",
+            "name": f"{task_id}_hollowshunter/hh_process_123_blah.shc",
+            "description": "Memory Dump",
+            "to_be_extracted": True,
         }
-        _process_unseen_iocs(parent_result_section, process_map, default_so, {})
-        assert check_section_equality(parent_result_section, correct_result_section)
+        assert cape_class_instance.artifact_list[4] == {
+            "path": f"{cape_class_instance.working_directory}/{task_id}/hollowshunter/hh_process_123_blah.dll",
+            "name": f"{task_id}_hollowshunter/hh_process_123_blah.dll",
+            "description": "Memory Dump",
+            "to_be_extracted": True,
+        }
+        assert not any(
+            artifact["name"] == f"{task_id}_hollowshunter/hh_process_231_fp.dll"
+            for artifact in cape_class_instance.artifact_list
+        )
+
+    @staticmethod
+    def test_extract_commands(cape_class_instance):
+        if os.path.exists(BAT_COMMANDS_PATH):
+            os.remove(BAT_COMMANDS_PATH)
+        if os.path.exists(PS1_COMMANDS_PATH):
+            os.remove(PS1_COMMANDS_PATH)
+        cape_class_instance.artifact_list = []
+
+        # Nothing
+        cape_class_instance._extract_commands()
+        assert cape_class_instance.artifact_list == []
+
+        # Empty file!
+        with open(BAT_COMMANDS_PATH, "w") as f:
+            f.write("")
+
+        cape_class_instance._extract_commands()
+        assert cape_class_instance.artifact_list == []
+
+        # Something!
+        # Empty file!
+        with open(BAT_COMMANDS_PATH, "w") as f:
+            f.write("bat")
+
+        with open(PS1_COMMANDS_PATH, "w") as f:
+            f.write("ps1")
+
+        cape_class_instance._extract_commands()
+
+        assert len(cape_class_instance.artifact_list) == 2
+        assert cape_class_instance.artifact_list[0] == {
+            "name": "commands.ps1",
+            "path": "/tmp/commands.ps1",
+            "description": "Extract PowerShell commands",
+            "to_be_extracted": True,
+        }
+        assert cape_class_instance.artifact_list[1] == {
+            "name": "commands.bat",
+            "path": "/tmp/commands.bat",
+            "description": "Extract Batch commands",
+            "to_be_extracted": True,
+        }
+        os.remove(BAT_COMMANDS_PATH)
+        os.remove(PS1_COMMANDS_PATH)
+
+    @staticmethod
+    @pytest.mark.parametrize("param_exists, param, correct_value", [(True, "blah", "blah"), (False, "blah", None)])
+    def test_safely_get_param(param_exists, param, correct_value, cape_class_instance, dummy_request_class):
+        if param_exists:
+            cape_class_instance.request = dummy_request_class(**{param: "blah"})
+        else:
+            cape_class_instance.request = dummy_request_class()
+        assert cape_class_instance._safely_get_param(param) == correct_value
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "file_type, possible_images, auto_architecture, all_relevant, correct_result",
+        [
+            ("blah", [], {}, False, []),
+            ("blah", ["blah"], {}, False, []),
+            ("blah", ["winblahx64"], {}, False, ["winblahx64"]),
+            ("executable/linux/elf32", [], {}, False, []),
+            ("executable/linux/elf32", ["ubblahx86"], {}, False, ["ubblahx86"]),
+            ("executable/linux/elf32", ["ubblahx64"], {"ub": {"x86": ["ubblahx64"]}}, False, ["ubblahx64"]),
+            ("executable/windows/pe32", ["winblahx86"], {}, False, ["winblahx86"]),
+            (
+                "executable/windows/pe32",
+                ["winblahx86", "winblahblahx86"],
+                {"win": {"x86": ["winblahblahx86"]}},
+                False,
+                ["winblahblahx86"],
+            ),
+            (
+                "executable/windows/pe64",
+                ["winblahx64", "winblahblahx64"],
+                {"win": {"x64": ["winblahx64"]}},
+                False,
+                ["winblahx64"],
+            ),
+            (
+                "executable/windows/pe64",
+                ["winblahx64", "winblahblahx64"],
+                {"win": {"x64": ["winblahx64"]}},
+                True,
+                ["winblahx64", "winblahblahx64"],
+            ),
+            ("executable/windows/pe64", ["winblahx64", "winblahblahx64"], {}, True, ["winblahx64", "winblahblahx64"]),
+            ("executable/linux/elf64", ["winblahx64", "winblahblahx64"], {}, True, []),
+            ("executable/linux/elf64", ["winblahx64", "winblahblahx64", "ub1804x64"], {}, True, ["ub1804x64"]),
+            (
+                "executable/windows/pe64",
+                ["winblahx64", "winblahblahx64", "ub1804x64"],
+                {},
+                True,
+                ["winblahx64", "winblahblahx64"],
+            ),
+        ],
+    )
+    def test_determine_relevant_images(
+        file_type, possible_images, correct_result, auto_architecture, all_relevant, cape_class_instance
+    ):
+        assert (
+            cape_class_instance._determine_relevant_images(file_type, possible_images, auto_architecture, all_relevant)
+            == correct_result
+        )
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "machines, allowed_images, correct_result",
+        [
+            ([], [], []),
+            ([], ["blah"], []),
+            ([{"name": "blah"}], [], []),
+            ([{"name": "blah"}], ["nope"], []),
+            ([{"name": "blah"}], ["blah"], ["blah"]),
+            ([{"name": "blah"}, {"name": "blah2"}, {"name": "blah"}], ["blah1", "blah2", "blah3"], ["blah2"]),
+        ],
+    )
+    def test_get_available_images(machines, allowed_images, correct_result, cape_class_instance):
+        assert cape_class_instance._get_available_images(machines, allowed_images) == correct_result
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "machine_requested, hosts, correct_result, correct_body",
+        [
+            ("", [{"machines": []}], (False, False), None),
+            ("", [{"machines": []}], (False, False), None),
+            (
+                "True",
+                [{"machines": []}],
+                (True, False),
+                "The requested machine 'True' is currently unavailable.\nGeneral Information:\nAt the moment, the current machine options for this CAPE deployment include [].",
+            ),
+            ("True", [{"machines": [{"name": "True"}]}], (True, True), None),
+            ("True:True", [{"machines": [{"name": "True"}]}], (True, True), None),
+            (
+                "True:True",
+                [{"ip": "True", "machines": [{"name": "True"}]}, {"ip": "True", "machines": []}],
+                (True, True),
+                None,
+            ),
+            (
+                "flag",
+                [{"ip": "True", "machines": [{"name": "True"}]}, {"ip": "True", "machines": []}],
+                (True, True),
+                None,
+            ),
+        ],
+    )
+    def test_handle_specific_machine(
+        machine_requested, hosts, correct_result, correct_body, cape_class_instance, dummy_result_class_instance, mocker
+    ):
+        mocker.patch.object(CAPE, "_safely_get_param", return_value=machine_requested)
+        kwargs = dict()
+        cape_class_instance.hosts = hosts
+        cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.timeout = 0
+        if machine_requested == "flag":
+            with pytest.raises(ValueError):
+                cape_class_instance._handle_specific_machine(kwargs)
+            return
+
+        assert cape_class_instance._handle_specific_machine(kwargs) == correct_result
+        if correct_body:
+            correct_result_section = ResultSection(title_text="Requested Machine Does Not Exist")
+            correct_result_section.set_body(correct_body)
+            assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_machine(kwargs)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "platform_requested, expected_return, expected_result_section",
+        [
+            (
+                "blah",
+                (True, {"blah": []}),
+                "The requested platform 'blah' is currently unavailable.\nGeneral Information:\nAt the moment, the current platform options for this CAPE deployment include ['linux', 'windows'].",
+            ),
+            ("none", (False, {}), None),
+            ("windows", (True, {"windows": ["blah"]}), None),
+            ("linux", (True, {"linux": ["blah"]}), None),
+        ],
+    )
+    def test_handle_specific_platform(
+        platform_requested,
+        expected_return,
+        expected_result_section,
+        cape_class_instance,
+        dummy_result_class_instance,
+        mocker,
+    ):
+        mocker.patch.object(CAPE, "_safely_get_param", return_value=platform_requested)
+        kwargs = dict()
+        cape_class_instance.hosts = [{"ip": "blah", "machines": [{"platform": "windows"}, {"platform": "linux"}]}]
+        cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.timeout = 0
+        assert cape_class_instance._handle_specific_platform(kwargs) == expected_return
+        if expected_result_section:
+            correct_result_section = ResultSection(title_text="Requested Platform Does Not Exist")
+            correct_result_section.set_body(expected_result_section)
+            assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_platform(kwargs)
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "image_requested, image_exists, relevant_images, allowed_images, correct_result, correct_body",
+        [
+            (False, False, [], [], (False, {}), None),
+            (False, True, [], [], (False, {}), None),
+            (
+                "blah",
+                False,
+                [],
+                [],
+                (True, {}),
+                "The requested image 'blah' is currently unavailable.\nGeneral Information:\nAt the moment, the current image options for this CAPE deployment include [].",
+            ),
+            ("blah", True, [], [], (True, {"blah": ["blah"]}), None),
+            (
+                "auto",
+                False,
+                [],
+                [],
+                (True, {}),
+                "The requested image 'auto ([])' is currently unavailable.\nGeneral Information:\nAt the moment, the current image options for this CAPE deployment include [].",
+            ),
+            (
+                "auto",
+                False,
+                ["blah"],
+                [],
+                (True, {}),
+                "The requested image 'auto (['blah'])' is currently unavailable.\nGeneral Information:\nAt the moment, the current image options for this CAPE deployment include [].",
+            ),
+            ("auto", True, ["blah"], [], (True, {"blah": ["blah"]}), None),
+            ("all", True, [], ["blah"], (True, {"blah": ["blah"]}), None),
+            (
+                "all",
+                False,
+                [],
+                [],
+                (True, {}),
+                "The requested image 'all' is currently unavailable.\nGeneral Information:\nAt the moment, the current image options for this CAPE deployment include [].",
+            ),
+        ],
+    )
+    def test_handle_specific_image(
+        image_requested,
+        image_exists,
+        relevant_images,
+        allowed_images,
+        correct_result,
+        correct_body,
+        cape_class_instance,
+        dummy_request_class,
+        dummy_result_class_instance,
+        mocker,
+    ):
+        mocker.patch.object(CAPE, "_safely_get_param", return_value=image_requested)
+        mocker.patch.object(CAPE, "_does_image_exist", return_value=image_exists)
+        mocker.patch.object(CAPE, "_determine_relevant_images", return_value=relevant_images)
+        mocker.patch.object(CAPE, "_get_available_images", return_value=[])
+        cape_class_instance.request = dummy_request_class(routing = "inetsim")
+        cape_class_instance.request.file_type = None
+        cape_class_instance.file_res = dummy_result_class_instance
+        cape_class_instance.hosts = [{"machines": [], "ip": "blah"}]
+        cape_class_instance.allowed_images = allowed_images
+        cape_class_instance.timeout = 0
+        assert cape_class_instance._handle_specific_image() == correct_result
+        if correct_body:
+            correct_result_section = ResultSection(title_text="Requested Image Does Not Exist")
+            correct_result_section.set_body(correct_body)
+            assert check_section_equality(cape_class_instance.file_res.sections[0], correct_result_section)
+
+            cape_class_instance.retry_on_no_machine = True
+            with pytest.raises(RecoverableError):
+                cape_class_instance._handle_specific_image()
+
+    @staticmethod
+    def test_determine_host_to_use(cape_class_instance):
+        cape_class_instance.session = Session()
+
+        host_status_url_1 = f"http://1.1.1.1:1111/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_2 = f"http://2.2.2.2:2222/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_3 = f"http://3.3.3.3:3333/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_4 = f"http://4.4.4.4:4444/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_5 = f"http://5.5.5.5:5555/apiv2/{CAPE_API_QUERY_HOST}"
+        host_status_url_6 = f"http://6.6.6.6:6666/apiv2/{CAPE_API_QUERY_HOST}"
+
+        correct_rest_response = {"data": {"tasks": {"pending": 1}}}
+        errors_rest_response = {"error": True, "error_value": "blah"}
+        weird_rest_response = {}
+        parent_section = ResultSection("blah")
+
+        with requests_mock.Mocker() as m:
+            # Case 1: We have one host, and we are able to connect to it
+            # with a successful response
+            hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            m.get(host_status_url_1, json=correct_rest_response)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
+            assert hosts[0] == test_result
+
+            # Case 2: We have one host, and we are able to connect to it
+            # with errors
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
+
+            # Case 3: We have one host, and we are able to connect to it
+            # with a weird message
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, json=weird_rest_response, status_code=200)
+            p1 = Process(
+                target=cape_class_instance._determine_host_to_use,
+                args=(hosts, parent_section),
+                name="_determine_host_to_use with 200 status code and weird message",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 4: We have one host, and we are able to connect to it
+            # with a bad status code
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, status_code=500)
+            p1 = Process(
+                target=cape_class_instance._determine_host_to_use,
+                args=(hosts, parent_section),
+                name="_determine_host_to_use with non-200 status code",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 5: We have more than one host, and we are able to connect to all with a successful response
+            parent_section = ResultSection("blah")
+            hosts = [
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
+            assert any(host == test_result for host in hosts)
+
+            # Case 6: We have more than one host, and we are able to connect to all with errors
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
+
+            # Case 7: We have more than one host, and we are able to connect to all with a bad status code
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, status_code=500)
+            p1 = Process(
+                target=cape_class_instance._determine_host_to_use,
+                args=(hosts, parent_section),
+                name="_determine_host_to_use with non-200 status code",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 8: We have more than one host, and we are able to connect to one with a successful response, and another with errors
+            parent_section = ResultSection("blah")
+            hosts = [
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
+            m.get(host_status_url_2, json=errors_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
+
+            # Case 9: We have more than one host, and we are able to connect to one with a successful response, and another with errors, but flipped
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_2, json=errors_rest_response, status_code=200)
+            m.get(host_status_url_1, json=correct_rest_response, status_code=200)
+            with pytest.raises(InvalidCapeRequest):
+                cape_class_instance._determine_host_to_use(hosts, parent_section)
+
+            # Case 10: We have one host, and we get a Timeout
+            cape_class_instance.hosts = hosts = [{"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}}]
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, exc=exceptions.Timeout)
+            p1 = Process(
+                target=cape_class_instance._determine_host_to_use,
+                args=(hosts, parent_section),
+                name="_determine_host_to_use with timeout",
+            )
+            p1.start()
+            p1.join(timeout=2)
+            p1.terminate()
+            assert p1.exitcode is None
+
+            # Case 11: We have one host, and we get a ConnectionError
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, exc=ConnectionError("blah"))
+            p2 = Process(
+                target=cape_class_instance._determine_host_to_use,
+                args=(hosts, parent_section),
+                name="_determine_host_to_use with connectionerror",
+            )
+            p2.start()
+            p2.join(timeout=2)
+            p2.terminate()
+            assert p2.exitcode is None
+
+            # Case 12: We have more than one host, and we get a Timeout for one and a successful response for another
+            parent_section = ResultSection("blah")
+            hosts = [
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(host_status_url_1, exc=exceptions.Timeout)
+            m.get(host_status_url_2, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
+            assert hosts[1] == test_result
+
+            # Case 13: We have more than one host, and we get a ConnectionError for one and a successful response for another
+            parent_section = ResultSection("blah")
+            m.get(host_status_url_1, exc=ConnectionError("blah"))
+            m.get(host_status_url_2, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
+            assert hosts[1] == test_result
+
+            # Case 14: We have more than one host, and we are able to connect to two with a successful response, another with a weird response, another with a non-200 status code, another with Timeout, another with ConnectionError
+            parent_section = ResultSection("blah")
+            hosts = [
+                {"ip": "1.1.1.1", "port": 1111, "auth_header": {"blah": "blah"}},
+                {"ip": "2.2.2.2", "port": 2222, "auth_header": {"blah": "blah"}},
+                {"ip": "3.3.3.3", "port": 3333, "auth_header": {"blah": "blah"}},
+                {"ip": "4.4.4.4", "port": 4444, "auth_header": {"blah": "blah"}},
+                {"ip": "5.5.5.5", "port": 5555, "auth_header": {"blah": "blah"}},
+                {"ip": "6.6.6.6", "port": 6666, "auth_header": {"blah": "blah"}},
+            ]
+            m.get(host_status_url_1, status_code=500)
+            m.get(host_status_url_2, json=weird_rest_response, status_code=200)
+            m.get(host_status_url_3, json=correct_rest_response, status_code=200)
+            m.get(host_status_url_4, exc=exceptions.Timeout)
+            m.get(host_status_url_5, exc=ConnectionError("blah"))
+            m.get(host_status_url_6, json=correct_rest_response, status_code=200)
+            test_result = cape_class_instance._determine_host_to_use(hosts, parent_section)
+            assert any(test_result == host for host in [hosts[2], hosts[5]])
+
+    @staticmethod
+    def test_is_invalid_analysis_timeout(cape_class_instance, dummy_request_class):
+        cape_class_instance.request = dummy_request_class(analysis_timeout_in_seconds=150)
+        parent_section = ResultSection("blah")
+        assert cape_class_instance._is_invalid_analysis_timeout(parent_section) is False
+
+        parent_section = ResultSection("blah")
+        correct_subsection = ResultSection(
+            "Invalid Analysis Timeout Requested",
+            body="The analysis timeout requested was 900, which exceeds the time that "
+            "Assemblyline will run the service (800). Choose an analysis timeout "
+            "value < 800 and submit the file again. Note that the requested analysis timeout must give the processing some time "
+            "to finish before the service timeout. In other words: analysis timeout + processing timeout < 800.",
+        )
+        cape_class_instance.request = dummy_request_class(analysis_timeout_in_seconds=900)
+        assert cape_class_instance._is_invalid_analysis_timeout(parent_section) is True
+        assert check_section_equality(correct_subsection, parent_section.subsections[0])
+        # Reboot test
+        cape_class_instance.request = dummy_request_class(analysis_timeout_in_seconds=150)
+        assert cape_class_instance._is_invalid_analysis_timeout(parent_section, True) is False
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "title_heur_tuples, correct_section_heur_map",
+        [
+            ([("blah1", 1), ("blah2", 2)], {"blah1": 1, "blah2": 2}),
+            ([("blah1", 1), ("blah1", 2)], {"blah1": 1}),
+            ([("blah1", 1), ("blah2", 2), ("blah3", 3)], {"blah1": 1, "blah2": 2, "blah3": 3}),
+        ],
+    )
+    def test_get_subsection_heuristic_map(title_heur_tuples, correct_section_heur_map, cape_class_instance):
+        subsections = []
+        for title, heur_id in title_heur_tuples:
+            subsection = ResultSection(title)
+            subsection.set_heuristic(heur_id)
+            if title == "blah3":
+                subsections[0].add_subsection(subsection)
+            else:
+                subsections.append(subsection)
+        actual_section_heur_map = {}
+        cape_class_instance._get_subsection_heuristic_map(subsections, actual_section_heur_map)
+        assert actual_section_heur_map == correct_section_heur_map
+        if len(correct_section_heur_map) == 1:
+            assert subsections[1].heuristic is None
+
+    @staticmethod
+    def test_determine_if_reboot_required(cape_class_instance, dummy_request_class):
+        parent_section = ResultSection("blah")
+        assert cape_class_instance._determine_if_reboot_required(parent_section) is False
+
+        cape_class_instance.request = dummy_request_class(reboot=True)
+        assert cape_class_instance._determine_if_reboot_required(parent_section) is True
+
+        cape_class_instance.request = dummy_request_class(reboot=False)
+        for sig, result in [("persistence_autorun", True), ("creates_service", True), ("blah", False)]:
+            parent_section = ResultSection("blah")
+            signature_section = ResultSection("Signatures")
+            signature_subsection = ResultSection(sig)
+            signature_section.add_subsection(signature_subsection)
+            parent_section.add_subsection(signature_section)
+            assert cape_class_instance._determine_if_reboot_required(parent_section) is result
+
+    @staticmethod
+    def test_cleanup_leftovers(cape_class_instance):
+        for f in [
+            "/tmp/blah_console_output.txt",
+            "/tmp/blah_injected_memory_blah.exe",
+            BAT_COMMANDS_PATH,
+            PS1_COMMANDS_PATH,
+        ]:
+            if os.path.exists(f):
+                os.remove(f)
+
+        temp_dir = "/tmp"
+        number_of_files_in_tmp_pre_call = len(os.listdir(temp_dir))
+        for f in [
+            "/tmp/blah_console_output.txt",
+            "/tmp/blah_injected_memory_blah.exe",
+            BAT_COMMANDS_PATH,
+            PS1_COMMANDS_PATH,
+        ]:
+            with open(f, "w") as fh:
+                fh.write("blah")
+
+        number_of_files_in_tmp_post_write = len(os.listdir(temp_dir))
+        assert number_of_files_in_tmp_post_write == number_of_files_in_tmp_pre_call + 4
+        cape_class_instance._cleanup_leftovers()
+        number_of_files_in_tmp_post_call = len(os.listdir(temp_dir))
+        assert number_of_files_in_tmp_post_call == number_of_files_in_tmp_pre_call
+
+    @staticmethod
+    @pytest.mark.parametrize(
+        "name, hosts, expected_result",
+        [
+            ("blah", [{"machines": []}], None),
+            ("blah", [{"machines": [{"name": "blah"}]}], {"name": "blah"}),
+            ("blah", [{"machines": [{"name": "nah"}]}], None),
+        ],
+    )
+    def test_get_machine_by_name(name, hosts, expected_result, cape_class_instance):
+        cape_class_instance.hosts = hosts
+        test_result = cape_class_instance._get_machine_by_name(name)
+        assert test_result == expected_result
+
+    @staticmethod
+    def test_is_connection_error_worth_logging(cape_class_instance):
+        cape_class_instance.uwsgi_with_recycle = False
+        e = Exception("blahblah")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is True
+
+        cape_class_instance.uwsgi_with_recycle = True
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is True
+
+        e = Exception("'Connection aborted.', RemoteDisconnected('Remote end closed connection without response')")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is False
+
+        e = Exception("'Connection aborted.', ConnectionResetError(104, 'Connection reset by peer')")
+        assert cape_class_instance.is_connection_error_worth_logging(repr(e)) is False
