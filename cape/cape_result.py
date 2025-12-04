@@ -3890,7 +3890,7 @@ if __name__ == "__main__":
         ]
     )
 
-    cape_artifact_pids, main_process_tuples = generate_al_result(
+    cape_artifact_pids, main_process_tuples, process_events = generate_al_result(
         api_report,
         al_result,
         file_ext,
@@ -3946,3 +3946,6 @@ if __name__ == "__main__":
     print(json.dumps(output, indent=4))
     with open("result.json", "w") as result:
         json.dump(output, result, indent=4)
+
+    with open("Section.json", "w") as f:
+        json.dump(process_events ,f)
