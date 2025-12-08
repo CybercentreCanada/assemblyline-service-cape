@@ -63,8 +63,8 @@ from assemblyline_v4_service.common.result import (
     SandboxProcessItem,
     SandboxSignatureItem,
 )
-from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
-from standard_http_headers import STANDARD_HTTP_HEADERS
+from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from cape.standard_http_headers import STANDARD_HTTP_HEADERS
 from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
@@ -2833,6 +2833,7 @@ def _get_destination_ip(
     :param ontres: The Ontology Results class object
     :return: The destination IP reached out to, if it exists
     """
+    destination_ip = None
     if http_call.get("dst") and http_call["dst"] not in dns_servers:
         destination_ip = http_call["dst"]
     return destination_ip
@@ -3678,6 +3679,15 @@ def _massage_api_urls(api_url: str) -> str:
 def same_dictionaries(d1, d2):
     if not isinstance(d1, dict) or not isinstance(d2, dict):
         if isinstance(d1, List) and isinstance(d2, List):
+            if len(d1) == 0 and len(d2) == 0:
+                 return True
+            elif len(d1) != len(d2):
+                return False
+            for index in range(0, len(d1)):
+                if d1[index] not in d2 and not (isinstance(d1[index], dict) and isinstance(d2[index], dict)):
+                    return False
+                elif isinstance(d1[index], dict) and isinstance(d2[index], dict):
+                    return any([same_dictionaries(d1[index], d2[i]) for i in range(0, len(d1))])
             return d1.__hash__ == d2.__hash__
         elif d1 == d2:
             return True
@@ -3840,8 +3850,7 @@ def validate_sandbox_event(event_dict, type):
         else:
             return True
 
-if __name__ == "__main__":
-    from sys import argv
+def main(argv):
 
     # pip install PyYAML
     import yaml
@@ -3849,7 +3858,7 @@ if __name__ == "__main__":
     from assemblyline_v4_service.common.base import ServiceBase
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
-    from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
     log.setLevel(DEBUG)
     report_path = argv[1]
     file_ext = argv[2]
@@ -3946,6 +3955,10 @@ if __name__ == "__main__":
     print(json.dumps(output, indent=4))
     with open("result.json", "w") as result:
         json.dump(output, result, indent=4)
-
+    
     with open("Section.json", "w") as f:
         json.dump(process_events ,f)
+
+if __name__ == "__main__":
+    from sys import argv
+    main(argv)

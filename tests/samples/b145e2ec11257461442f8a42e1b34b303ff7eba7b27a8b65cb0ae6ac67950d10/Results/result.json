@@ -185,15 +185,15 @@
                     "name": "Stealth",
                     "attack": [
                         {
-                            "attack_id": "T1564.001",
-                            "pattern": "Hidden Files and Directories",
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
                             "categories": [
                                 "defense-evasion"
                             ]
                         },
                         {
-                            "attack_id": "T1036",
-                            "pattern": "Masquerading",
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
                             "categories": [
                                 "defense-evasion"
                             ]
@@ -224,6 +224,19 @@
                     }
                 },
                 "title_text": "Signature: stealth_network",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"analysis_information\": {\"sandbox_name\": \"CAPE\", \"sandbox_version\": \"2.4-CAPE\", \"analysis_metadata\": {\"task_id\": 214563, \"start_time\": \"2025-11-18 21:10:56.000\", \"end_time\": \"2025-11-18 21:12:49.000\", \"routing\": \"inetsim\", \"window_size\": null, \"machine_metadata\": null}}, \"processes\": [{\"image\": \"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\apc-inject.exe\", \"start_time\": \"2025-11-18 21:11:22.948\", \"ppid\": 1508, \"pid\": 5900, \"command_line\": \"\\\"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\apc-inject.exe\\\" \", \"end_time\": \"-\", \"integrity_level\": null, \"image_hash\": null, \"original_file_name\": null, \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\svchost.exe\", \"start_time\": \"2025-11-18 21:11:23.542\", \"ppid\": 600, \"pid\": 2000, \"command_line\": \"C:\\\\WINDOWS\\\\System32\\\\svchost.exe -k LocalSystemNetworkRestricted -p -s AudioEndpointBuilder\", \"end_time\": \"2025-11-18 21:12:28.964\", \"integrity_level\": null, \"image_hash\": null, \"original_file_name\": null, \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}], \"network_connections\": [{\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-18 21:11:25.155\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"1.128.254.169.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [], \"resolved_domains\": [\"www.inetsim.org\"]}}], \"signatures\": [{\"name\": \"stealth_network\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [{\"attack_id\": \"T1036\", \"pattern\": \"Masquerading\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1564.001\", \"pattern\": \"Hidden Files and Directories\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1070\", \"pattern\": \"Indicator Removal\", \"categories\": [\"defense-evasion\"]}], \"actors\": [], \"malware_families\": [], \"description\": \"Network activity detected but not expressed in monitor API logs\", \"pid\": [], \"score\": 10}]}",
+                "classification": "TLP:C",
+                "body_format": "SANDBOX",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Processes",
                 "zeroize_on_tag_safe": false,
                 "auto_collapse": false,
                 "promote_to": null
