@@ -411,16 +411,18 @@ class TestCapeMain:
         # Placing the samples in the tmp directory
         samples_path = os.path.join(TEST_DIR, "samples")
         for sample in os.listdir(samples_path):
-            sample_path = os.path.join(samples_path, sample)
-            shutil.copyfile(sample_path, os.path.join("/tmp", sample))
+            if os.path.isfile(os.path.join(samples_path, sample)):
+                sample_path = os.path.join(samples_path, sample)
+                shutil.copyfile(sample_path, os.path.join("/tmp", sample))
 
     @classmethod
     def teardown_class(cls):
         # Cleaning up the tmp directory
         samples_path = os.path.join(TEST_DIR, "samples")
         for sample in os.listdir(samples_path):
-            temp_sample_path = os.path.join("/tmp", sample)
-            os.remove(temp_sample_path)
+            if os.path.isfile(os.path.join(samples_path, sample)):
+                temp_sample_path = os.path.join("/tmp", sample)
+                os.remove(temp_sample_path)
 
     @staticmethod
     def test_init(cape_class_instance):
@@ -2020,7 +2022,7 @@ class TestCapeMain:
         mocker.patch("builtins.open")
         mocker.patch("cape.cape.loads", return_value=report_json)
         mocker.patch.object(CAPE, "report_machine_info")
-        mocker.patch("cape.cape.generate_al_result", return_value=({}, []))
+        mocker.patch("cape.cape.generate_al_result", return_value=({}, [], {}))
         mocker.patch.object(CAPE, "delete_task")
 
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
