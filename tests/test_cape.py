@@ -411,8 +411,9 @@ class TestCapeMain:
         # Placing the samples in the tmp directory
         samples_path = os.path.join(TEST_DIR, "samples")
         for sample in os.listdir(samples_path):
-            sample_path = os.path.join(samples_path, sample)
-            shutil.copyfile(sample_path, os.path.join("/tmp", sample))
+            if os.path.isfile(os.path.join(samples_path, sample)):
+                sample_path = os.path.join(samples_path, sample)
+                shutil.copyfile(sample_path, os.path.join("/tmp", sample))
 
     @classmethod
     def teardown_class(cls):
