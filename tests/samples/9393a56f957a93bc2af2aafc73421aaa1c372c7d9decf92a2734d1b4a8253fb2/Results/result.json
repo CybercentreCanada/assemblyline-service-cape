@@ -1,0 +1,297 @@
+{
+    "result": {
+        "score": 80,
+        "sections": [
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 0,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Parent",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"CAPE Task ID\": 223261, \"Duration\": \"00h 01m 48s\\t(2025-11-21 15:59:42.000 to 2025-11-21 16:01:30.000)\", \"Routing\": \"inetsim\", \"CAPE Version\": \"2.4-CAPE\"}",
+                "classification": "TLP:C",
+                "body_format": "KEY_VALUE",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Analysis Information",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Network Activity",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.0028650760650634766, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.207\", \"src_port\": 49734, \"domain\": null, \"dest_ip\": \"20.72.205.209\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.673366069793701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.207\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"135.232.92.137\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1004,
+                    "score": 10,
+                    "name": "TCP/UDP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "protocol": [
+                            "tcp"
+                        ],
+                        "dynamic": {
+                            "ip": [
+                                "20.72.205.209",
+                                "135.232.92.137"
+                            ]
+                        },
+                        "port": [
+                            443,
+                            49734,
+                            49733
+                        ]
+                    }
+                },
+                "title_text": "TCP/UDP Network Traffic",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 3,
+                "heuristic": {
+                    "heur_id": 1010,
+                    "score": 10,
+                    "name": "TCP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {},
+                "title_text": "TCP Network Traffic Detected",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": true,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 0.0028650760650634766, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.207\", \"src_port\": 49734, \"domain\": null, \"dest_ip\": \"20.72.205.209\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.673366069793701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.207\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"135.232.92.137\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1005,
+                    "score": 10,
+                    "name": "Non-HTTP Traffic over HTTP ports",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "20.72.205.209",
+                                "135.232.92.137"
+                            ]
+                        },
+                        "port": [
+                            443
+                        ]
+                    }
+                },
+                "title_text": "Non-HTTP Traffic Over HTTP Ports",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Signatures",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Network activity detected but not expressed in monitor API logs\", {}], [\"KEY_VALUE\", {\"ip\": \"135.232.92.137\"}, {}], [\"KEY_VALUE\", {\"ip\": \"20.72.205.209\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 52,
+                    "score": 10,
+                    "name": "Stealth",
+                    "attack": [
+                        {
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "stealth_network",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "135.232.92.137",
+                                "20.72.205.209"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: stealth_network",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Checks system language via registry key (possible geofencing)\", {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\CustomLocale\\\\en-US\"}, {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\ExtendedLocale\\\\en-US\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 9999,
+                    "score": 10,
+                    "name": "Unknown",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "language_check_registry",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "registry_key": [
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\CustomLocale\\en-US",
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\ExtendedLocale\\en-US"
+                        ]
+                    }
+                },
+                "title_text": "Signature: language_check_registry",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"The PE file contains a suspicious PDB path\", {}], [\"KEY_VALUE\", {\"anomaly\": \"the pdb path contains a reference to a development path or term that may suggest a non-enterprise environment development/compilation\"}, {}], [\"KEY_VALUE\", {\"pdbpath\": \"C:\\\\Users\\\\mlguilb\\\\Documents\\\\Projects\\\\etw-dns\\\\etw-dns-app\\\\x64\\\\Release\\\\etw-dns-app.pdb\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 51,
+                    "score": 30,
+                    "name": "Static",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "static_pe_pdbpath",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {},
+                "title_text": "Signature: static_pe_pdbpath",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"analysis_information\": {\"sandbox_name\": \"CAPE\", \"sandbox_version\": \"2.4-CAPE\", \"analysis_metadata\": {\"task_id\": 223261, \"start_time\": \"2025-11-21 15:59:42.000\", \"end_time\": \"2025-11-21 16:01:30.000\", \"routing\": \"inetsim\", \"window_size\": null, \"machine_metadata\": null}}, \"processes\": [{\"image\": \"C:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe\", \"start_time\": \"2025-11-21 16:00:10.291\", \"ppid\": 840, \"pid\": 6896, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"system\", \"image_hash\": \"2198A7B58BCCB758036B969DDAE6CC2ECE07565E2659A7C541A313A0492231A3\", \"original_file_name\": \"Wmiprvse.exe\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 16:00:08.242\", \"ppid\": 2500, \"pid\": 1596, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 16:00:06.051\", \"ppid\": 7116, \"pid\": 6200, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\etw-dns-app.exe\", \"start_time\": \"2025-11-21 16:00:08.753\", \"ppid\": 6456, \"pid\": 2500, \"command_line\": \"\\\"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\etw-dns-app.exe\\\" \", \"end_time\": \"2025-11-21 16:01:14.409\", \"integrity_level\": null, \"image_hash\": null, \"original_file_name\": null, \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}], \"network_connections\": [{\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 16:00:08.131\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"1.128.254.169.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [], \"resolved_domains\": [\"www.inetsim.org\"]}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 16:00:31.260\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"198.128.254.169.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 16:00:31.261\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"251.0.0.224.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 16:00:32.276\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"9.7.8.8.9.3.c.2.2.b.1.0.7.c.4.6.0.0.0.0.0.0.0.0.0.0.0.0.0.8.e.f.ip6.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 16:00:32.276\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"b.f.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.2.0.f.f.ip6.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}], \"signatures\": [{\"name\": \"stealth_network\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [{\"attack_id\": \"T1036\", \"pattern\": \"Masquerading\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1564.001\", \"pattern\": \"Hidden Files and Directories\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1070\", \"pattern\": \"Indicator Removal\", \"categories\": [\"defense-evasion\"]}], \"actors\": [], \"malware_families\": [], \"description\": \"Network activity detected but not expressed in monitor API logs\", \"pid\": [], \"score\": 10}, {\"name\": \"language_check_registry\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [], \"actors\": [], \"malware_families\": [], \"description\": \"Checks system language via registry key (possible geofencing)\", \"pid\": [], \"score\": 10}, {\"name\": \"static_pe_pdbpath\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [], \"actors\": [], \"malware_families\": [], \"description\": \"The PE file contains a suspicious PDB path\", \"pid\": [], \"score\": 30}]}",
+                "classification": "TLP:C",
+                "body_format": "SANDBOX",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Processes",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            }
+        ]
+    }
+}

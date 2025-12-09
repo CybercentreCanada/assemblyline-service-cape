@@ -1,0 +1,4 @@
+{"path": "files/8581368b6a0b495e876ca80033f11b75665f71cbae2851f65eec2a3da124df4e", "filepath": "C:\\Users\\buddy\\AppData\\Local\\Temp\\test-hello", "pids": [], "ppids": [], "metadata": "", "category": "files"}
+{"path": "procdump/a72608cf3ae214dfc76ef649cc08e009cd7b2848420a148233ec57863e71d83b", "filepath": "C:\\VHCcZnWlgU\\CAPE\\1248_3030728457580226112025", "pids": [1248], "ppids": [4228], "metadata": "1;?C:\\Windows\\SysWOW64\\cmd.exe;?C:\\Windows\\SysWOW64\\cmd.exe;?", "category": "procdump"}
+{"path": "hollowshunter/hh_hollowshunter_hollows.log", "filepath": "C:\\hollowshunter\\hollows.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "hollowshunter/hh_process_4228_f10000.apihooks.exe", "filepath": "C:\\\\hollowshunter\\process_4228\\f10000.apihooks.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}

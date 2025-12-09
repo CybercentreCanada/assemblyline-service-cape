@@ -1,33 +1,33 @@
 import json
 import os
-from collections import defaultdict
+from collections import defaultdict, Counter
 from datetime import datetime
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
-from logging import getLogger
+from logging import getLogger, DEBUG
 from re import compile as re_compile
 from re import match as re_match
-from re import search, sub
+from re import search, sub, findall
 from typing import Any, Dict, List, Optional, Set, Tuple
-from urllib.parse import urlparse
 import pefile
 import lief
 from peutils import is_valid
+from time import strptime
+from cerberus import Validator
 
 from assemblyline.common import forge
 from assemblyline.common import log as al_log
 from assemblyline.common.attack_map import revoke_map
 from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
-from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms
-from assemblyline.common.net import is_valid_ip
+from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms, LOCAL_FMT_WITH_MS, ensure_time_format
+from assemblyline.common.net import is_valid_ip, is_valid_domain
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
 from assemblyline.odm.models.ontology.results.network import NetworkConnection as NetworkConnectionModel
 from assemblyline_service_utilities.common.dynamic_service_helper import (
-    MAX_TIME,
     MIN_DOMAIN_CHARS,
     MIN_TIME,
     Attribute,
@@ -42,11 +42,6 @@ from assemblyline_service_utilities.common.dynamic_service_helper import (
 )
 from assemblyline_service_utilities.common.network_helper import convert_url_to_https
 from assemblyline_service_utilities.common.safelist_helper import is_tag_safelisted, contains_safelisted_value
-from assemblyline_service_utilities.common.sysmon_helper import (
-    UNKNOWN_PROCESS,
-    convert_sysmon_network,
-    convert_sysmon_processes,
-)
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.result import (
     Heuristic,
@@ -58,9 +53,18 @@ from assemblyline_v4_service.common.result import (
     ResultTextSection,
     TableRow,
     TextSectionBody,
+    ResultSandboxSection,
+    SandboxAnalysisMetadata,
+    SandboxAttackItem,
+    SandboxNetflowItem,
+    SandboxNetworkDNS,
+    SandboxNetworkHTTP,
+    SandboxNetworkSMTP,
+    SandboxProcessItem,
+    SandboxSignatureItem,
 )
-from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
-from cape.standard_http_headers import STANDARD_HTTP_HEADERS
+from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category_id
+from standard_http_headers import STANDARD_HTTP_HEADERS
 from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
@@ -72,8 +76,8 @@ al_log.init_logging("service.cape.cape_result")
 log = getLogger("assemblyline.service.cape.cape_result")
 # Global variable used for containing the system safelist
 global_safelist: Optional[Dict[str, Dict[str, List[str]]]] = None
-# Custom regex for finding uris in a text blob
-UNIQUE_IP_LIMIT = 100
+
+#Processing values
 SCORE_TRANSLATION = {
     0: 0,
     1: 10,
@@ -86,68 +90,451 @@ SCORE_TRANSLATION = {
     8: 1000,
 }  # dead_host signature
 Classification = forge.get_classification()
-# Signature Processing Constants
-SKIPPED_FAMILIES = ["generic"]
-
-INETSIM = "INetSim"
-CONNECT_API_CALLS = [
-    "connect",
-    "InternetConnectW",
-    "InternetConnectA",
-    "WSAConnect",
-    "InternetOpenUrlA",
-    "InternetOpenUrlW",
-    "WinHttpConnect",
-    "WSAConnectByNameW",
+API_CALLS = [
+    {
+        "event": "Load",
+        "object": "DLL",
+        "apis": ["LdrLoadDll", "LoadLibraryA", "LoadLibraryW"],
+        "arguments": [("DLLName", "filename")],
+    },
+    {
+        "event": "Load",
+        "object": "DLL",
+        "apis": ["LoadLibraryExA", "LoadLibraryExW"],
+        "arguments": [("DLLName", "lplibfilename")],
+    },
+    {
+        "event": "Load",
+        "object": "DLL",
+        "apis": ["LdrGetDllHandle"],
+        "arguments": [("DLLName", "filename")],
+    },
+    {
+        "event": "Load",
+        "object": "Function",
+        "apis": ["LdrGetProcedureAddress"],
+        "arguments": [("FunctionName", "functionname"), ("Module", "modulename"), ("Ordinal", "ordinal")],
+    },
+    {
+        "event": "Load",
+        "object": "Function",
+        "apis": ["LdrGetProcedureAddressForCaller"],
+        "arguments": [("FunctionName", "functionname")],
+    },
+    {
+        "event": "Load",
+        "object": "Driver",
+        "apis": ["NtLoadDriver"],
+        "arguments": [("DriverName", "driverservicename")],
+    },
+    {
+        "event": "Control",
+        "object": "Driver",
+        "apis": ["NtDeviceIoControlFile"],
+        "arguments": [("Handle", "filehandle"), ("HandleName", "fname"), ("ControlCode", "iocontrolcode")],
+    },
+    {
+        "event": "Create",
+        "object": "Service",
+        "apis": ["CreateServiceA", "CreateServiceW"],
+        "arguments": [("Service", "servicename"), ("Target", "binarypathname")],
+    },
+    {
+        "event": "Start",
+        "object": "Service",
+        "apis": ["StartServiceA", "StartServiceW"],
+        "arguments": [("Service", "servicename"), ("Arguments", "arguments")],
+    },
+    {
+        "event": "Control",
+        "object": "Service",
+        "apis": ["ControlService"],
+        "arguments": [("Service", "servicename"), ("ControlCode", "controlcode")],
+    },
+    {
+        "event": "Write",
+        "object": "Registry",
+        "apis": ["RegSetValueExA", "RegSetValueExW"],
+        "arguments": [("RegKey", "fullname"), ("Content", "Buffer")],
+    },
+    {
+        "event": "Write",
+        "object": "Registry",
+        "apis": ["RegCreateKeyExA", "RegCreateKeyExW"],
+        "arguments": [("RegKey", "fullname")],
+    },
+    {
+        "event": "Read",
+        "object": "Registry",
+        "apis": ["RegQueryValueExA", "RegQueryValueExW"],
+        "arguments": [("RegKey", "fullname"), ("Content", "data")],
+    },
+    {
+        "event": "Read",
+        "object": "Registry",
+        "apis": ["NtQueryValueKey"],
+        "arguments": [("RegKey", "fullname"), ("Content", "information")],
+    },
+    {
+        "event": "Read",
+        "object": "Registry",
+        "apis": ["RegOpenKeyExA", "RegOpenKeyExW"],
+        "arguments": [("RegKey", "registry"), ("SubKey", "subkey"), ("FullName", "fullname")],
+    },
+    {
+        "event": "Delete",
+        "object": "Registry",
+        "apis": ["RegDeleteKeyA", "RegDeleteKeyW", "RegDeleteValueA", "RegDeleteValueW", "NtDeleteValueKey"],
+        "arguments": [("RegKey", "fullname"), ("SubKey", "subkey")],
+    },
+    {
+        "event": "Delete",
+        "object": "Registry",
+        "apis": ["RegDeleteKeyExW", "RegDeleteKeyExA"],
+        "arguments": [("RegKey", "fullname"), ("SubKey", "subkey")],
+    },
+    {
+        "event": "Delete",
+        "object": "Registry",
+        "apis": ["NtDeleteKey"],
+        "arguments": [("Handle", "keyhandle")],
+    },
+    {
+        "event": "Create",
+        "object": "Registry",
+        "apis": ["NtCreateKey"],
+        "arguments": [("Handle", "keyhandle")],
+    },
+    {
+        "event": "Open",
+        "object": "Registry",
+        "apis": ["NtOpenKey", "NtOpenKeyEx"],
+        "arguments": [("Handle", "keyhandle")],
+    },
+    {
+        "event": "Load",
+        "object": "Registry",
+        "apis": ["NtLoadKey", "NtLoadKey2", "NtLoadKeyEx"],
+        "arguments": [("Handle", "targetkeyhandle"), ("Key", "targetkey"), ("Source", "sourcefile")],
+    },
+    {
+        "event": "Write",
+        "object": "Registry",
+        "apis": ["NtSetValueKey"],
+        "arguments": [("Handle", "keyhandle"), ("Value", "valuename")],
+    },
+    {
+        "event": "Read",
+        "object": "Registry",
+        "apis": ["NtQueryValueKey", "NtQueryMultipleValueKey"],
+        "arguments": [("Handle", "keyhandle"), ("Value", "valuename")],
+    },
+    {
+        "event": "Connect",
+        "object": "Network",
+        "apis": ["connect", "connectex", "WSAConnect"],
+        "arguments": [("IP", "ip"), ("Port", "port")],
+    },
+    {
+        "event": "Connect",
+        "object": "Network",
+        "apis": ["InternetConnectW", "InternetConnectA"],
+        "arguments": [("HostName", "servername"), ("Port", "serverport"), ("Service", "service")],
+    },
+    {
+        "event": "Connect",
+        "object": "Network",
+        "apis": ["WSAConnectByNameW"],
+        "arguments": [("HostName", "nodename"), ("Service", "servicename")],
+    },
+    {
+        "event": "Connect",
+        "object": "Network",
+        "apis": ["InternetOpenUrlA", "InternetOpenUrlW"],
+        "arguments": [("URL", "url")],
+    },
+    {
+        "event": "Connect",
+        "object": "Network",
+        "apis": ["WinHttpConnect"],
+        "arguments": [("HostName", "servername"), ("Port", "serverport")],
+    },
+    {
+        "event": "DNS",
+        "object": "Network",
+        "apis": ["getaddrinfo", "GetAddrInfoW"],
+        "arguments": [("HostName", "nodename"), ("Service", "servicename")],
+    },
+    {
+        "event": "DNS",
+        "object": "Network",
+        "apis": ["GetAddrInfoExW"],
+        "arguments": [("HostName", "name"), ("Service", "servicename")],
+    },
+    {
+        "event": "DNS",
+        "object": "Network",
+        "apis": ["gethostbyname"],
+        "arguments": [("HostName", "name")],
+    },
+    {
+        "event": "DNS",
+        "object": "Network",
+        "apis": ["DnsQuery_A", "DnsQuery_UTF8", "DnsQuery_W"],
+        "arguments": [("HostName", "name"), ("Type", "type"), ("DNS", "dns servers")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["send", "sendto", "recv", "recvfrom", "WSASend", "WSARecv"],
+        "arguments": [("Buffer", "buffer")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["URLDownloadToFileW", "URLDownloadToFileA", "URLDownloadToCacheFileW"],
+        "arguments": [("URL", "url"), ("FileName", "filename")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["InternetCrackUrlA", "InternetCrackUrlW"],
+        "arguments": [("URL", "url")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["WinHttpSendRequest", "WinHttpReceiveResponse"],
+        "arguments": [("Handle", "InternetHandle")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["HttpOpenRequestW", "HttpOpenRequestA"],
+        "arguments": [("Handle", "InternetHandle"), ("Path", "path")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["WSARecvFrom", "WSASendTo"],
+        "arguments": [("Buffer", "buffer"), ("IP", "ip"), ("Port", "port")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["WSASendMsg"],
+        "arguments": [("Buffer", "msgbuffer"), ("IP", "ip"), ("Port", "port")],
+    },
+    {
+        "event": "Request_response",
+        "object": "Network",
+        "apis": ["InternetReadFile", "InternetWriteFile"],
+        "arguments": [("Buffer", "buffer"), ("Handle", "internethandle")],
+    },
+    {
+        "event": "Proxying",
+        "object": "Network",
+        "apis": ["InternetOpenW"],
+        "arguments": [("Proxy", "proxyname"), ("Bypass", "proxybypass")],
+    },
+    {
+        "event": "Proxying",
+        "object": "Network",
+        "apis": ["WinHttpGetProxyForUrl"],
+        "arguments": [("Handle", "sessionhandle"), ("URL", "url")],
+    },
+    {
+        "event": "SSL",
+        "object": "Crypt",
+        "apis": ["SslEncryptPacket", "SslDecryptPacket"],
+        "arguments": [("Buffer", "buffer")],
+    },
+    {
+        "event": "Crypt_Decrypt",
+        "object": "Crypt",
+        "apis": ["CryptDecrypt", "CryptEncrypt"],
+        "arguments": [("Buffer", "buffer"), ("Key", "cryptkey"), ("Hash", "crypthash")],
+    },
+    {
+        "event": "Crypt_Decrypt",
+        "object": "Crypt",
+        "apis": ["BCryptDecrypt", "NCryptDecrypt", "NCryptEncrypt"],
+        "arguments": [("Buffer", "output"), ("Key", "cryptkey"), ("Hash", "iv")],
+    },
+    {
+        "event": "Crypt_Decrypt",
+        "object": "Crypt",
+        "apis": ["BCryptEncrypt"],
+        "arguments": [("Buffer", "input"), ("Key", "cryptkey"), ("Hash", "iv")],
+    },
+    {
+        "event": "Crypt_Decrypt",
+        "object": "Crypt",
+        "apis": ["CryptProtectData", "CryptUnprotectData", "CryptProtectMemory", "CryptUnprotectMemory", "CryptEncryptMessage"],
+        "arguments": [("Buffer", "buffer")],
+    },
+    {
+        "event": "Misc",
+        "object": "DebugString",
+        "apis": ["OutputDebugStringA", "OutputDebugStringW"],
+        "arguments": [("Buffer", "outputstring")],
+    },
+    {
+        "event": "Hooking",
+        "object": "Function",
+        "apis": ["SetWindowsHookExA", "SetWindowsHookExW"],
+        "arguments": [("Identifier", "hookidentifier"), ("Address", "procedureaddress"), ("Module", "ModuleAddress"), ("Thread", "threadid")],
+    },
+    {
+        "event": "Unhooking",
+        "object": "Function",
+        "apis": ["UnhookWindowsHookEx"],
+        "arguments": [("Handle", "hookhandle")],
+    },
+    {
+        "event": "Read_attributes",
+        "object": "File",
+        "apis": ["SHGetFileInfoW"],
+        "arguments": [("Path", "path")],
+    },
+     {
+        "event": "Write_attributes",
+        "object": "File",
+        "apis": ["NtSetInformationFile"],
+        "arguments": [("Handle", "filehandle" ), ("Path", "handlename"), ("Information class", "fileinformationclass")],
+    },
+    {
+        "event": "Execute",
+        "object": "File",
+        "apis": ["ShellExecuteExW", "ShellExecuteExA"],
+        "arguments": [("Path", "filepath"), ("Parameters", "parameters")],
+    },
+    {
+        "event": "Delete",
+        "object": "File",
+        "apis": ["NtDeleteFile", "DeleteFileA", "DeleteFileW"],
+        "arguments": [("Path", "filename")],
+    },
+    {
+        "event": "Move",
+        "object": "File",
+        "apis": ["MoveFileWithProgressW", "MoveFileWithProgressTransactedW"],
+        "arguments": [("OldPath", "existingfilename"), ("NewPath", "newfilename")],
+    },
+    {
+        "event": "Copy",
+        "object": "File",
+        "apis": ["CopyFileA", "CopyFileW", "CopyFileExW", "CopyFileExA"],
+        "arguments": [("from", "existingfilename"), ("to", "newfilename")],
+    },
+    {
+        "event": "Read",
+        "object": "File",
+        "apis": ["NtReadFile"],
+        "arguments": [("Path", "handlename")],
+    },
+    {
+        "event": "Write",
+        "object": "File",
+        "apis": ["NtWriteFile"],
+        "arguments": [("Path", "handlename")],
+    },
+    {
+        "event": "Create",
+        "object": "File",
+        "apis": ["NtCreateFile"],
+        "arguments": [("Path", "handlename"), ("FileName", "filename")],
+    },
+    {
+        "event": "Open",
+        "object": "File",
+        "apis": ["NtOpenFile"],
+        "arguments": [("Path", "handlename"), ("FileName", "filename")],
+    },
+    #NtQueryDirectoryFile
+    #NtQueryInformationFile
+    #NtQueryVolumeInformationFile
+    #NtQueryAttributesFile
+    #NtQueryFullAttributesFile
+    #NtSetInformationFile
+    {
+        "event": "Delete",
+        "object": "Dir",
+        "apis": ["RemoveDirectoryA", "RemoveDirectoryW"],
+        "arguments": [("Folder", "directoryname")],
+    },
+    {
+        "event": "Create",
+        "object": "Dir",
+        "apis": ["CreateDirectoryW", "CreateDirectoryExW"],
+        "arguments": [("Folder", "directoryname")],
+    },
+    {
+        "event": "Create",
+        "object": "Process",
+        "apis": ["NtCreateUserProcess"],
+        "arguments": [("Path", "processfileName"), ("CommandLine", "commandline"), ("PID", "processid"), ("ImagePath", "imagepathname")],
+    },
+    {
+        "event": "Create",
+        "object": "Process",
+        "apis": ["CreateProcessInternalW"],
+        "arguments": [("CommandLine", "commandline"), ("PID", "processid"), ("ThreadID", "threadid")],
+    },
+    {
+        "event": "Create",
+        "object": "Process",
+        "apis": ["CreateProcessWithTokenW", "CreateProcessWithLogonW"],
+        "arguments": [("ApplicationName", "applicationame"), ("CommandLine", "commandline"), ("PID", "processid"), ("ThreadID", "threadid")],
+    },
+    {
+        "event": "Create",
+        "object": "Process",
+        "apis": ["NtCreateProcess", "NtCreateProcessEx"],
+        "arguments": [("Path", "filename"), ("PID", "pid")],
+    },
+    {
+        "event": "Create",
+        "object": "Process",
+        "apis": ["CreateProcessA", "CreateProcessW"],
+        "arguments": [("Name", "applicationname"), ("CommandLine", "commandline"), ("PID", "processid"), ("ThreadID", "threadid")],
+    },
+    {
+        "event": "Create",
+        "object": "NamedPipe",
+        "apis": ["NtCreateNamedPipeFile"],
+        "arguments": [("Name", "pipename")],
+    },
+    {
+        "event": "Create",
+        "object": "Event",
+        "apis": ["NtCreateEvent"],
+        "arguments": [("Name", "eventname")],
+    },
+    {
+        "event": "Open",
+        "object": "Event",
+        "apis": ["NtOpenEvent"],
+        "arguments": [("Name", "eventname")],
+    }
 ]
-DNS_API_CALLS = [
-    "getaddrinfo",
-    "InternetConnectW",
-    "InternetConnectA",
-    "GetAddrInfoW",
-    "gethostbyname",
-    "DnsQuery_A",
-    "DnsQuery_UTF8",
-    "DnsQuery_W",
-]
-HTTP_API_CALLS = [
-    "send",
-    "InternetConnectW",
-    "InternetConnectA",
-    "URLDownloadToFileW",
-    "InternetCrackUrlA",
-    "InternetCrackUrlW",
-    "InternetOpenUrlA",
-    "InternetOpenUrlW",
-    "WinHttpConnect",
-    "WSASend",
-    "URLDownloadToCacheFileW",
-]
-BUFFER_API_CALLS = [
-    "send",
-    "sendto",
-    "recv",
-    "recvfrom",
-    "WSARecv",
-    "WSARecvFrom",
-    "WSASend",
-    "WSASendTo",
-    "WSASendMsg",
-    "SslEncryptPacket",
-    "SslDecryptPacket",
-    "InternetReadFile",
-    "InternetWriteFile",
-]
-CRYPT_BUFFER_CALLS = [
-    "CryptDecrypt",
-    "CryptEncrypt",
-    "BCryptDecrypt",
-    "BCryptEncrypt",
-    "NCryptDecrypt",
-    "NCryptEncrypt",
-]
-MISC_BUFFER_CALLS = ["OutputDebugStringA", "OutputDebugStringW"]
+ #Value uses by Sysmon which are essentially the ones from the Win32 API https://learn.microsoft.com/en-us/windows/win32/dns/dns-constants
+DNS_TYPE = {
+    1: "A",
+    2: "NS",
+    5: "CNAME",
+    6: "SOA",
+    12: "PTR",
+    15: "MX",
+    16: "TEXT", 
+    28: "AAAA",
+}
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
+SYSTEM_PROCESS_ID = 4
+MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
+SKIPPED_FAMILIES = ["generic"]
+PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
+
 SUPPORTED_EXTENSIONS = [
     "au3",
     "a3x",
@@ -200,8 +587,8 @@ SUPPORTED_EXTENSIONS = [
     "zip",
     "7z",
 ]
-ANALYSIS_ERRORS = "Analysis Errors"
-# Substring of Warning Message from
+
+#Error global variables
 # https://github.com/cuckoosandbox/cuckoo/blob/50452a39ff7c3e0c4c94d114bc6317101633b958/cuckoo/core/guest.py#L561
 GUEST_LOSING_CONNNECTIVITY = "Virtual Machine /status failed. This can indicate the guest losing network connectivity"
 # Substring of Error Message from
@@ -210,16 +597,33 @@ GUEST_CANNOT_REACH_HOST = (
     "it appears that this Virtual Machine hasn't been configured properly "
     "as the CAPE Host wasn't able to connect to the Guest."
 )
+
+#Limits
+UNIQUE_IP_LIMIT = 100
 GUEST_LOST_CONNECTIVITY = 5
-SIGNATURES_SECTION_TITLE = "Signatures"
 ENCRYPTED_BUFFER_LIMIT = 25
-SYSTEM_PROCESS_ID = 4
-MARK_KEYS_TO_NOT_DISPLAY = ["data_being_encrypted"]
-HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS = 10
+DWORD_MAX = 2**32 - 1
+MAX_PORT_NUMBER = 65,535
+
+#Section title
+SIGNATURES_SECTION_TITLE = "Signatures"
+NETWORK_SECTION_TITLE = "Network Activity"
+CURTAIN_SECTION_TITLE = "PowerShell Activity"
+HOLLOWSHUNTER_SECTION_TITLE = "HollowsHunter Analysis"
+BUFFERS_SECTION_TITLE = "Buffers"
+INFO_SECTION_TITLE = "Analysis Information"
+CONFIG_EXTRACT_SECTION_TITLE = "Configs Extracted By CAPE"
+PROCESS_TREE_AND_EVENTS_SECTION_TITLE = "Processes"
+ANALYSIS_ERRORS = "Analysis Errors"
+
+#Regexes and data types
+HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
+DNS_TYPE_REGEX = r"^type:  (\d{1,2}) "
 
+#Machine related tags
 x86_IMAGE_SUFFIX = "x86"
 x64_IMAGE_SUFFIX = "x64"
 LINUX_IMAGE_PREFIX = "ub"
@@ -230,12 +634,15 @@ MACHINE_NAME_REGEX = (
     f"(?:{'|'.join([LINUX_IMAGE_PREFIX, WINDOWS_IMAGE_PREFIX])})(.*)"
     f"(?:{'|'.join([x64_IMAGE_SUFFIX, x86_IMAGE_SUFFIX])})"
 )
+
+#Network related name
+INETSIM = "INetSim"
+ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
+
+#Ouptut file location
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
-
-PE_INDICATORS = [b"MZ", b"This program cannot be run in DOS mode"]
-
 
 # noinspection PyBroadException
 def generate_al_result(
@@ -287,23 +694,20 @@ def generate_al_result(
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
     cape: Dict[str, Any] = api_report.get("CAPE", {})
 
+     #Info section
     if info:
         process_info(info, al_result, ontres)
-
-    if machine_info:
-        process_machine_info(machine_info, ontres)
 
     if debug:
         # Ransomware tends to cause issues with CAPE's analysis modules, and including the associated analysis errors
         # creates unnecessary noise to include this
         if not any("ransomware" in sig["name"] for sig in sigs):
             process_debug(debug, al_result)
-
+    #Process the API calls
     process_map = get_process_map(behaviour.get("processes", {}), safelist)
-
+    #Process all the sysmon events
     if sysmon:
-        convert_sysmon_processes(sysmon, safelist, ontres)
-        convert_sysmon_network(sysmon, network, safelist)
+        parsed_sysmon = process_sysmon(sysmon, safelist)
 
     main_process_tuples: List[Tuple(int, str)] = []
     if behaviour:
@@ -327,54 +731,769 @@ def generate_al_result(
                 f"{safe_str(file_ext)} OR see the '{ANALYSIS_ERRORS}' section for details."
             )
             al_result.add_subsection(noexec_res)
-        else:
-            # Otherwise, moving on!
-            main_process_tuples = process_behaviour(behaviour, process_map, safelist, ontres)
-
-    if ontres.get_processes():
-        _update_process_map(process_map, ontres.get_processes())
-
-    is_process_martian = False
-
+        main_process_tuples = process_behavior(behaviour)
+    #Process the network events from the report which came from PCAP
     if network:
-        process_network(
+        dns_servers, dns_requests, low_level_flow, http_calls = get_network_map(
             network,
-            al_result,
             validated_random_ip_range,
             routing,
             process_map,
             safelist,
-            ontres,
             inetsim_dns_servers,
             uses_https_proxy_in_sandbox,
             suspicious_accepted_languages,
+            parsed_sysmon
         )
-
+    #Process the signature raised in the report
     if sigs:
-        is_process_martian = process_signatures(
-            sigs, process_map, al_result, ontres, safelist, uses_https_proxy_in_sandbox, signature_map
-        )
+        signatures = process_signatures(sigs)
+    
+    #Load the powershell commands and cmd commands
+    ps1_commands = []
+    bat_commands = []
+    for _, events in parsed_sysmon.items():
+        for event in events:
+            if event["event_id"] == 1:
+                if event.get("command_line"):   
+                    ps1_matches = find_powershell_strings(event["command_line"].encode())
+                    for match in ps1_matches:
+                        command = get_powershell_command(match.value)
+                        if command and command + b"\n" not in ps1_commands:
+                            ps1_commands.append(command + b"\n")
 
-    build_process_tree(al_result, is_process_martian, ontres, processtree_id_safelist)
+                    cmd_matches = find_cmd_strings(event["command_line"].encode())
+                    for match in cmd_matches:
+                        command = get_cmd_command(match.value)
+                        if command and command + b"\n" not in bat_commands:
+                            bat_commands.append(command + b"\n")   
+                    
+    if ps1_commands:
+        with open(PS1_COMMANDS_PATH, "wb") as f:
+            ps1_commands.insert(0, CUSTOM_PS1_ID)
+            f.writelines(ps1_commands)
 
-    process_all_events(al_result, ontres, processtree_id_safelist)
+    if bat_commands:
+        with open(BAT_COMMANDS_PATH, "wb") as f:
+            bat_commands.insert(0, CUSTOM_BATCH_ID)
+            f.writelines(bat_commands)
 
+    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, signature_map)
+
+    #Process all the info from auxiliaries
+        # Powershell logger
     if curtain:
         process_curtain(curtain, al_result, process_map)
-
+        # Memory hunter
     if hollowshunter:
         process_hollowshunter(hollowshunter, al_result, process_map)
 
+    #Look for buffers in calls and all relevant tables
     if process_map:
         process_buffers(process_map, safelist, al_result)
-
+    #Process the CAPE report section
     cape_artifact_pids: Dict[str, int] = {}
     if cape:
         cape_artifact_pids = process_cape(cape, al_result)
 
-    return cape_artifact_pids, main_process_tuples
+    #Machine information mostly for debugging purpose so last section
+    if machine_info:
+        process_machine_info(machine_info, ontres)
+
+    return cape_artifact_pids, main_process_tuples, process_events
+
+def load_ontology_and_result_section(
+    ontres: OntologyResults, 
+    al_result: ResultSection, 
+    process_map: Dict[int, Dict[str, Any]],
+    parsed_sysmon: Dict,
+    dns_servers: List[str],
+    inetsim_network: IPv4Network,
+    dns_requests: Dict[str, List[Dict[str, Any]]],
+    low_level_flow: List[Dict[str, Any]],
+    http_calls: List[Dict[str, Any]],
+    uses_https_proxy_in_sandbox: bool,
+    signatures: List[Dict[str, Any]],
+    safelist:  Dict[str, Dict[str, List[str]]],
+    processtree_id_safelist: List[str],
+    signature_map: Dict[str, Dict[str, Any]] = {},
+    ):
+    if len(ontres.sandboxes) == 0:
+        return
+    session = ontres.sandboxes[-1].objectid.session
+    process_res = ResultSandboxSection(PROCESS_TREE_AND_EVENTS_SECTION_TITLE)
+    sigs_res = ResultSection(SIGNATURES_SECTION_TITLE)
+    network_res = ResultSection(NETWORK_SECTION_TITLE)
+    process_events = {
+        "signatures": [],
+        "network_connections": [],
+        "processes": [],
+    }
+    #Gather the analysis information and metadata
+    sandbox = ontres.sandboxes[-1]
+    analysis_information = sandbox.as_primitives()
+    analysis_information.pop("objectid")
+    process_events["analysis_information"] = analysis_information
+    #Process ontology building 
+    pids_of_interest = process_map.keys()
+    sysmon_enrichment = {}
+    processes_still_to_create = list(pids_of_interest)
+    for process_id, process_details in parsed_sysmon.items():
+        created_process = False
+        for event in process_details:
+            if event["event_id"] == 1:
+                if ontres.is_guid_in_gpm(event["guid"]):
+                    ontres.update_process(**event)
+                else:
+                    if event["pid"] in pids_of_interest:
+                        services = []
+                        for service_event in process_map[event["pid"]]["services_events"]:
+                            if service_event["arguments"]["Service"] not in services:
+                                services.append(service_event["arguments"]["Service"])
+                        modules = []
+                        for module_event in process_map[event["pid"]]["loaded_modules"]:
+                            if module_event["object"] == "DLL":
+                                if module_event["arguments"]["DLLName"] not in modules:
+                                    modules.append(module_event["arguments"]["DLLName"])
+                            elif module_event["object"] == "Function":
+                                if module_event["arguments"]["FunctionName"] not in modules:
+                                    modules.append(module_event["arguments"]["FunctionName"])
+                        if len(services) > 0:
+                            event["services_involved"] = services
+                        if len(modules) > 0:
+                            event["loaded_modules"] = modules
+                    p_oid = ProcessModel.get_oid(
+                        {
+                            "pid": event["pid"],
+                            "ppid": event.get("ppid"),
+                            "image": event["image"],
+                            "command_line": event.get("command_line"),
+                        }
+                    )
+                    safelisted = event["safelisted"]
+                    event.pop("safelisted", None)
+                    event.pop("event_id", None)
+                    p = ontres.create_process(
+                            objectid=ontres.create_objectid(
+                                tag=Process.create_objectid_tag(event["image"]),
+                                ontology_id=p_oid,
+                                guid=event.get("guid"),
+                                session=session,
+                                ),
+                            **event,
+                        )
+                    ontres.add_process(p)
+                    created_process = True
+                    process_dict = p.as_primitives()
+                    process_dict["safelisted"] = safelisted
+                    if process_dict["pid"] in sysmon_enrichment.keys():
+                        process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
+                    if event["pid"] in pids_of_interest:
+                        process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
+                        process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
+                    process_dict.pop("objectid")
+                    process_dict.pop("pimage")
+                    process_dict.pop("pcommand_line")
+                    process_dict.pop("pobjectid")
+                    process_dict.pop("loaded_modules")
+                    process_dict.pop("services_involved")
+                    validity = validate_sandbox_event(process_dict, "process")
+                    if validity:
+                        if isinstance(validity,bool):
+                            process_events["processes"].append(process_dict)  
+                        elif isinstance(validity,Dict):
+                            process_events["processes"].append(validity)
+                        else:
+                            log.debug(f"Validator misbehaving for processes {process_dict}") 
+            elif created_process and event["event_id"] == 5:
+                end_time = event.get("end_time", "-")
+                for proc in process_events["processes"]:
+                    if proc["pid"] == event["pid"]:
+                        proc["end_time"] = end_time
+            elif event["event_id"] == 5:
+                sysmon_enrichment[event["pid"]] = event.get("end_time", "-")
+
+        if created_process and process_id in pids_of_interest:
+            processes_still_to_create.remove(process_id)
+        
+    for process_id in processes_still_to_create:
+        this_process = {
+            "pid": process_id,
+            "image": process_map[process_id]["image"],
+            "ppid": process_map[process_id]["ppid"],
+            "start_time": process_map[process_id]["start_time"],
+            "command_line": process_map[process_id]["command_line"]
+        }
+        services = []
+        for service_event in process_map[process_id]["services_events"]:
+            if service_event["arguments"]["Service"] not in services:
+                services.append(service_event["arguments"]["Service"])
+        modules = []
+        for module_event in process_map[process_id]["loaded_modules"]:
+            if module_event["object"] == "DLL":
+                if module_event["arguments"]["DLLName"] not in modules:
+                    modules.append(module_event["arguments"]["DLLName"])
+            elif module_event["object"] == "Function":
+                if module_event["arguments"]["FunctionName"] not in modules:
+                    modules.append(module_event["arguments"]["FunctionName"])
+            if len(services) > 0:
+                this_process["services_involved"] = services
+            if len(modules) > 0:
+                this_process["loaded_modules"] = modules
+        p_oid = ProcessModel.get_oid(
+            {
+                "pid": this_process["pid"],
+                "ppid": this_process.get("ppid"),
+                "image": this_process["image"],
+                "command_line": this_process.get("command_line"),
+            }
+        )
+        p = ontres.create_process(
+                objectid=ontres.create_objectid(
+                    tag=Process.create_objectid_tag(this_process["image"]),
+                    ontology_id=p_oid,
+                    session=session,
+                    ),
+                **this_process,
+            )
+        ontres.add_process(p)
+        process_dict = p.as_primitives()
+        process_dict["safelisted"] = False
+        if process_dict["pid"] in sysmon_enrichment.keys():
+            process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
+        else:
+            process_dict["end_time"] = "-"
+        process_dict["file_count"] = len(process_map[process_id]["file_events"])
+        process_dict["registry_count"] = len(process_map[process_id]["registry_events"])
+        process_dict.pop("objectid")
+        process_dict.pop("pimage")
+        process_dict.pop("pcommand_line")
+        process_dict.pop("pobjectid")
+        process_dict.pop("loaded_modules")
+        process_dict.pop("services_involved")
+        validity = validate_sandbox_event(process_dict, "process")
+        if validity:
+            if isinstance(validity,bool):
+                process_events["processes"].append(process_dict)  
+            elif isinstance(validity,Dict):
+                process_events["processes"].append(validity)
+            else:
+                log.debug(f"Validator misbehaving for processes {process_dict}")
+
+    #DNS section
+    dns_server_heur = Heuristic(1008)
+    dns_server_sec = ResultTextSection(
+        dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description
+    )
+    dns_server_hit = False
+    for dns_server in dns_servers:
+        if (
+            add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist)
+            and not ip_address(dns_server) in inetsim_network
+            and (routing == INETSIM.lower() and dns_server not in inetsim_dns_servers)
+        ):
+            dns_server_sec.add_line(f"\t-\t{dns_server}")
+            dns_server_hit = True
+    if dns_server_hit:
+        network_res.add_subsection(dns_server_sec)
+
+    dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
+
+    if dns_res_sec and len(dns_res_sec.tags.get("network.dynamic.domain", [])) > 0:
+        network_res.add_subsection(dns_res_sec)
+
+    #DNS ontology
+    for request, attempts in dns_requests.items():
+        if contains_safelisted_value(request, safelist):
+            continue
+        for attempt in attempts:
+            have_domain_answers = False
+            have_ip_answers = False
+            ip_answers = []
+            domain_answers = []
+            all_answers = []
+            for answer in attempt["answers"]:
+                all_answers.append(answer["answer"])
+                if is_valid_ip(answer["answer"]) or search(IP_REGEX, answer["answer"]):
+                    have_ip_answers = True
+                    ip_answers.append(answer["answer"])
+                elif is_valid_domain(answer["answer"]):
+                    have_domain_answers = True
+                    domain_answers.append(answer["answer"])
+            if have_ip_answers and have_domain_answers:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=ip_answers, resolved_domains=domain_answers, lookup_type=attempt.get("type")
+                )
+            elif have_domain_answers:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=None, resolved_domains=domain_answers, lookup_type=attempt.get("type")
+                )
+            elif have_ip_answers:
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=ip_answers, resolved_domains=None, lookup_type=attempt.get("type")
+                )
+            else:
+                if len(all_answers) == 0:
+                    all_answers.append("")
+                nd = ontres.create_network_dns(
+                    domain=request, resolved_ips=all_answers, resolved_domains=None, lookup_type=attempt.get("type")
+                )
+            destination_ip = dns_servers[0] if dns_servers else None
+            destination_port = 53
+            transport_layer_protocol = NetworkConnection.UDP
+            nc_oid = NetworkConnectionModel.get_oid(
+                {
+                    "destination_ip": destination_ip,
+                    "destination_port": destination_port,
+                    "transport_layer_protocol": transport_layer_protocol,
+                    "connection_type": NetworkConnection.DNS,
+                    "dns_details": nd.as_primitives(),
+                    "lookup_type": attempt.get("type"),
+                }
+            )
+            objectid = ontres.create_objectid(
+                tag=NetworkConnectionModel.get_tag(
+                    {
+                        "destination_ip": destination_ip,
+                        "destination_port": destination_port,
+                    }
+                ),
+                ontology_id=nc_oid,
+                session=session,
+                time_observed=attempt["time"],
+            )
+            objectid.assign_guid()
+            try:
+                nc = ontres.create_network_connection(
+                    objectid=objectid,
+                    destination_ip=destination_ip,
+                    destination_port=destination_port,
+                    transport_layer_protocol=transport_layer_protocol,
+                    direction=NetworkConnection.OUTBOUND,
+                    dns_details=nd,
+                    connection_type=NetworkConnection.DNS,
+                )
+            except ValueError as e:
+                log.warning(
+                    f"{e}. The required values passed were:\n"
+                    f"objectid={objectid}\n"
+                    f"destination_ip={destination_ip}\n"
+                    f"destination_port={destination_port}\n"
+                    f"transport_layer_protocol={transport_layer_protocol}"
+                )
+                continue
+            p = ontres.get_process_by_guid(attempt["guid"])
+            if not p:
+                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
+            if p:
+                nc.set_process(p)
+            ontres.add_network_connection(nc)
+            ontres.add_network_dns(nd)
+            if not nc.process and attempt["process_id"]:
+                # A OntologyResults process should exist for every pid in the process map
+                p = ontres.get_process_by_pid(attempt["process_id"])
+                nc.set_process(p)
+            elif attempt["process_id"] and attempt["process_name"]:
+                nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
+            if nc:
+                net_dict = nc.as_primitives()
+                net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
+                net_dict.pop("objectid")
+                validity = validate_sandbox_event(net_dict, "network_connection")
+                if validity:
+                    if isinstance(validity,bool):
+                        process_events["network_connections"].append(net_dict)  
+                    elif isinstance(validity,Dict):
+                        process_events["network_connections"].append(validity)
+                    else:
+                        log.debug(f"Validator misbehaving for network connection {net_dict}")
+
+    #TCP/UDP section and ontology
+    netflows_sec = ResultTableSection("TCP/UDP Network Traffic")
+    netflows_sec.set_column_order(
+        ["timestamp", "protocol", "src_ip", "src_port", "domain", "dest_ip", "dest_port", "image", "pid"]
+    )
+    for flow in low_level_flow:
+        _ = add_tag(netflows_sec, "network.dynamic.domain", flow["domain"])
+        _ = add_tag(netflows_sec, "network.protocol", flow["protocol"])
+        _ = add_tag(netflows_sec, "network.dynamic.ip", flow["dest_ip"], safelist)
+        _ = add_tag(netflows_sec, "network.dynamic.ip", flow["src_ip"], safelist)
+        _ = add_tag(netflows_sec, "network.port", flow["dest_port"])
+        _ = add_tag(netflows_sec, "network.port", flow["src_port"])
+
+        nc = _create_network_connection_for_network_flow(flow, session, ontres)
+        if not nc.process and flow["pid"]:
+            # A OntologyResults process should exist for every pid in the process map
+            p = ontres.get_process_by_pid(flow["pid"])
+            nc.set_process(p)
+        elif flow["pid"] and flow["image"]:
+            nc.update_process(image=flow["image"], pid=flow["pid"])
+        if nc:
+            netflow_dict = nc.as_primitives()
+            netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
+            netflow_dict.pop("objectid")
+            validity = validate_sandbox_event(netflow_dict, "network_connection")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["network_connections"].append(netflow_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["network_connections"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
 
 
+    unique_netflows: List[Dict[str, Any]] = []
+    if len(low_level_flow) > 0:
+        tcp_seen = False
+        udp_seen = False
+        # Need to convert each dictionary to a string in order to get the set of low_level_flow, since
+        # dictionaries are not hashable
+        for item in low_level_flow:
+            if item not in unique_netflows:  # Remove duplicates
+                unique_netflows.append(item)
+                netflows_sec.add_row(TableRow(**item))
+                if item["protocol"] == "tcp":
+                    tcp_seen = True
+                elif item["protocol"] == "udp":
+                    udp_seen = True
+
+        if tcp_seen:
+            netflows_sec.add_subsection(
+                ResultSection("TCP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1010))
+            )
+        if udp_seen:
+            netflows_sec.add_subsection(
+                ResultSection("UDP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1011))
+            )
+
+        netflows_sec.set_heuristic(1004)
+        network_res.add_subsection(netflows_sec)
+
+    # HTTP/HTTPS section
+    http_sec = ResultTableSection("Protocol: HTTP/HTTPS")
+    http_header_sec = ResultTableSection("IOCs found in HTTP/HTTPS Headers")
+    remote_file_access_sec = ResultTextSection("Access Remote File")
+    remote_file_access_sec.add_line("The sample attempted to download the following files:")
+    suspicious_user_agent_sec = ResultTextSection("Suspicious User Agent(s)")
+    suspicious_user_agent_sec.add_line("The sample made HTTP calls via the following user agents:")
+    http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
+    http_header_anomaly_sec.set_heuristic(1012)
+    sus_user_agents_used = []
+    if len(http_calls) > 0:
+        http_sec.set_heuristic(1002)
+        _ = add_tag(http_sec, "network.protocol", "http")
+    else:
+        _process_non_http_traffic_over_http(network_res, unique_netflows)
+
+    for http_call in http_calls:
+        _ = add_tag(http_sec, "network.dynamic.uri", http_call["uri"], safelist)
+        for _, value in http_call["request_headers"].items():
+            extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
+        if http_call["download"]:
+            if not remote_file_access_sec.body:
+                remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
+            elif f'\t{{http_call["uri"]}}' not in remote_file_access_sec.body:
+                remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
+            if not remote_file_access_sec.heuristic:
+                remote_file_access_sec.set_heuristic(1003)
+                _ = add_tag(
+                    remote_file_access_sec,
+                    "network.dynamic.uri",
+                    http_call["uri"],
+                    safelist,
+                )
+        if http_call["Suspicious_agent"]:
+            if suspicious_user_agent_sec.heuristic is None:
+                suspicious_user_agent_sec.set_heuristic(1007)
+            if http_call["user-agent"] not in sus_user_agents_used:
+                _ = add_tag(
+                    suspicious_user_agent_sec,
+                    "network.user_agent",
+                    http_call["user-agent"],
+                    safelist,
+                )
+                suspicious_user_agent_sec.add_line(f'\t{{http_call["user-agent"]}}')
+                sus_user_agents_used.append(http_call["user-agent"])
+            for lang in http_call["Flagged_language"]:
+                http_header_anomaly_sec.heuristic.add_signature_id(
+                    f"suspicious_language_accepted_{lang.split('-')[1].lower()}", 750
+                )
+            for header, header_value in http_call["Non_standard_request_headers"].items():
+                http_header_anomaly_sec.add_row(TableRow(header=header, header_value=header_value))
+        nh_to_add = False
+        nh = ontres.get_network_http_by_details(
+            request_uri=http_call["uri"],
+            request_method=http_call["method"],
+            request_headers=http_call["request_headers"],
+        )
+        if not nh:
+            nc, nh = _setup_network_connection_with_network_http(
+                http_call["uri"],
+                http_call,
+                http_call["request_headers"],
+                http_call["response_headers"],
+                http_call["request_body_path"],
+                http_call["response_body_path"],
+                http_call["port"],
+                http_call["dst"],
+                ontres,
+            )
+            nh_to_add = True
+        else:
+            nc = ontres.get_network_connection_by_network_http(nh)
+
+        if nh_to_add:
+            ontres.add_network_http(nh)
+        if not nc.process and http_call["pid"]:
+            # A OntologyResults process should exist for every pid in the process map
+            p = ontres.get_process_by_pid(http_call["pid"])
+            nc.set_process(p)
+        elif http_call["pid"] and http_call["image"]:
+            nc.update_process(image=http_call["image"], pid=http_call["pid"])
+        if nc:
+            netflow_dict = nc.as_primitives()
+            netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
+            netflow_dict.pop("objectid")
+            validity = validate_sandbox_event(netflow_dict, "network_connection")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["network_connections"].append(netflow_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["network_connections"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
+
+        http_sec.add_row(
+            TableRow(
+                process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
+                method=http_call["method"],
+                request=http_call["request_headers"],
+                uri=http_call["uri"],
+            )
+        )
+
+    if remote_file_access_sec.heuristic:
+        http_sec.add_subsection(remote_file_access_sec)
+    if http_header_sec.body:
+        http_sec.add_subsection(http_header_sec)
+    if suspicious_user_agent_sec.heuristic:
+        suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
+        http_sec.add_subsection(suspicious_user_agent_sec)
+    if http_header_anomaly_sec.body or http_header_anomaly_sec.heuristic.signatures:
+        http_sec.add_subsection(http_header_anomaly_sec)
+    if http_sec.body or http_sec.subsections:
+        network_res.add_subsection(http_sec)
+    _process_unseen_iocs(network_res, process_map, ontres, safelist)
+    if len(network_res.subsections) > 0:
+        al_result.add_subsection(network_res)
+        
+    #Signature section and ontology
+    for signature in signatures:
+        data = {
+            "name": signature["name"],
+            "type": signature["type"],
+            "classification": signature["classification"],
+        }
+        s_tag = SignatureModel.get_tag(data)
+        s_oid = SignatureModel.get_oid(data)
+        ontres_sig = ontres.create_signature(
+            objectid=ontres.create_objectid(
+                tag=s_tag,
+                ontology_id=s_oid,
+                session=session,
+            ),
+            name=signature["name"],
+            type=signature["type"],
+            score=signature["score"],
+            classification=signature["classification"],
+        )
+        sig_res, pids = _create_signature_result_section(
+            signature["name"],
+            signature,
+            signature["score"],
+            ontres_sig,
+            ontres,
+            process_map,
+            safelist,
+            uses_https_proxy_in_sandbox,
+            signature_map,
+        )
+
+        if sig_res:
+            ontres.add_signature(ontres_sig)
+            sigs_res.add_subsection(sig_res)
+        if ontres_sig:
+            signature_dict = ontres_sig.as_primitives()
+            interesting_data = []
+            for data in signature["data"]:
+                if "type" not in data.keys() or data["type"]!="call":
+                    interesting_data.append(data) 
+            signature_dict["data"] = interesting_data 
+            signature_dict["score"] = signature["score"]
+            if len(pids) > 0:
+                signature_dict["pid"] = pids
+            else:
+                signature_dict["pid"] = None
+            signature_dict.pop("objectid")
+            signature_dict.pop("attributes")
+            signature_dict["description"] = signature["description"]
+            validity = validate_sandbox_event(signature_dict, "signature")
+            if validity:
+                if isinstance(validity,bool):
+                    process_events["signatures"].append(signature_dict) 
+                elif isinstance(validity,Dict):
+                    process_events["signatures"].append(validity)
+                else:
+                    log.debug(f"Validator misbehaving for signature {signature_dict}")
+            
+    validity = validate_sandbox_event(process_events, "complete")
+    if not validity:
+        log.debug("Invalid Sandbox format")
+    elif isinstance(validity, Dict):
+        process_events = validity
+    if len(sigs_res.subsections) > 0:
+        al_result.add_subsection(sigs_res)
+
+
+    #Build the process tree 
+    _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
+
+    if len(signature_list) > 0:
+        process_res.set_heuristic(56)
+        signature_dict = Counter(signature_list)
+        for signature,occurence in signature_dict.items():
+            process_res.heuristic.add_signature_id(signature, 0, occurence)
+    #Build the sandbox section
+    final_analysis_information = process_events["analysis_information"]
+    process_res.set_analysis_information(
+        sandbox_name = final_analysis_information["sandbox_name"],
+        sandbox_version = final_analysis_information["sandbox_version"],
+        analysis_metadata=SandboxAnalysisMetadata(
+            task_id = final_analysis_information["analysis_metadata"]["task_id"],
+            start_time = final_analysis_information["analysis_metadata"]["start_time"],
+            end_time = final_analysis_information["analysis_metadata"]["end_time"],
+            routing = final_analysis_information["analysis_metadata"]["routing"],
+            machine_metadata=None
+        ),
+    )
+
+    for process in process_events["processes"]:
+        process_res.add_process(
+            SandboxProcessItem(
+                image = process["image"],
+                start_time = process["start_time"],
+                end_time = process["end_time"],
+                pid = process["pid"],
+                ppid = process["ppid"],
+                command_line = process["command_line"],
+                integrity_level = process["integrity_level"],
+                image_hash = process["image_hash"],
+                original_file_name = process["original_file_name"],
+                safelisted = process["safelisted"],
+            )
+        )
+    for netevent in process_events["network_connections"]:
+        if netevent["connection_type"] == "http":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    http_details=SandboxNetworkHTTP(
+                        request_uri = netevent["http_details"]["request_uri"],
+                        request_method = netevent["http_details"]["request_method"],
+                        response_status_code = netevent["http_details"]["response_status_code"],
+                        response_headers = netevent["http_details"]["response_headers"],
+                        request_headers = netevent["http_details"]["request_headers"],
+                        response_body_path = netevent["http_details"]["response_body_path"],
+                        request_body_path = netevent["http_details"]["request_body_path"] 
+                    ),
+                    connection_type = "http",
+                )
+            )
+        elif netevent["connection_type"] == "dns":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    dns_details=SandboxNetworkDNS(
+                        domain = netevent["dns_details"]["domain"],
+                        lookup_type = netevent["dns_details"]["lookup_type"],
+                        resolved_ips = netevent["dns_details"]["resolved_ips"],
+                        resolved_domains = netevent["dns_details"]["resolved_domains"]
+                    ),
+                    connection_type="dns",
+                )
+            )
+
+        elif netevent["connection_type"] == "smtp":
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    smtp_details=SandboxNetworkSMTP(
+                        mail_from = netevent["smtp_details"]["mail_from"],
+                        mail_to = netevent["smtp_details"]["mail_to"],
+                        attachments = netevent["smtp_details"]["attachments"],
+                    ),
+                    connection_type="smtp",
+                )
+            )
+        else:
+            process_res.add_network_connection(
+                SandboxNetflowItem(
+                    destination_ip = netevent["destination_ip"],
+                    destination_port = netevent["destination_port"],
+                    source_ip = netevent["source_ip"],
+                    source_port = netevent["source_port"],
+                    time_observed = netevent["time_observed"],
+                    process = netevent["process"],
+                    direction = netevent["direction"],
+                    transport_layer_protocol = netevent["transport_layer_protocol"],
+                    connection_type = netevent["connection_type"],
+                )
+            )
+    for sig in process_events["signatures"]:
+        attacks = []
+        for attack in sig["attacks"]:
+            attacks.append(
+                SandboxAttackItem(
+                    attack_id = attack["attack_id"],
+                    pattern = attack["pattern"],
+                    categories = attack["categories"],
+                )
+            )
+        process_res.add_signature(
+            SandboxSignatureItem(
+                name = sig["name"],
+                type = sig["type"],
+                classification = sig["classification"],
+                description = sig["description"],
+                score = sig["score"],
+                pid = sig["pid"],
+                attacks = attacks,
+                actors = sig["actors"],
+                malware_families = sig["malware_families"],
+            ))
+    al_result.add_subsection(process_res)
+    return process_events
+    
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
     """
     This method processes the info section of the CAPE report, adding anything noteworthy to the Assemblyline report
@@ -404,7 +1523,7 @@ def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ont
         "Routing": routing,
         "CAPE Version": sandbox_version,
     }
-    info_res = ResultKeyValueSection("Analysis Information")
+    info_res = ResultKeyValueSection(INFO_SECTION_TITLE)
     info_res.update_items(body)
     parent_result_section.add_subsection(info_res)
 
@@ -440,7 +1559,6 @@ def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ont
 
     ontres.add_sandbox(sandbox)
 
-
 def process_machine_info(machine_info: Dict[str, Any], ontres: OntologyResults):
     if len(ontres.sandboxes) == 0:
         return
@@ -464,7 +1582,6 @@ def process_machine_info(machine_info: Dict[str, Any], ontres: OntologyResults):
     if m and len(m.groups()) == 1:
         version = m.group(1)
         sandbox.update_machine_metadata(version=version)
-
 
 def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -> None:
     """
@@ -506,167 +1623,9 @@ def process_debug(debug: Dict[str, Any], parent_result_section: ResultSection) -
     if error_res.body and len(error_res.body) > 0:
         parent_result_section.add_subsection(error_res)
 
-
-def process_behaviour(
-    behaviour: Dict[str, Any],
-    process_map: Dict[int, Dict[str, Any]],
-    safelist: Dict[str, Dict[str, List[str]]],
-    ontres: OntologyResults,
-) -> List[Tuple[int, str]]:
-    """
-    This method processes the behaviour section of the CAPE report, adding anything noteworthy to the
-    Assemblyline report
-    :param behaviour: The JSON of the behaviour section from the report generated by CAPE
-    :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :param ontres: The Ontology Results class object
-    :return: A list of tuples representing both the PID of the initial process and the process name
-    """
-    # Preparing CAPE processes to match the OntologyResults format
-    processes = behaviour["processes"]
-    if processes:
-        convert_cape_processes(processes, process_map, safelist, ontres)
-
-    if len(processes) < 1:
-        return []
-    else:
-        parent_pid = processes[0]["parent_id"]
-        initial_process = processes[0]["process_name"]
-        initial_process_pid = processes[0]["process_id"]
-
-        # Adding special case for iexplore, since HH creates two dumps for the main process and it's child
-        if initial_process == "iexplore.exe":
-            return [
-                (process["process_id"], process["process_name"])
-                for process in processes
-                if process["parent_id"] == parent_pid
-                or process["process_name"] == initial_process
-                and process["parent_id"] == initial_process_pid
-            ]
-        else:
-            return [
-                (process["process_id"], process["process_name"])
-                for process in processes
-                if process["parent_id"] == parent_pid
-            ]
-
-
-def get_process_api_sums(apistats: Dict[str, Dict[str, int]]) -> Dict[str, int]:
-    """
-    This method calculates the sum of unique process calls per process
-    :param apistats: A map of the number of process calls made by processes
-    :return: A map of process calls and how many times those process calls were made
-    """
-    # Get the total number of api calls per pid
-    api_sums: Dict[str, int] = {}
-    for pid in apistats:
-        api_sums[pid] = 0
-        process_apistats = apistats[pid]
-        for api_call in process_apistats:
-            api_sums[pid] += process_apistats[api_call]
-    return api_sums
-
-
-def convert_cape_processes(
-    cape_processes: List[Dict[str, Any]],
-    process_map: Dict[int, Dict[str, Any]],
-    safelist: Dict[str, Dict[str, List[str]]],
-    ontres: OntologyResults,
-) -> None:
-    """
-    This method converts processes observed in CAPE to the format supported by the OntologyResults helper class
-    :param cape_processes: A list of processes observed during the analysis of the task
-    :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :param ontres: The Ontology Results class object
-    :return: None
-    """
-    if len(ontres.sandboxes) == 0:
-        return
-    session = ontres.sandboxes[-1].objectid.session
-    for item in cape_processes:
-        process_path = item.get("module_path")
-        command_line = item["environ"].get("CommandLine")
-        if (
-            not process_path
-            or not command_line
-            or is_tag_safelisted(command_line, ["dynamic.process.command_line"], safelist)
-        ):
-            continue
-
-        first_seen = item["first_seen"].replace(",", ".")
-
-        if not item.get("guid"):
-            guid = ontres.get_guid_by_pid_and_time(item["process_id"], first_seen)
-        else:
-            guid = item.get("guid")
-
-        if not item.get("pguid"):
-            pguid = ontres.get_pguid_by_pid_and_time(item["process_id"], first_seen)
-        else:
-            pguid = item.get("pguid")
-
-        p_oid = ProcessModel.get_oid(
-            {
-                "pid": item["process_id"],
-                "ppid": item["parent_id"],
-                "image": process_path,
-                "command_line": command_line,
-            }
-        )
-        ontres.update_process(
-            objectid=ontres.create_objectid(
-                tag=Process.create_objectid_tag(process_path),
-                ontology_id=p_oid,
-                guid=guid,
-                session=session,
-                time_observed=first_seen,
-            ),
-            pid=item["process_id"],
-            ppid=item["parent_id"],
-            image=process_path,
-            command_line=command_line,
-            start_time=first_seen,
-            pguid=pguid,
-            loaded_modules = process_map[item["process_id"]]["loaded_modules"],
-            services_involved = process_map[item["process_id"]]["services_involved"],
-        )
-
-
-def build_process_tree(
-    parent_result_section: ResultSection,
-    is_process_martian: bool,
-    ontres: OntologyResults,
-    processtree_id_safelist: List[str],
-) -> None:
-    """
-    This method builds a process tree ResultSection
-    :param parent_result_section: The overarching result section detailing what image this task is being sent to
-    :param is_process_martian: A boolean flag that indicates if the is_process_martian signature was raised
-    :param ontres: The Ontology Results class object
-    :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
-    :return: None
-    """
-    if not ontres.get_processes():
-        return
-    process_tree_section = ontres.get_process_tree_result_section(processtree_id_safelist, 56) #tying to heuristic 56
-    if is_process_martian:
-        sig_name = "process_martian"
-        heur_id = get_category_id(sig_name)
-        process_tree_section.set_heuristic(heur_id)
-        # Let's keep this heuristic as informational
-        process_tree_section.heuristic.add_signature_id(sig_name, score=10)
-    if process_tree_section.body:
-        parent_result_section.add_subsection(process_tree_section)
-
-
 def process_signatures(
     sigs: List[Dict[str, Any]],
-    process_map: Dict[int, Dict[str, Any]],
-    parent_result_section: ResultSection,
-    ontres: OntologyResults,
-    safelist: Dict[str, Dict[str, List[str]]],
-    uses_https_proxy_in_sandbox: bool,
-    signature_map: Dict[str, Dict[str, Any]] = {},
-) -> bool:
+):
     """
     This method processes the signatures section of the CAPE report, adding anything noteworthy to the
     Assemblyline report
@@ -682,13 +1641,7 @@ def process_signatures(
     """
     if len(sigs) <= 0:
         return False
-    if len(ontres.sandboxes) == 0:
-        return
-    session = ontres.sandboxes[-1].objectid.session
-    # Flag used to indicate if process_martian signature should be used in process_behaviour
-    is_process_martian = False
-    sigs_res = ResultSection(SIGNATURES_SECTION_TITLE)
-
+    signatures = []
     sigs = _remove_network_http_noise(sigs)
 
     for sig in sigs:
@@ -697,290 +1650,53 @@ def process_signatures(
         if sig_name in CAPE_DROPPED_SIGNATURES:
             continue
 
-        if not is_process_martian and sig_name == "process_martian":
-            is_process_martian = True
-
         translated_score = SCORE_TRANSLATION[sig["severity"]]
-        data = {
+        # Get the evidence that supports why the signature was raised
+        mark_count = 0
+        call_count = 0
+        fp_mark_count = 0
+
+        for mark in sig["data"]:
+        # Check if the mark is a call
+            if _is_mark_call(mark.keys()):
+                call_count += 1
+            else:
+                for k, v in mark.items():
+                    if not v or k in MARK_KEYS_TO_NOT_DISPLAY:
+                        sig["data"].pop(k, None)
+                        fp_mark_count += 1
+                    else:
+                        mark_count +=1
+
+        # If there are more true positive marks than false positive marks, return signature 
+        if not fp_mark_count or fp_mark_count != len(sig["data"]) - call_count:
+            signatures.append({
             "name": sig_name,
+            "description": sig["description"],
+            "categories": sig["categories"],
+            "families": sig["families"],
+            "references": sig["references"],
             "type": "CUCKOO",
             "classification": Classification.UNRESTRICTED,
-        }
-        s_tag = SignatureModel.get_tag(data)
-        s_oid = SignatureModel.get_oid(data)
-        ontres_sig = ontres.create_signature(
-            objectid=ontres.create_objectid(
-                tag=s_tag,
-                ontology_id=s_oid,
-                session=session,
-            ),
-            name=sig_name,
-            type="CUCKOO",
-            score=translated_score,
-            classification = Classification.UNRESTRICTED,
-        )
-        sig_res = _create_signature_result_section(
-            sig_name,
-            sig,
-            translated_score,
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-            signature_map,
-        )
-
-        if sig_res:
-            ontres.add_signature(ontres_sig)
-            _add_process_context(ontres_sig, sig_res, ontres)
-            sigs_res.add_subsection(sig_res)
-
-    if len(sigs_res.subsections) > 0:
-        parent_result_section.add_subsection(sigs_res)
-    return is_process_martian
-
-
-def _add_process_context(ontres_sig: Signature, sig_res: ResultMultiSection, ontres: OntologyResults) -> None:
-    """
-    This method adds process context to a signature
-    :param ontres_sig: The Signature object
-    :param sig_res: The result section for the signature
-    :param ontres: The Ontology Results class object
-    :return: None
-    """
-    if ontres_sig.attributes:
-        process_sources = []
-        for attribute in ontres_sig.attributes:
-            if attribute.source:
-                p = ontres.get_process_by_objectid(attribute.source)
-                if p and p.image not in process_sources:
-                    process_sources.append(f"{safe_str(p.image)} ({p.pid})")
-        if process_sources:
-            sig_res.add_section_part(TextSectionBody(body=f"Processes involved: {','.join(process_sources)}"))
-
-
-def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[str]) -> List[str]:
-    # An assumption is being made here that the first UDP flow to port 53 is
-    # for DNS.
-    if len(network.get("udp", [])) > 0:
-        dst = next(
-            (udp_flow["dst"] for udp_flow in network["udp"] if udp_flow["dport"] == 53),
-            None,
-        )
-        if dst:
-            dns_servers = [dst]
+            "score": translated_score,
+            "data": sig["data"],
+        })
         else:
-            dns_servers = []
-    else:
-        dns_servers = []
+            log.debug(f"The signature {sig_name} was marked as a false positive, ignoring...")
+        
+    return signatures
 
-    for item in inetsim_dns_servers:
-        if item not in dns_servers:
-            dns_servers.append(item)
-
-    return dns_servers
-
-
-def _remove_network_call(
-    dom: str,
-    dest_ip: str,
-    dns_servers: List[str],
-    dns_requests: Dict[str, List[Dict[str, Any]]],
-    inetsim_network: IPv4Network,
-    safelist: Dict[str, Dict[str, List[str]]],
-) -> bool:
-    list_of_all_answers = []
-    for _, attempts in dns_requests.items():
-        for attempt in attempts:
-            if isinstance(attempt["answers"], List):
-                list_of_all_answers.extend(attempt["answers"])
-            elif attempt["answers"] == None:
-                continue
-            else:
-                list_of_all_answers.append(attempt["answers"])
-    # if domain is safe-listed
-    if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
-        return True
-    # if no domain and destination ip is safe-listed or is the dns server
-    elif (not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)) or dest_ip in dns_servers:
-        return True
-    # if dest ip is noise
-    elif dest_ip not in list_of_all_answers and ip_address(dest_ip) in inetsim_network:
-        return True
-
-    return False
-
-
-def _is_network_flow_a_connect_match(network_flow: Dict[str, Any], connect: Dict[str, Any]) -> bool:
-    # We either have an IP+port match
-    ip_match = any(network_flow["dest_ip"] == connect.get(item, "") for item in ["ip_address", "hostname"])
-    ip_and_port_match = ip_match and connect["port"] == network_flow["dest_port"]
-
-    # Or we have a domain match, either directly or via URL
-    if network_flow.get("domain"):
-        domain_match = network_flow["domain"] == connect.get("servername", "") or network_flow[
-            "domain"
-        ] == _massage_host_data(urlparse(connect.get("url", "")).netloc)
-    else:
-        domain_match = False
-
-    return ip_and_port_match or domain_match
-
-
-def _link_flow_with_process(
-    network_flow: Dict[str, Any], process_map: Dict[int, Dict[str, Any]], ontres: OntologyResults
-) -> Dict[str, Any]:
-    # if process name does not exist from DNS, then find processes that made connection calls
-    if network_flow["image"] is None:
-        for process, process_details in process_map.items():
-            for network_call in process_details["network_calls"]:
-                # If the network_call is a known CONNECT call hook, set and break
-                connect = {}
-                for api_call in CONNECT_API_CALLS:
-                    if api_call in network_call:
-                        connect = network_call[api_call]
-                        break
-
-                # We are connect or bust
-                if not connect:
-                    continue
-
-                if _is_network_flow_a_connect_match(network_flow, connect):
-                    network_flow["image"] = process_details["name"]
-                    network_flow["pid"] = process
-                    break
-            if network_flow["image"]:
-                break
-
-    # Special handling for when Sysmon gives us process-related details but cannot get the image name
-    elif network_flow["image"] == UNKNOWN_PROCESS:
-        p = ontres.get_process_by_guid(network_flow.get("guid"))
-        if isinstance(network_flow.get("timestamp"), float):
-            timestamp = epoch_to_local_with_ms(network_flow["timestamp"])
-        else:
-            timestamp = network_flow.get("timestamp")
-        if not p:
-            p = ontres.get_process_by_pid_and_time(network_flow.get("pid"), timestamp)
-
-        if p:
-            network_flow["image"] = p.image
-
-    return network_flow
-
-
-def _tag_network_flow(
-    netflows_sec: ResultTableSection,
-    dom: str,
-    network_flow: Dict[str, Any],
-    dest_ip: str,
-    safelist: Dict[str, Dict[str, List[str]]],
-) -> None:
-    # If the record has not been removed then it should be tagged for protocol, domain, ip, and port
-    _ = add_tag(netflows_sec, "network.dynamic.domain", dom)
-    _ = add_tag(netflows_sec, "network.protocol", network_flow["protocol"])
-    _ = add_tag(netflows_sec, "network.dynamic.ip", dest_ip, safelist)
-    _ = add_tag(netflows_sec, "network.dynamic.ip", network_flow["src_ip"], safelist)
-    _ = add_tag(netflows_sec, "network.port", network_flow["dest_port"])
-    _ = add_tag(netflows_sec, "network.port", network_flow["src_port"])
-
-
-def _create_network_connection_for_network_flow(
-    network_flow: Dict[str, Any], session: str, ontres: OntologyResults
-) -> bool:
-    if network_flow["dest_port"] in [80, 443]:
-        connection_type = NetworkConnection.HTTP
-    elif network_flow["dest_port"] in [53]:
-        connection_type = NetworkConnection.DNS
-    else:
-        connection_type = None
-    nc_oid = NetworkConnectionModel.get_oid(
-        {
-            "source_ip": network_flow["src_ip"],
-            "source_port": network_flow["src_port"],
-            "destination_ip": network_flow["dest_ip"],
-            "destination_port": network_flow["dest_port"],
-            "transport_layer_protocol": network_flow["protocol"],
-            "connection_type": connection_type,
-        }
-    )
-    objectid = ontres.create_objectid(
-        tag=NetworkConnectionModel.get_tag(
-            {
-                "destination_ip": network_flow["dest_ip"],
-                "destination_port": network_flow["dest_port"],
-            }
-        ),
-        ontology_id=nc_oid,
-        session=session,
-        time_observed=(
-            epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
-            if not isinstance(network_flow["timestamp"], str)
-            else network_flow["timestamp"]
-        ),
-    )
-    objectid.assign_guid()
-    try:
-        nc = ontres.create_network_connection(
-            objectid=objectid,
-            source_ip=network_flow["src_ip"],
-            source_port=network_flow["src_port"],
-            destination_ip=network_flow["dest_ip"],
-            destination_port=network_flow["dest_port"],
-            transport_layer_protocol=network_flow["protocol"],
-            direction=NetworkConnection.OUTBOUND,
-        )
-    except ValueError as e:
-        log.warning(
-            f"{e}. The required values passed were:\n"
-            f"objectid={objectid}\n"
-            f"destination_ip={network_flow['dest_ip']}\n"
-            f"destination_port={network_flow['dest_port']}\n"
-            f"transport_layer_protocol={network_flow['protocol']}"
-        )
-        return False
-    p_oid = ProcessModel.get_oid(
-        {
-            "pid": network_flow["pid"],
-            "image": network_flow.get("image"),
-        }
-    )
-    if network_flow.get("image"):
-        nc.update_process(
-            objectid=ontres.create_objectid(
-                tag=Process.create_objectid_tag(network_flow.get("image")),
-                ontology_id=p_oid,
-                guid=network_flow.get("guid"),
-                session=session,
-            ),
-            pid=network_flow["pid"],
-            image=network_flow.get("image"),
-            start_time=(
-                epoch_to_local_with_ms(network_flow["timestamp"])
-                if not isinstance(network_flow["timestamp"], str)
-                else network_flow["timestamp"]
-            ),
-        )
-    ontres.add_network_connection(nc)
-
-    # We want all key values for all network flows except for timestamps and event_type
-    del network_flow["timestamp"]
-    return True
-
-
-# TODO: break this up into methods
-def process_network(
+def get_network_map(
     network: Dict[str, Any],
-    parent_result_section: ResultSection,
     inetsim_network: IPv4Network,
     routing: str,
     process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
-    ontres: OntologyResults,
     inetsim_dns_servers: List[str],
     uses_https_proxy_in_sandbox: bool,
     suspicious_accepted_languages: List[str],
-) -> None:
+    parsed_sysmon: Dict,
+):
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
     Assemblyline report
@@ -998,177 +1714,22 @@ def process_network(
     :param suspicious_accepted_languages: A list of suspicious accepted languages in HTTP headers
     :return: None
     """
-    if len(ontres.sandboxes) == 0:
-        return
-    session = ontres.sandboxes[-1].objectid.session
-    network_res = ResultSection("Network Activity")
 
     # DNS
     dns_servers: List[str] = _determine_dns_servers(network, inetsim_dns_servers)
-    dns_server_heur = Heuristic(1008)
-    dns_server_sec = ResultTextSection(
-        dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description
-    )
-    dns_server_hit = False
-    for dns_server in dns_servers:
-        if (
-            add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist)
-            and not ip_address(dns_server) in inetsim_network
-            and (routing == INETSIM.lower() and dns_server not in inetsim_dns_servers)
-        ):
-            dns_server_sec.add_line(f"\t-\t{dns_server}")
-            dns_server_hit = True
-    if dns_server_hit:
-        network_res.add_subsection(dns_server_sec)
-
     dns_requests: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
-        network.get("dns", []), process_map, routing, dns_servers
+        network.get("dns", []), process_map, parsed_sysmon, routing, dns_servers
     )
-    dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
+    #dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table, netflows_sec = _get_low_level_flows(dns_requests, low_level_flows)
-
-    # We have to copy the network table so that we can iterate through the copy
-    # and remove items from the real one at the same time
-    for network_flow in network_flows_table[:]:
-        dom = network_flow["domain"]
-        dest_ip = network_flow["dest_ip"]
-
-        if _remove_network_call(dom, dest_ip, dns_servers, dns_requests, inetsim_network, safelist):
-            network_flows_table.remove(network_flow)
-        else:
-            network_flow = _link_flow_with_process(network_flow, process_map, ontres)
-            _tag_network_flow(netflows_sec, dom, network_flow, dest_ip, safelist)
-
-            if not _create_network_connection_for_network_flow(network_flow, session, ontres):
-                continue
-    for request, attempts in dns_requests.items():
-        if contains_safelisted_value(request, safelist):
-            continue
-        for attempt in attempts:
-            relevant_answer = []
-            if isinstance(attempt["answers"], List):
-                answers = attempt["answers"]
-            elif attempt["answers"] == None:
-                continue
-            else:
-                answers = [attempt["answers"]]
-            for answer in answers:
-                if answer and answer.isdigit():
-                    continue
-                relevant_answer.append(answer)
-                if not request or not attempt.get("type"):
-                    continue
-                if len(relevant_answer) == 0:
-                    relevant_answer.append("")
-                domain_answer = []
-                ip_answer = []
-                for dns_answer in relevant_answer:
-                    if not any(c.isalpha() for c in dns_answer) :
-                        ip_answer.append(dns_answer)    
-                    elif any(c.isalpha() for c in dns_answer):
-                        domain_answer.append(dns_answer)
-                if len(domain_answer) > 0 and len(ip_answer) > 0:
-                    nd = ontres.create_network_dns(
-                        domain=request, resolved_ips=ip_answer, resolved_domains=domain_answer, lookup_type=attempt.get("type")
-                    )
-                elif len(domain_answer) > 0:
-                    nd = ontres.create_network_dns(
-                        domain=request, resolved_ips=None, resolved_domains=domain_answer, lookup_type=attempt.get("type")
-                    )
-                elif len(ip_answer) > 0:
-                    nd = ontres.create_network_dns(
-                        domain=request, resolved_ips=ip_answer, resolved_domains=None, lookup_type=attempt.get("type")
-                    )
-                else:
-                    nd = ontres.create_network_dns(
-                        domain=request, resolved_ips=relevant_answer, resolved_domains=None, lookup_type=attempt.get("type")
-                    )
-
-                destination_ip = dns_servers[0] if dns_servers else None
-                destination_port = 53
-                transport_layer_protocol = NetworkConnection.UDP
-
-                nc_oid = NetworkConnectionModel.get_oid(
-                    {
-                        "destination_ip": destination_ip,
-                        "destination_port": destination_port,
-                        "transport_layer_protocol": transport_layer_protocol,
-                        "connection_type": NetworkConnection.DNS,
-                        "dns_details": {"domain": request},
-                        "lookup_type": attempt.get("type"),
-                    }
-                )
-                objectid = ontres.create_objectid(
-                    tag=NetworkConnectionModel.get_tag(
-                        {
-                            "destination_ip": destination_ip,
-                            "destination_port": destination_port,
-                        }
-                    ),
-                    ontology_id=nc_oid,
-                    session=session,
-                    time_observed=attempt["time"],
-                )
-                objectid.assign_guid()
-                try:
-                    nc = ontres.create_network_connection(
-                        objectid=objectid,
-                        destination_ip=destination_ip,
-                        destination_port=destination_port,
-                        transport_layer_protocol=transport_layer_protocol,
-                        direction=NetworkConnection.OUTBOUND,
-                        dns_details=nd,
-                        connection_type=NetworkConnection.DNS,
-                    )
-                except ValueError as e:
-                    log.warning(
-                        f"{e}. The required values passed were:\n"
-                        f"objectid={objectid}\n"
-                        f"destination_ip={destination_ip}\n"
-                        f"destination_port={destination_port}\n"
-                        f"transport_layer_protocol={transport_layer_protocol}"
-                    )
-                    continue
-                p = ontres.get_process_by_guid(attempt["guid"])
-                if not p:
-                    p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
-                if p:
-                    nc.set_process(p)
-                ontres.add_network_connection(nc)
-                ontres.add_network_dns(nd)
-
-    if dns_res_sec and len(dns_res_sec.tags.get("network.dynamic.domain", [])) > 0:
-        network_res.add_subsection(dns_res_sec)
-    unique_netflows: List[Dict[str, Any]] = []
-    if len(network_flows_table) > 0:
-        tcp_seen = False
-        udp_seen = False
-        # Need to convert each dictionary to a string in order to get the set of network_flows_table, since
-        # dictionaries are not hashable
-        for item in network_flows_table:
-            if item not in unique_netflows:  # Remove duplicates
-                unique_netflows.append(item)
-                netflows_sec.add_row(TableRow(**item))
-                if item["protocol"] == "tcp":
-                    tcp_seen = True
-                elif item["protocol"] == "udp":
-                    udp_seen = True
-
-        if tcp_seen:
-            netflows_sec.add_subsection(
-                ResultSection("TCP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1010))
-            )
-        if udp_seen:
-            netflows_sec.add_subsection(
-                ResultSection("UDP Network Traffic Detected", auto_collapse=True, heuristic=Heuristic(1011))
-            )
-
-        netflows_sec.set_heuristic(1004)
-        network_res.add_subsection(netflows_sec)
-
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows)
+    low_level_flow = []
+    for network_flow in network_flows_table:
+        if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
+            low_level_flow.append(network_flow)
+            
     # HTTP/HTTPS section
     http_level_flows = {
         "http": network.get("http", []),
@@ -1176,294 +1737,14 @@ def process_network(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    _process_http_calls(http_level_flows, process_map, dns_servers, dns_requests, safelist, ontres)
-    http_calls = ontres.get_network_http()
-    if len(http_calls) > 0:
-        normalized_headers = [header.replace("-", "") for header in STANDARD_HTTP_HEADERS]
+    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages)
 
-        http_sec = ResultTableSection("Protocol: HTTP/HTTPS")
-        http_header_sec = ResultTableSection("IOCs found in HTTP/HTTPS Headers")
-        remote_file_access_sec = ResultTextSection("Access Remote File")
-        remote_file_access_sec.add_line("The sample attempted to download the following files:")
-        suspicious_user_agent_sec = ResultTextSection("Suspicious User Agent(s)")
-        suspicious_user_agent_sec.add_line("The sample made HTTP calls via the following user agents:")
-        http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
-        http_header_anomaly_sec.set_heuristic(1012)
-
-        sus_user_agents_used = []
-        http_sec.set_heuristic(1002)
-        _ = add_tag(http_sec, "network.protocol", "http")
-
-        for http_call in http_calls:
-            request_uri: str
-            if uses_https_proxy_in_sandbox:
-                request_uri = convert_url_to_https(method=http_call.request_method, url=http_call.request_uri)
-            else:
-                request_uri = http_call.request_uri
-            _ = add_tag(http_sec, "network.dynamic.uri", request_uri, safelist)
-
-            for _, value in http_call.request_headers.items():
-                extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
-
-            # Now we're going to try to detect if a remote file is attempted to be downloaded over HTTP
-            if http_call.request_method == "GET":
-                split_path = request_uri.rsplit("/", 1)
-                if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
-                    if not remote_file_access_sec.body:
-                        remote_file_access_sec.add_line(f"\t{request_uri}")
-                    elif f"\t{request_uri}" not in remote_file_access_sec.body:
-                        remote_file_access_sec.add_line(f"\t{request_uri}")
-                    if not remote_file_access_sec.heuristic:
-                        remote_file_access_sec.set_heuristic(1003)
-                    _ = add_tag(
-                        remote_file_access_sec,
-                        "network.dynamic.uri",
-                        request_uri,
-                        safelist,
-                    )
-
-            user_agent = http_call.request_headers.get("UserAgent")
-            if user_agent:
-                if any(sus_user_agent in user_agent for sus_user_agent in SUSPICIOUS_USER_AGENTS):
-                    if suspicious_user_agent_sec.heuristic is None:
-                        suspicious_user_agent_sec.set_heuristic(1007)
-                    sus_user_agent_used = next(
-                        (sus_user_agent for sus_user_agent in SUSPICIOUS_USER_AGENTS if (sus_user_agent in user_agent)),
-                        None,
-                    )
-                    if sus_user_agent_used not in sus_user_agents_used:
-                        _ = add_tag(
-                            suspicious_user_agent_sec,
-                            "network.user_agent",
-                            sus_user_agent_used,
-                            safelist,
-                        )
-                        suspicious_user_agent_sec.add_line(f"\t{sus_user_agent_used}")
-                        sus_user_agents_used.append(sus_user_agent_used)
-
-            accept_language = http_call.request_headers.get("AcceptLanguage")
-            if accept_language:
-                for sus_language in suspicious_accepted_languages:
-                    if sus_language.lower() in accept_language.lower():
-                        http_header_anomaly_sec.heuristic.add_signature_id(
-                            f"suspicious_language_accepted_{sus_language.split('-')[1].lower()}", 750
-                        )
-
-            nc = ontres.get_network_connection_by_network_http(http_call)
-            if nc:
-                process = nc.process
-
-            # If no network connection exists, it could be due to a network connection being associated
-            # with another http call already that uses the same connection specs, so
-            # let's make an educated guess. If there is only one process that has network calls, then
-            # odds are the process is the one that made this call.
-            elif len([proc for proc, details in process_map.items() if len(details["network_calls"]) > 0]) == 1:
-                pid = [proc for proc, details in process_map.items() if len(details["network_calls"]) > 0][0]
-                process = ontres.get_process_by_pid(pid)
-            else:
-                process = None
-            http_sec.add_row(
-                TableRow(
-                    process_name=f"{process.image} ({process.pid})" if process else "None (None)",
-                    method=http_call.request_method,
-                    request=http_call.request_headers,
-                    uri=request_uri,
-                )
-            )
-
-            # Flag non-standard request headers
-            for header, header_value in http_call.request_headers.items():
-                if header.upper() not in normalized_headers:
-                    http_header_anomaly_sec.add_row(TableRow(header=header, header_value=header_value))
-
-        if remote_file_access_sec.heuristic:
-            http_sec.add_subsection(remote_file_access_sec)
-        if http_header_sec.body:
-            http_sec.add_subsection(http_header_sec)
-        if suspicious_user_agent_sec.heuristic:
-            suspicious_user_agent_sec.add_line(" | ".join(sus_user_agents_used))
-            http_sec.add_subsection(suspicious_user_agent_sec)
-        if http_header_anomaly_sec.body or http_header_anomaly_sec.heuristic.signatures:
-            http_sec.add_subsection(http_header_anomaly_sec)
-        if http_sec.body or http_sec.subsections:
-            network_res.add_subsection(http_sec)
-    else:
-        _process_non_http_traffic_over_http(network_res, unique_netflows)
-
-    # Let's add a section here that covers URLs seen in API calls that the
-    # monitor picked up but the signatures / PCAP did not
-    _process_unseen_iocs(network_res, process_map, ontres, safelist)
-
-    if len(network_res.subsections) > 0:
-        parent_result_section.add_subsection(network_res)
-
-
-def _process_unseen_iocs(
-    network_res: ResultSection,
-    process_map: Dict[int, Dict[str, Any]],
-    ontres: OntologyResults,
-    safelist: Dict[str, Dict[str, List[str]]],
-) -> None:
-    """
-    This method adds a result section detailing unseen IOCs found in API calls but not network traffic
-    :param network_res: The result section that will contain the result section detailing this traffic, if any
-    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
-    :param ontres: The Ontology Results class object
-    :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :return: None
-    """
-    unseen_iocs_heur = Heuristic(1013)
-    possibly_unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
-    seen_domains = [dns_netflow.domain for dns_netflow in ontres.dns_netflows]
-    seen_ips = [netflow.destination_ip for netflow in ontres.netflows]
-    seen_uris = [http_netflow.request_uri for http_netflow in ontres.http_netflows]
-
-    for _, process_details in process_map.items():
-        for network_call in process_details["network_calls"]:
-            for _, network_details in network_call.items():
-                for _, v in network_details.items():
-                    if not _api_ioc_in_network_traffic(v, seen_domains + seen_ips + seen_uris):
-                        extract_iocs_from_text_blob(
-                            v,
-                            possibly_unseen_iocs_res,
-                            enforce_char_min=True,
-                            safelist=safelist,
-                            is_network_static=True,
-                        )
-
-    if possibly_unseen_iocs_res.body:
-        possibly_seen_body = json.loads(possibly_unseen_iocs_res.section_body.body)
-        unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
-        for item in possibly_seen_body:
-            # We don't care about uri paths in this scenario
-            if item["ioc_type"] == "uri_path":
-                continue
-            if _api_ioc_in_network_traffic(item["ioc"], seen_domains + seen_ips + seen_uris):
-                continue
-            if re_match(FULL_URI, item["ioc"]):
-                ioc = _massage_api_urls(item["ioc"])
-            else:
-                ioc = item["ioc"]
-            unseen_iocs_res.add_row(TableRow({"ioc_type": item["ioc_type"], "ioc": ioc}))
-            _ = add_tag(unseen_iocs_res, "network.dynamic.uri", ioc, safelist)
-
-        if unseen_iocs_res.body:
-            network_res.add_subsection(unseen_iocs_res)
-
-
-def _massage_api_urls(api_url: str) -> str:
-    """
-    This method massages a URL found in an API call
-    :param api_url: A URL found in an API call
-    :return: A potentially massaged URL found in an
-    """
-    altered_api_url: Optional[str] = None
-    # API call data requires some massaging. For instance, unnecessary ports in URIs
-    if api_url.startswith("http://") and ":80" in api_url:
-        altered_api_url = api_url.replace(":80", "")
-    elif api_url.startswith("https://") and ":443" in api_url:
-        altered_api_url = api_url.replace(":443", "")
-
-    if altered_api_url:
-        return altered_api_url
-    return api_url
-
-
-def _api_ioc_in_network_traffic(ioc: str, ioc_list: List[str]) -> bool:
-    """
-    This method checks if an IOC found in an API call is seen in network traffic
-    :param ioc: The IOC found in an API call to check for
-    :param ioc_list: The list of IOCs found in the network traffic
-    :return: A boolean indicating that the API call IOC was present in
-    the network traffic
-    """
-    if ioc in ioc_list:
-        return True
-
-    if re_match(FULL_URI, ioc):
-        altered_ioc = _massage_api_urls(ioc)
-        if altered_ioc in ioc_list:
-            return True
-
-    for seen_ioc in ioc_list:
-        if re_match(FULL_URI, ioc) and re_match(FULL_URI, seen_ioc):
-            if _handle_similar_netloc_and_path(ioc, seen_ioc):
-                return True
-            if _uris_are_equal_despite_discrepancies(ioc, seen_ioc):
-                return True
-
-    return False
-
-
-def _get_dns_sec(
-    dns_requests: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
-) -> ResultTableSection:
-    """
-    This method creates the result section for DNS traffic
-    :param dns_requests: the mapping of resolved IPs and their corresponding domains
-    :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :return: the result section containing details that we care about
-    """
-    answer_exists = False
-    non_standard_dns_query_types: Set[str] = set()
-    if len(dns_requests.keys()) == 0:
-        return None
-    dns_res_sec = ResultTableSection("Protocol: DNS")
-    dns_res_sec.set_column_order(["domain", "answer", "type"])
-    dns_res_sec.set_heuristic(1000)
-    dns_body: List[Dict[str, str]] = []
-    _ = add_tag(dns_res_sec, "network.protocol", "dns")
-
-    for request, attempts in dns_requests.items():
-        for attempt in attempts:
-            request_type = attempt.get("type")
-            if isinstance(attempt["answers"], List):
-                answers = attempt["answers"]
-            elif attempt["answers"] == None:
-                continue
-            else:
-                answers = [attempt["answers"]]
-            for answer in answers:
-                _ = add_tag(dns_res_sec, "network.dynamic.ip", answer, safelist)
-                if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
-                    if answer.isdigit():
-                        dns_request = {
-                            "domain": request,
-                            "type": request_type,
-                        }
-                    else:
-                        # If there is only UDP and no TCP traffic, then we need to tag the domains here:
-                        dns_request = {
-                            "domain": request,
-                            "answer": answer,
-                            "type": request_type,
-                        }
-                    dns_body.append(dns_request)
-                answer_exists = True
-            if request_type and request_type not in ["PTR", "A", "AAAA"]:
-                non_standard_dns_query_types.add(request_type)
-    [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
-
-    if not answer_exists:
-        # This is not worth failing the entire analysis over, but worth reporting.
-        _ = ResultTextSection(
-            title_text="DNS services are down!", body="Contact the CAPE administrator for details.", parent=dns_res_sec
-        )
-
-    if non_standard_dns_query_types:
-        dns_query_heur = Heuristic(1009)
-        dns_query_res = ResultTextSection(
-            dns_query_heur.name, heuristic=dns_query_heur, body=dns_query_heur.description, parent=dns_res_sec
-        )
-        for dns_query_type in sorted(non_standard_dns_query_types):
-            dns_query_res.add_line(f"\t-\t{dns_query_type}")
-
-    return dns_res_sec
-
+    return dns_servers, dns_requests, low_level_flow, http_calls
 
 def _get_dns_map(
     dns_calls: List[Dict[str, Any]],
     process_map: Dict[int, Dict[str, Any]],
+    parsed_sysmon: Dict,
     routing: str,
     dns_servers: List[str],
 ) -> Dict[str, List[Dict[str, Any]]]:
@@ -1476,18 +1757,15 @@ def _get_dns_map(
     :return: the mapping of resolved IPs and their corresponding domains
     """
     dns_requests: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-    no_answer_count = 0
     for dns_call in dns_calls:
         if len(dns_call["answers"]) > 0:
-            answers = [i["data"] for i in dns_call["answers"]]
+            answers = [{"answer": i["data"], "Type": i["type"]} for i in dns_call["answers"]]
         else:
-            # We still want these DNS calls in the dns_requests map, so use int as unique ID
-            answers = [str(no_answer_count)]
-            no_answer_count += 1
-
+            answers = []
         request = dns_call.get("request")
         if not request:
             continue
+
         dns_type = dns_call["type"]
 
         # If the method of routing is INetSim or a variation of INetSim, then we will not use PTR records.
@@ -1496,61 +1774,75 @@ def _get_dns_map(
         if routing.lower() in [INETSIM.lower(), "none"] and dns_type == "PTR":
             continue
         # Some Windows nonsense
-        if set(answers).intersection(set(dns_servers)):
-            continue
+        for answer in answers:
+            if answer is Dict:
+                if set(answer.values()).intersection(set(dns_servers)):
+                    continue
 
-        # A DNS pointer record (PTR for short) provides the domain name associated with an IP address.
-        if dns_type == "PTR":
-            continue
+        first_seen = dns_call.get("first_seen")
+        if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
+            first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
+        dns_requests[request].append(
+            {
+                "answers": answers,
+                "process_id": dns_call.get("pid"),
+                "process_name": dns_call.get("image"),
+                "time": first_seen,
+                "guid": dns_call.get("guid"),
+                "type": dns_type,
+            }
+        )
 
-        # An 'A' record provides the IP address associated with a domain name.
-        else:
-            first_seen = dns_call.get("first_seen")
-            if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
-                first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
-            dns_requests[request].append(
-                {
-                    "answers": answers,
-                    "process_id": dns_call.get("pid"),
-                    "process_name": dns_call.get("image"),
-                    "time": first_seen,
-                    "guid": dns_call.get("guid"),
-                    "type": dns_type,
-                }
-            )
-
-    # now map process_name to the dns_call
+    # Attempt mapping process_name to the dns_call using the API calls
     for process, process_details in process_map.items():
         for network_call in process_details["network_calls"]:
-            dns = next(
-                (network_call[api_call] for api_call in DNS_API_CALLS if api_call in network_call),
-                {},
-            )
-            if dns != {} and (dns.get("hostname") or dns.get("servername") or dns.get("nodename")):
+            if network_call["event"] == "DNS":
+                dns = network_call["arguments"]
+                if dns != {} and (dns.get("HostName")):
+                    for request, attempts in dns_requests.items():
+                        for index, attempt in enumerate(attempts):
+                            answers = attempt["answers"]
+                            if answers == None:
+                                continue
+                            for answer in answers:
+                                if answer is not Dict:
+                                    continue
+                                #Currently API calls do not track the response so this first condition will never trigger and might be a list in the future
+                                if answer["answer"] == dns.get("Response") or request == dns.get("HostName"):
+                                    if not dns_requests[request][index].get("process_name"):
+                                        dns_requests[request][index]["process_name"] = process_details["name"]
+                                    if not dns_requests[request][index].get("process_id"):
+                                        dns_requests[request][index]["process_id"] = process
+                                else:
+                                    continue
+    # Attempt mapping process_name to the dns_call using sysmon
+    for process, process_details in parsed_sysmon.items():
+        for event in process_details:
+            if event["event_id"] == 22:
                 for request, attempts in dns_requests.items():
                     for index, attempt in enumerate(attempts):
                         answers = attempt["answers"]
                         if answers == None:
                             continue
                         for answer in answers:
-                            if not answer.isdigit() in [
-                                dns.get("hostname"),
-                                dns.get("servername", dns.get("nodename")),
-                            ]:
+                            if answer is not Dict:
+                                continue
+                            if (answer["answer"], answer["Type"]) in [(resp["data"], resp["type"]) for resp in event["answers"]]  or request == event["request"]:
                                 if not dns_requests[request][index].get("process_name"):
-                                    dns_requests[request][index]["process_name"] = process_details["name"]
+                                    dns_requests[request][index]["process_name"] = event["image"]
 
-                            if not dns_requests[request][index].get("process_id"):
-                                dns_requests[request][index]["process_id"] = process
-                        else:
-                            continue
+                                if not dns_requests[request][index].get("process_id"):
+                                    dns_requests[request][index]["process_id"] = process
+                            else:
+                                continue
+
     return dict(dns_requests)
 
-
 def _get_low_level_flows(
-    dns_requests: Dict[str, List[Dict[str, Any]]],
+    process_map: Dict[int, Dict[str, Any]],
+    parsed_sysmon: Dict,
     flows: Dict[str, List[Dict[str, Any]]],
-) -> Tuple[List[Dict[str, Any]], ResultTableSection]:
+) -> List[Dict[str, Any]]:
     """
     This method converts low level network calls to a general format
     :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
@@ -1560,32 +1852,7 @@ def _get_low_level_flows(
     # TCP and UDP section
     network_flows_table: List[Dict[str, Any]] = []
 
-    # This result section will contain all of the "flows" from src ip to dest ip
-    netflows_sec = ResultTableSection("TCP/UDP Network Traffic")
-    netflows_sec.set_column_order(
-        ["timestamp", "protocol", "src_ip", "src_port", "domain", "dest_ip", "dest_port", "image", "pid"]
-    )
     for protocol, network_calls in flows.items():
-        if len(network_calls) <= 0:
-            continue
-        elif len(network_calls) > UNIQUE_IP_LIMIT / 2:
-            network_calls_made_to_unique_ips: List[Dict[str, Any]] = []
-            # Collapsing network calls into calls made to unique IP+port combos
-            for network_call in network_calls:
-                if len(network_calls_made_to_unique_ips) >= UNIQUE_IP_LIMIT:
-                    # BAIL! Too many to put in a table
-                    too_many_unique_ips_sec = ResultTextSection("Too Many Unique IPs")
-                    too_many_unique_ips_sec.add_line(
-                        "The number of TCP calls displayed has been capped "
-                        f"at {UNIQUE_IP_LIMIT}. The full results can be found "
-                        "in the supplementary PCAP file included with the analysis."
-                    )
-                    netflows_sec.add_subsection(too_many_unique_ips_sec)
-                    break
-                dst_port_pair = json.dumps({network_call["dst"]: network_call["dport"]})
-                if dst_port_pair not in [json.dumps({x["dst"]: x["dport"]}) for x in network_calls_made_to_unique_ips]:
-                    network_calls_made_to_unique_ips.append(network_call)
-            network_calls = network_calls_made_to_unique_ips
         for network_call in network_calls:
             dst = network_call["dst"]
             src = network_call["src"]
@@ -1604,372 +1871,42 @@ def _get_low_level_flows(
                 "pid": network_call.get("pid"),
                 "guid": network_call.get("guid"),
             }
-            for request, attempts in dns_requests.items():
-                for attempt in attempts:
-                    if isinstance(attempt["answers"], List):
-                        answers = attempt["answers"]
-                    elif attempt["answers"] == None:
-                        continue
-                    else:
-                        answers = [attempt["answers"]]
-                    if dst in answers:
-                        if dst.isdigit():
-                            continue
-                        # We have no way of knowing which domain the underlying connection was made to, so just go with the first one
-                        network_flow["domain"] = request
-                        if not network_flow["image"]:
-                            network_flow["image"] = attempt.get("process_name")
-                        if network_flow["image"] and not network_flow["pid"]:
-                            network_flow["pid"] = attempt["process_id"]
+            # Attempt mapping process_name to the netflow using the API calls
+            for process, process_details in process_map.items():
+                for net_call in process_details["network_calls"]:
+                    if net_call["event"] in ["Connect", "Request_response", "Proxying"]:
+                        call = net_call["arguments"]
+                        if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL")):
+                            if network_flow["dest_ip"] in [call.get("HostName"), call.get("IP"), call.get("URL")] or network_flow["domain"] in [call.get("HostName"), call.get("IP"), call.get("URL")]:
+                                if str(network_flow["dest_port"]) == call.get("Port") or call.get("Port") is None:
+                                    if not network_flow.get("image"):
+                                        network_flow["image"] = process_details["name"]
+                                    if not network_flow.get("pid"):
+                                        network_flow["pid"] = process                       
+             # Attempt mapping process_name to the dns_call using sysmon
+            if not network_flow.get("image") or not network_flow.get("pid"):
+                for process, process_details in parsed_sysmon.items():
+                    for event in process_details:
+                        if event["event_id"] == 3:
+                            if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
+                                if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
+                                    if not network_flow.get("image"):
+                                        network_flow["image"] = process_details["name"]
+                                    if not network_flow.get("pid"):
+                                        network_flow["pid"] = process
             network_flows_table.append(network_flow)
-    return network_flows_table, netflows_sec
-
-
-def _massage_host_data(host: str) -> str:
-    """
-    This method tries to get the actual host out of the parsed "host" value
-    :param host: The parsed "host" value
-    :return: The actual host
-    """
-    if ":" in host:  # split on port if port exists
-        host = host.split(":")[0]
-    return host
-
-
-def _massage_http_ex_data(
-    host: str, dns_servers: List[str], dns_requests: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]
-) -> Tuple[str, str, str, Dict[str, Any]]:
-    """
-    This method extracts key details from the parsed <http(s)>_ex protocol data
-    :param host: The actual host
-    :param dns_servers: A list of DNS servers
-    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
-    :param http_call: The parsed HTTP call data
-    :return: A tuple of the URI reached out to, and the potentially modified parsed HTTP call data
-    """
-    path = http_call["uri"]
-    if host in path:
-        path = path.split(host)[1]
-
-    uri = f"{http_call['protocol']}://{host}{path}"
-
-    # The dst could be the nest IP, so we want to replace this
-    if http_call["dst"] in dns_servers and any(host == item for item in dns_requests.keys()):
-        for request, attempts in dns_requests.items():
-            for attempt in attempts:
-                if isinstance(attempt["answers"], List):
-                    answers = attempt["answers"]
-                elif attempt["answers"] == None:
-                    continue
-                else:
-                    answers = [attempt["answers"]]
-                for answer in answers:
-                    if answer.isdigit():
-                        continue
-                    if request == host:
-                        http_call["dst"] = answer
-                        break
-
-    return uri, http_call
-
-
-def _get_important_fields_from_http_call(
-    protocol: str,
-    host: str,
-    dns_servers: List[str],
-    dns_requests: Dict[str, List[Dict[str, Any]]],
-    http_call: Dict[str, Any],
-) -> Tuple[str, int, str, Dict[str, Any]]:
-    """
-    This method extracts key details from the parsed <http(s)(_ex)> protocol data
-    :param
-    :param host: The actual host
-    :param dns_servers: A list of DNS servers
-    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
-    :param http_call: The parsed HTTP call data
-    :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
-    """
-    # <protocol>_ex data is weird and requires special parsing
-    if "ex" in protocol:
-        uri, http_call = _massage_http_ex_data(host, dns_servers, dns_requests, http_call)
-        request = http_call["request"]
-        port = http_call["dport"]
-    else:
-        request = http_call["data"]
-        port = http_call["port"]
-        uri = http_call["uri"]
-    return request, port, uri, http_call
-
-
-def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]], uri: str) -> bool:
-    """
-    This method checks to see if the host or uri is safelisted
-    :param host: The actual host
-    :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :param uri: URI reached out to
-    :return: A boolean representing if the parsed HTTP call data contains safelisted values
-    """
-    return (
-        is_tag_safelisted(host, ["network.dynamic.ip", "network.dynamic.domain"], safelist)
-        or is_tag_safelisted(uri, ["network.dynamic.uri"], safelist)
-        or "/wpad.dat" in uri
-        or not re_match(FULL_URI, uri)
-    )
-
-
-def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-    """
-    This method tries to get the body paths for the request and response objects out of the parsed "path" values
-    :param http_call: The parsed HTTP call data
-    :return: A tuple containing the path to the request/reponse body dumps
-    """
-    request_body_path = http_call.get("req", {}).get("path")
-    response_body_path = http_call.get("resp", {}).get("path")
-
-    if request_body_path:
-        request_body_path = request_body_path[request_body_path.index("network/") :]
-    if response_body_path:
-        response_body_path = response_body_path[response_body_path.index("network/") :]
-
-    return request_body_path, response_body_path
-
-
-def _get_destination_ip(
-    http_call: Dict[str, Any], dns_servers: List[str], host: str, ontres: OntologyResults
-) -> Optional[str]:
-    """
-    This method returns the destination IP used for the HTTP call
-    :param http_call: The parsed HTTP call data
-    :param dns_servers: A list of DNS servers
-    :param host: The actual host
-    :param ontres: The Ontology Results class object
-    :return: The destination IP reached out to, if it exists
-    """
-    if http_call.get("dst") and http_call["dst"] not in dns_servers:
-        destination_ip = http_call["dst"]
-    else:
-        destination_ip = ontres.get_destination_ip_by_domain(host)
-    return destination_ip
-
-
-def _create_network_http(
-    uri: str,
-    http_call: Dict[str, Any],
-    request_headers: Dict[str, str],
-    response_headers: Dict[str, str],
-    request_body_path: Optional[str],
-    response_body_path: Optional[str],
-    ontres: OntologyResults,
-) -> NetworkHTTP:
-    """
-    This method is basically a wrapper for the OntologyResults create_network_http method
-    :param uri: URI reached out to
-    :param http_call: The parsed HTTP call data
-    :param request_headers: A dictionary that represents the HTTP request headers
-    :param response_headers: A dictionary that represents the HTTP response headers
-    :param request_body_path: The path to the request body dump
-    :param response_body_path:The path to the response body dump
-    :param ontres: The Ontology Results class object
-    :return: The NetworkHTTP object
-    """
-    return ontres.create_network_http(
-        request_uri=uri,
-        response_status_code=http_call.get("status"),
-        request_method=http_call["method"],
-        request_headers=request_headers,
-        response_headers=response_headers,
-        request_body_path=request_body_path,
-        response_body_path=response_body_path,
-    )
-
-
-def _get_network_connection_by_details(
-    destination_ip: str, destination_port: int, ontres: OntologyResults
-) -> NetworkConnection:
-    """
-    This method is basically a wrapper for the OntologyResults get_network_connection_by_details method
-    :param destination_ip: The destination IP reached out to
-    :param destination_port: The destination port accessed
-    :param ontres: The Ontology Results class object
-    :return: The NetworkConnection object
-    """
-    return ontres.get_network_connection_by_details(
-        destination_ip=destination_ip,
-        destination_port=destination_port,
-        direction=NetworkConnection.OUTBOUND,
-        transport_layer_protocol=NetworkConnection.TCP,
-    )
-
-
-def _create_network_connection_for_http_call(
-    http_call: Dict[str, Any], destination_ip: str, destination_port: int, nh: NetworkHTTP, ontres: OntologyResults
-) -> NetworkConnection:
-    """
-    This method creates a NetworkConnection
-    :param http_call: The parsed HTTP call data
-    :param destination_ip: The destination IP reached out to
-    :param destination_port: The destination port accessed
-    :param nh: The NetworkHTTP object
-    :param ontres: The Ontology Results class object
-    :return: The new NetworkConnection object
-    """
-    if len(ontres.sandboxes) == 0:
-        return
-    session = ontres.sandboxes[-1].objectid.session
-    source_ip = http_call.get("src")
-    source_port = http_call.get("sport")
-    nc_oid = NetworkConnectionModel.get_oid(
-        {
-            "source_ip": source_ip,
-            "source_port": source_port,
-            "destination_ip": destination_ip,
-            "destination_port": destination_port,
-            "transport_layer_protocol": NetworkConnection.TCP,
-            "connection_type": NetworkConnection.HTTP,
-            "http_details.request_uri": http_call.get("request_uri"),
-        }
-    )
-    objectid = ontres.create_objectid(
-        tag=NetworkConnectionModel.get_tag(
-            {
-                "destination_ip": destination_ip,
-                "destination_port": destination_port,
-            }
-        ),
-        ontology_id=nc_oid,
-        session=session,
-    )
-    nc = ontres.create_network_connection(
-        objectid=objectid,
-        destination_ip=destination_ip,
-        destination_port=destination_port,
-        transport_layer_protocol=NetworkConnection.TCP,
-        direction=NetworkConnection.OUTBOUND,
-        source_ip=source_ip,
-        source_port=source_port,
-        http_details=nh,
-        connection_type=NetworkConnection.HTTP,
-    )
-    ontres.add_network_connection(nc)
-    return nc
-
-
-def _setup_network_connection_with_network_http(
-    uri: str,
-    http_call: Dict[str, Any],
-    request_headers: Dict[str, str],
-    response_headers: Dict[str, str],
-    request_body_path: str,
-    response_body_path: str,
-    port: int,
-    destination_ip: str,
-    ontres: OntologyResults,
-) -> Tuple[NetworkConnection, NetworkHTTP]:
-    """
-    This method sets up the linking of a NetworkConnection object with a new NetworkHTTP object
-    :param uri: URI reached out to
-    :param http_call: The parsed HTTP call data
-    :param request_headers: A dictionary that represents the HTTP request headers
-    :param response_headers: A dictionary that represents the HTTP response headers
-    :param request_body_path: The path to the request body dump
-    :param response_body_path:The path to the response body dump
-    :param port: The destination port accessed
-    :param destination_ip: The destination IP reached out to
-    :param ontres: The Ontology Results class object
-    :return: A tuple of the linked NetworkConnection object and the new NetworkHTTP object
-    """
-    # We can now create a NetworkHTTP object
-    nh = _create_network_http(
-        uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres
-    )
-
-    destination_port = port
-    nc = _get_network_connection_by_details(destination_ip, destination_port, ontres)
-
-    # Check if a NetworkConnection object exists
-    # A NetworkConnection already exists?!
-    if nc:
-        # Update!
-        nc.update(http_details=nh, connection_type=NetworkConnection.HTTP)
-    # A NetworkConnection does not??
-    else:
-        # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
-        nc = _create_network_connection_for_http_call(http_call, destination_ip, destination_port, nh, ontres)
-
-    return nc, nh
-
-
-def _link_process_to_http_call(
-    process_map: Dict[int, Dict[str, Any]], request: str, uri: str, nc: NetworkConnection, ontres: OntologyResults
-) -> None:
-    """
-    This method links a process to an HTTP call
-    :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
-    :param request: The HTTP call data
-    :param uri: URI reached out to
-    :param nc: The NetworkConnection object
-    :param ontres: The Ontology Results class object
-    :return: None
-    """
-    # We should always have a NetworkConnection object with http_details at this point
-    if not nc or not nc.http_details:
-        return
-
-    # We are going to use this domain for validation
-    uri_pieces = urlparse(uri)
-    domain = _massage_host_data(uri_pieces.netloc)
-
-    # We need to confirm whether any network call in the process map
-    # can be REASONABLY linked to the NetworkConnection object
-
-    match = False
-    for pid, process_details in process_map.items():
-        for network_call in process_details["network_calls"]:
-            # If the network_call is a known HTTP call hook, set and break
-            http_call = {}
-            for api_call in HTTP_API_CALLS:
-                if api_call in network_call:
-                    http_call = network_call[api_call]
-                    break
-
-            if http_call == {}:
-                continue
-
-            # Reasons why we should reject this network call
-
-            # The fact that a network call only contains the "service" key is not enough to link anything
-            if len(http_call.keys()) == 1 and "service" in http_call:
-                continue
-            # According to https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetconnecta, service = 3 stands for "INTERNET_SERVICE_HTTP"
-            elif http_call.get("service") and int(http_call["service"]) != 3:
-                continue
-
-            # Reasons why we should keep processing this network call
-            if (
-                _uris_are_equal_despite_discrepancies(http_call.get("url"), uri)
-                or http_call.get("servername") == domain
-                or http_call.get("buffer", "") == request
-            ):
-                if not nc.process:
-                    # A OntologyResults process should exist for every pid in the process map
-                    p = ontres.get_process_by_pid(pid)
-                    nc.set_process(p)
-                else:
-                    nc.update_process(image=process_details["name"], pid=pid)
-                match = True
-                break
-        if match:
-            break
-
+    return network_flows_table
 
 def _process_http_calls(
     http_level_flows: Dict[str, List[Dict[str, Any]]],
     process_map: Dict[int, Dict[str, Any]],
+    parsed_sysmon: Dict,
     dns_servers: List[str],
     dns_requests: Dict[str, List[Dict[str, Any]]],
     safelist: Dict[str, Dict[str, List[str]]],
-    ontres: OntologyResults,
-) -> None:
+    uses_https_proxy_in_sandbox,
+    suspicious_accepted_languages,
+):
     """
     This method processes HTTP(S) calls and puts them into a nice table
     :param http_level_flows: A list of flows that represent HTTP calls
@@ -1977,267 +1914,121 @@ def _process_http_calls(
     :param dns_servers: A list of DNS servers
     :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
     :param safelist: A dictionary containing matches and regexes for use in safelisting values
-    :param ontres: The Ontology Results class object
-    :return: None
     """
     # Http level flows consist of http, http_ex, https and https_ex
+    http_requests = []
     for protocol, http_calls in http_level_flows.items():
-        # Let's go
         for http_call in http_calls:
-            # First thing's first, is there a host?
+            download = False
+            sus_agent = False
+            flagged_language = {}
             host = _massage_host_data(http_call["host"])
             if not host:
                 continue
-
-            # Assign a previosuly non-existent dst field if the host is an IP
             if is_valid_ip(host) and "dst" not in http_call:
                 http_call["dst"] = host
-
-            # request, port and uri are the main fields that we want to have as separate variables
+            if uses_https_proxy_in_sandbox:
+                http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
+            #Fields which differ from protocol types that need normalization
             request, port, uri, http_call = _get_important_fields_from_http_call(
                 protocol, host, dns_servers, dns_requests, http_call
             )
-
-            # Now that we've massaged the data, let's confirm that this uri is not safelisted
-            # We don't mess with safe uris
             if _is_http_call_safelisted(host, safelist, uri):
                 continue
-
+            
             request_body_path, response_body_path = _massage_body_paths(http_call)
             request_headers = _handle_http_headers(request)
             response_headers = _handle_http_headers(http_call.get("response"))
 
-            # This flag will be used to determine if we should add the NetworkHTTP
-            # object to the OntologyResults
-            nh_to_add = False
+            for header,header_value in request_headers.items():
+                if header in STANDARD_HTTP_HEADERS:
+                    request_headers[header] = header.replace("-", "")
+                elif header == "AcceptLanguage":
+                    for sus_language in suspicious_accepted_languages:
+                        if sus_language.lower() in header_value.lower():
+                            flagged_language = header_value
+                else:
+                    http_call["Non_standard_request_headers"] = {}
+                    http_call["Non_standard_request_headers"][header] = header_value
+            for header,_ in response_headers.items():
+                if header in STANDARD_HTTP_HEADERS:
+                    response_headers[header] = header.replace("-", "")
+                else:
+                    http_call["Non_standard_request_headers"] = {}
+                    http_call["Non_standard_request_headers"][header] = header_value
 
-            # Check if a NetworkHTTP object exists in the OntologyResults yet
-            nh = ontres.get_network_http_by_details(
-                request_uri=uri,
-                request_method=http_call["method"],
-                request_headers=request_headers,
-            )
-
-            if not nh:
-                # When creating a new NetworkHTTP object, we are destination_ip or bust!
-                destination_ip = _get_destination_ip(http_call, dns_servers, host, ontres)
-                if not destination_ip:
-                    continue
-
-                nc, nh = _setup_network_connection_with_network_http(
-                    uri,
-                    http_call,
-                    request_headers,
-                    response_headers,
-                    request_body_path,
-                    response_body_path,
-                    port,
-                    destination_ip,
-                    ontres,
-                )
-
-                nh_to_add = True
-            else:
-                nc = ontres.get_network_connection_by_network_http(nh)
-
-            _link_process_to_http_call(process_map, request, uri, nc, ontres)
-
-            if nh_to_add:
-                ontres.add_network_http(nh)
-
-
-def _uris_are_equal_despite_discrepancies(api_uri: Optional[str], pcap_uri: str) -> bool:
-    """
-    Sometimes there are discrepancies between the URIs associated with an HTTP request between PCAP parsing and API call parsing
-    Ex. http://<domain>:443 and https://<domain>:443/
-    :param api_uri: The URI parsed from an API call
-    :param pcap_uri: The URI parsed from PCAP traffic
-    :return: A boolean indicating whether the two URIs are equal*
-    """
-    if api_uri and pcap_uri:
-        # Okay so far so good
-        if api_uri.startswith("https://") and pcap_uri.startswith("http://"):
-            return _handle_similar_netloc_and_path(api_uri, pcap_uri)
-
-    return False
-
-
-def _handle_similar_netloc_and_path(api_uri: str, pcap_uri: str) -> bool:
-    """
-    This method handles the same netloc and path between API URLs and PCAP URLs
-    :param api_uri: The URI parsed from an API call
-    :param pcap_uri: The URI parsed from PCAP traffic
-    :return: A boolean indicating whether the two netlocs and paths are equal*
-    """
-    # Getting warmer...
-    api_domain_and_path = api_uri.split("://", 1)[1]
-    pcap_domain_and_path = pcap_uri.split("://", 1)[1]
-
-    if api_domain_and_path == pcap_domain_and_path:
-        # Jackpot!
-        return True
-
-    # If no jackpot yet, here is another discrepancy
-    elif (
-        api_domain_and_path.endswith("/")
-        and not pcap_domain_and_path.endswith("/")
-        and api_domain_and_path.rstrip("/") == pcap_domain_and_path
-    ):
-        # Bingo bongo!
-        return True
-
-    return False
-
-
-def _handle_http_headers(header_string: str) -> Dict[str, str]:
-    """
-    This method parses an HTTP header string and returns the parsed string in a nice dictionary
-    :param header_string: The HTTP header string to be parsed
-    :return: A dictionary that represents the HTTP headers
-    """
-    request_headers = {}
-    if not header_string or "\r\n" not in header_string:
-        return request_headers
-    headers = header_string.split("\r\n")[1:]
-    for header_pair in headers:
-        if not header_pair:
-            continue
-        values = header_pair.split(": ")
-        if len(values) == 2:
-            header, value = values
-            request_headers[header.replace("-", "")] = value
-    return request_headers
-
-
-def process_all_events(
-    parent_result_section: ResultSection,
-    ontres: OntologyResults,
-    processtree_id_safelist: List[str],
-) -> None:
-    """
-    This method converts all events to a table that is sorted by timestamp
-    :param parent_result_section: The overarching result section detailing what image this task is being sent to
-    :param ontres: The Ontology Results class object
-    :param processtree_id_safelist: A list of hashes used for safelisting process tree IDs
-    :return: None
-    """
-    # Each item in the events table will follow the structure below:
-    # {
-    #   "timestamp": timestamp,
-    #   "process_name": process_name,
-    #   "details": {}
-    # }
-    if not ontres.get_processes() and not ontres.get_network_connections():
-        return
-    events_section = ResultTableSection("Event Log")
-    event_ioc_table = ResultTableSection("Event Log IOCs")
-
-    ps1_commands: List[str] = []
-    bat_commands: List[str] = []
-
-    process_seen = False
-
-    for event in ontres.get_events(safelist=processtree_id_safelist):
-        if isinstance(event, NetworkConnection):
-            if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
+            destination_ip = _get_destination_ip(http_call, dns_servers)
+            if not destination_ip:
                 continue
-            # We need to see a process first, otherwise this network event is most likely a false positive
-            if not process_seen:
-                continue
-            if event.dns_details:
-                events_section.add_row(
-                    TableRow(
-                        time_observed=event.objectid.time_observed,
-                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
-                        details={
-                            "protocol": event.connection_type,
-                            "domain": event.dns_details.domain,
-                            "lookup_type": event.dns_details.lookup_type,
-                            "dns_requests": event.dns_details.resolved_ips,
-                        },
-                    )
-                )
-            elif event.http_details:
-                events_section.add_row(
-                    TableRow(
-                        time_observed=event.objectid.time_observed,
-                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
-                        details={
-                            "protocol": event.connection_type,
-                            "method": event.http_details.request_method,
-                            "uri": event.http_details.request_uri,
-                            "status_code": event.http_details.response_status_code,
-                        },
-                    )
-                )
-            else:
-                events_section.add_row(
-                    TableRow(
-                        time_observed=event.objectid.time_observed,
-                        process_name=f"{getattr(event.process, 'image', None)} ({getattr(event.process, 'pid', None)})",
-                        details={
-                            "protocol": event.transport_layer_protocol,
-                            "domain": ontres.get_domain_by_destination_ip(event.destination_ip),
-                            "dest_ip": event.destination_ip,
-                            "dest_port": event.destination_port,
-                        },
-                    )
-                )
-        elif isinstance(event, Process):
-            # We want ALL command lines, even the ones that we failed to get times for
-            if event.command_line:
-                ps1_matches = find_powershell_strings(event.command_line.encode())
-                for match in ps1_matches:
-                    command = get_powershell_command(match.value)
-                    if command and command + b"\n" not in ps1_commands:
-                        ps1_commands.append(command + b"\n")
-
-                cmd_matches = find_cmd_strings(event.command_line.encode())
-                for match in cmd_matches:
-                    command = get_cmd_command(match.value)
-                    if command and command + b"\n" not in bat_commands:
-                        bat_commands.append(command + b"\n")
-
-            if event.objectid.time_observed in [MIN_TIME, MAX_TIME]:
-                continue
-
-            # Our dreams have come true. We have seen a process. Now we can start displaying network calls
-            process_seen = True
-
-            _ = add_tag(events_section, "dynamic.process.command_line", event.command_line)
-            extract_iocs_from_text_blob(event.command_line, event_ioc_table, is_network_static=True)
-            _ = add_tag(events_section, "dynamic.process.file_name", event.image)
-            if isinstance(event.objectid.time_observed, float) or isinstance(event.objectid.time_observed, int):
-                time_observed = epoch_to_local_with_ms(event.objectid.time_observed)
-            else:
-                time_observed = event.objectid.time_observed
-            events_section.add_row(
-                TableRow(
-                    time_observed=time_observed,
-                    process_name=f"{event.image} ({event.pid})",
-                    details={
-                        "command_line": event.command_line,
-                    },
-                )
-            )
-        else:
-            raise ValueError(f"{event.as_primitives()} is not of type NetworkConnection or Process.")
-
-    if ps1_commands:
-        with open(PS1_COMMANDS_PATH, "wb") as f:
-            ps1_commands.insert(0, CUSTOM_PS1_ID)
-            f.writelines(ps1_commands)
-
-    if bat_commands:
-        with open(BAT_COMMANDS_PATH, "wb") as f:
-            bat_commands.insert(0, CUSTOM_BATCH_ID)
-            f.writelines(bat_commands)
-
-    if event_ioc_table.body:
-        events_section.add_subsection(event_ioc_table)
-    if events_section.body:
-        parent_result_section.add_subsection(events_section)
-
+            first_seen = http_call.get("first_seen")
+            if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
+                first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
+            if http_call["method"] == "GET":
+                split_path = http_call["uri"].rsplit("/", 1)
+                if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
+                    download = True
+            if http_call["user-agent"] in SUSPICIOUS_USER_AGENTS:
+                sus_agent = True
+            http_request = {
+                "protocol": protocol,
+                "host": host,
+                "dst": http_call["dst"],
+                "port": port,
+                "uri": uri,
+                "method": http_call["method"],
+                "path": http_call["path"],
+                "user-agent": http_call["user-agent"],
+                "timestamp": first_seen,
+                "version": http_call["version"],
+                "request": request,
+                "request_headers": request_headers,
+                "request_body_path": request_body_path,
+                "response": http_call.get("response"),
+                "response_headers":  response_headers,
+                "response_body_path": response_body_path,
+                "image": None,
+                "pid": None,
+                "guid": None,
+                "download": download,
+                "Suspicious_agent": sus_agent,
+                "Non_standard_request_headers": http_call.get("Non_standard_request_headers"),
+                "Flagged_language": flagged_language,
+            }
+             # Attempt mapping process_name to the netflow using the API calls
+            for process, process_details in process_map.items():
+                for net_call in process_details["network_calls"]:
+                    if net_call["event"] in ["Connect", "Request_response"]:
+                        call = net_call["arguments"]
+                         # According to https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetconnecta, service = 3 stands for "INTERNET_SERVICE_HTTP"
+                        if call.get("Port") in ["80", "443"] or call.get("Service", 0) in ["http", "https", "HTTP", "HTTPS", "3"]:
+                            if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL") or call.get("Buffer")):
+                                if (
+                                http_request["dst"] in [call.get("HostName"), call.get("IP"), call.get("URL")] 
+                                or http_request["host"] in [call.get("HostName"), call.get("IP"), call.get("URL")]
+                                or http_request["request"] == call.get("Buffer")
+                                or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
+                                ):
+                                    if str(http_request["port"]) == call.get("Port") or call.get("Port") is None:
+                                        if not http_request.get("image"):
+                                            http_request["image"] = process_details["name"]
+                                        if not http_request.get("pid"):
+                                            http_request["pid"] = process                       
+             # Attempt mapping process_name to the dns_call using sysmon
+            if not http_request.get("image") or not http_request.get("pid"):
+                for process, process_details in parsed_sysmon.items():
+                    for event in process_details:
+                        if event["event_id"] == 3:
+                            if (
+                                http_request["dst"] == event["dst"]  or http_request["host"] == event["dst"]
+                                or _uris_are_equal_despite_discrepancies(http_request["host"], event["dst"])
+                                ):
+                                if http_request["port"] == event["dport"]:
+                                    if not http_request.get("image"):
+                                        http_request["image"] = process_details["name"]
+                                    if not http_request.get("pid"):
+                                        http_request["pid"] = process
+            http_requests.append(http_request)
+    return http_requests    
 
 def process_curtain(
     curtain: Dict[str, Any],
@@ -2253,7 +2044,7 @@ def process_curtain(
     :return: None
     """
     curtain_body: List[Dict[str, Any]] = []
-    curtain_res = ResultTableSection("PowerShell Activity")
+    curtain_res = ResultTableSection(CURTAIN_SECTION_TITLE)
     curtain_res.set_column_order(["process_name", "original", "reformatted"])
     for pid in curtain.keys():
         process_name = process_map[int(pid)]["name"] if process_map.get(int(pid)) else "powershell.exe"
@@ -2276,7 +2067,6 @@ def process_curtain(
     if len(curtain_body) > 0:
         [curtain_res.add_row(TableRow(**cur)) for cur in curtain_body]
         parent_result_section.add_subsection(curtain_res)
-
 
 def process_hollowshunter(
     hollowshunter: Dict[str, Any],
@@ -2320,7 +2110,6 @@ def process_hollowshunter(
         [hollowshunter_res.add_row(TableRow(**hh)) for hh in hollowshunter_body]
         parent_result_section.add_subsection(hollowshunter_res)
 
-
 def process_buffers(
     process_map: Dict[int, Dict[str, Any]],
     safelist: Dict[str, Dict[str, List[str]]],
@@ -2333,7 +2122,7 @@ def process_buffers(
     :param parent_result_section: The overarching result section detailing what image this task is being sent to
     :return: None
     """
-    buffer_res = ResultTableSection("Buffers", auto_collapse=True)
+    buffer_res = ResultTableSection(BUFFERS_SECTION_TITLE, auto_collapse=True)
     buffer_res.set_column_order(["Process", "Source", "Buffer"])
     buffer_ioc_table = ResultTableSection("Buffer IOCs")
     buffer_body = []
@@ -2341,55 +2130,14 @@ def process_buffers(
     for process, process_details in process_map.items():
         count_per_source_per_process = 0
         process_name_to_be_displayed = f"{process_details.get('name', 'None')} ({process})"
-        for call in process_details.get("decrypted_buffers", []):
+        for call in process_details.get("crypto_buffers", []):
             buffer = ""
-
-            crypt_api = next((item for item in CRYPT_BUFFER_CALLS if call.get(item)), None)
-            if crypt_api:
-                buffer = call[crypt_api]["buffer"]
-                b_buffer = bytes(buffer, "utf-8")
-                if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
-                    hash = sha256(b_buffer).hexdigest()
-                    buffers.append((f"{str(process)}-{crypt_api}-{hash}", b_buffer, buffer))
-
-            else:
-                misc_api = next((item for item in MISC_BUFFER_CALLS if call.get(item)), None)
-                if misc_api:
-                    buffer = call[misc_api]["string"]
-                    b_buffer = bytes(buffer, "utf-8")
-                    if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
-                        hash = sha256(b_buffer).hexdigest()
-                        buffers.append((f"{str(process)}-{misc_api}-{hash}", b_buffer, buffer))
-            # Note not all calls have the key name consistent with their capemon api output
-            # "CryptDecrypt" --> "buffer " Depricated but still used
-            # "CryptEncrypt" --> "buffer" Depricated but still used
-            # "BCryptDecrypt" --> "buffer" Key in memory
-            # "BCryptEncrypt" --> "buffer" Key in memory
-            # "NCryptDecrypt" --> "buffer"  #key in a KSP
-            # "NCryptEncrypt" --> "buffer" key in a KSP
-            # Commented out since in most cases the encryption and decryption must be done on the same computer
-            # "CryptProtectData" --> ?
-            # "CryptUnProtectData" --> ?
-            # Commented out since no proof of requirement is there
-            # "CryptDecryptMessage" --> ?
-            # "CryptEncryptMessage" --> ?
-            # "CryptDecodeMessage" --> ?
-            # Do we want hashing as well ?
-            # "CryptHashMessage" --> ?
-
-            # "OutputDebugStringA" --> "string"
-            # "OutputDebugStringW" --> "string"
-
-            # do we want those since it's in memory and probably going to be picked up elsewhere in dumps?
-            # "CryptProtectMemory" --> ?
-            # "CryptUnprotectMemory" --> ?
-            # The need for compression/decompression buffer is probably not needed
-            # "RtlDecompressBuffer" --> ?
-            # "RtlCompressBuffer" --> ?
-
-            # Do we want hashing as well ?
-            # "CryptHashData" --> ?
-
+            arguments = call["arguments"]
+            buffer = arguments["Buffer"]
+            b_buffer = bytes(buffer, "utf-8")
+            if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                hash = sha256(b_buffer).hexdigest()
+                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2401,40 +2149,62 @@ def process_buffers(
             if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
                 buffer_body.append(table_row)
                 count_per_source_per_process += 1
+
+        for call in process_details.get("misc_events"):
+            buffer = ""
+            arguments = call["arguments"]   
+            buffer = arguments["Buffer"]
+            b_buffer = bytes(buffer, "utf-8")
+            if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                hash = sha256(b_buffer).hexdigest()
+                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+            if not buffer:
+                continue
+            extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
+            table_row = {
+                "Process": process_name_to_be_displayed,
+                "Source": "Windows API",
+                "Buffer": safe_str(buffer),
+            }
+            if table_row not in buffer_body and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS:
+                buffer_body.append(table_row)
+                count_per_source_per_process += 1
+
         count_per_source_per_process = 0
         network_buffers = []
-        for network_call in process_details.get("network_calls", []):
-            for api_call in BUFFER_API_CALLS:
-                if api_call in network_call:
-                    buffer = network_call[api_call]["buffer"]
-                    buffer = _remove_bytes_from_buffer(buffer)
-                    if is_tag_safelisted(
-                        buffer, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist
-                    ):
-                        continue
-                    length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    extract_iocs_from_text_blob(
-                        buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True
-                    )
-                    # We only want to display network buffers if an IOC is found
-                    length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
-                    if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
-                        continue
-                    table_row = {
-                        "Process": process_name_to_be_displayed,
-                        "Source": "Network",
-                        "Buffer": safe_str(buffer),
-                    }
-                    if (
-                        table_row not in buffer_body
-                        and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS
-                    ):
-                        buffer_body.append(table_row)
-                        count_per_source_per_process += 1
-                        b_buffer = bytes(buffer, "utf-8")
-                        if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
-                            hash = sha256(b_buffer).hexdigest()
-                            network_buffers.append((f"{str(process)}-{api_call}-{hash}", b_buffer, buffer))
+        for call in process_details.get("network_calls", []):
+            buffer = ""
+            arguments = call["arguments"]
+            if arguments.get("Buffer"):
+                buffer = arguments["Buffer"]
+                buffer = _remove_bytes_from_buffer(buffer)
+                if is_tag_safelisted(
+                    buffer, ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"], safelist
+                ):
+                    continue
+                length_of_ioc_table_pre_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
+                extract_iocs_from_text_blob(
+                    buffer, buffer_ioc_table, enforce_char_min=True, safelist=safelist, is_network_static=True
+                )
+                # We only want to display network buffers if an IOC is found
+                length_of_ioc_table_post_extraction = len(buffer_ioc_table.body) if buffer_ioc_table.body else 0
+                if length_of_ioc_table_pre_extraction == length_of_ioc_table_post_extraction:
+                    continue
+                table_row = {
+                    "Process": process_name_to_be_displayed,
+                    "Source": "Network",
+                    "Buffer": safe_str(buffer),
+                }
+                if (
+                    table_row not in buffer_body
+                    and count_per_source_per_process < BUFFER_ROW_LIMIT_PER_SOURCE_PER_PROCESS
+                ):
+                    buffer_body.append(table_row)
+                    count_per_source_per_process += 1
+                    b_buffer = bytes(buffer, "utf-8")
+                    if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
+                        hash = sha256(b_buffer).hexdigest()
+                        network_buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
@@ -2470,7 +2240,6 @@ def process_buffers(
             buffer_res.set_heuristic(1006)
         parent_result_section.add_subsection(buffer_res)
 
-
 def process_cape(cape: Dict[str, Any], parent_result_section: ResultSection) -> List[Dict[str, str]]:
     """
     This method creates a map of payloads and the pids that they were hollowed out of
@@ -2491,7 +2260,7 @@ def process_cape(cape: Dict[str, Any], parent_result_section: ResultSection) -> 
     if cape.get("configs", []):
         malware_heur = Heuristic(38)
         malware_heur.add_signature_id("config_extracted", 1000)
-        configs_sec = ResultSection("Configs Extracted By CAPE", parent=parent_result_section, heuristic=malware_heur)
+        configs_sec = ResultSection(CONFIG_EXTRACT_SECTION_TITLE, parent=parent_result_section, heuristic=malware_heur)
 
         for configuration in cape["configs"]:
             for config_name, config_values in configuration.items():
@@ -2505,7 +2274,6 @@ def process_cape(cape: Dict[str, Any], parent_result_section: ResultSection) -> 
 
     return cape_artifacts
 
-
 def get_process_map(
     processes: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]
 ) -> Dict[int, Dict[str, Any]]:
@@ -2516,115 +2284,619 @@ def get_process_map(
     :return: A map of process IDs to process names, network calls, and decrypted buffers
     """
     process_map: Dict[int, Dict[str, Any]] = {}
-    api_calls_of_interest = {
-        "LdrLoadDll": ["filename"],
-        "LoadLibraryExW": ["lplibfilename"],
-        "LdrGetDllHandle": ["filename"],
-        "CreateServiceA": ["servicename", "displayname", "starttype", "binarypathname"],
-        "CreateServiceW": ["servicename", "displayname", "starttype", "binarypathname"],
-        "StartServiceA": ["servicename", "arguments"],
-        "StartServiceW": ["servicename", "arguments"],
-        "getaddrinfo": ["hostname", "nodename"],  # DNS
-        "GetAddrInfoW": ["hostname", "nodename"],  # DNS
-        "gethostbyname": ["hostname"],  # DNS
-        "connect": ["ip_address", "port"],  # Connecting to IP
-        "InternetConnectW": [
-            "username",
-            "service",
-            "password",
-            "hostname",
-            "port",
-            "servername",
-            "serverport",
-        ],
-        "InternetConnectA": [
-            "username",
-            "service",
-            "password",
-            "hostname",
-            "port",
-            "servername",
-            "serverport",
-        ],
-        # DNS and Connecting to IP, if service = 3 then HTTP
-        "send": ["buffer"],  # HTTP Request
-        "WSASend": ["buffer"],  # Socket connection
-        "WSAConnect": ["ip_address", "port"],  # Connecting to IP
-        # "HttpOpenRequestW": ["http_method", "path"],  # HTTP Request TODO not sure what to do with this yet
-        # "HttpOpenRequestA": ["http_method", "path"],  # HTTP Request TODO not sure what to do with this yet
-        # "InternetOpenW": ["user-agent"],  # HTTP Request TODO not sure what to do with this yet
-        # "recv": ["buffer"],  # HTTP Response, TODO not sure what to do with this yet
-        # "InternetReadFile": ["buffer"]  # HTTP Response, TODO not sure what to do with this yet
-        "CryptDecrypt": ["buffer"],  # Used for certain malware files that use configuration files
-        "OutputDebugStringA": ["string"],  # Used for certain malware files that use configuration files
-        "URLDownloadToFileW": ["url"],
-        "InternetCrackUrlA": ["url"],
-        "InternetCrackUrlW": ["url"],
-        "InternetOpenUrlA": ["url"],
-        "WinHttpGetProxyForUrl": ["url"],
-        "WinHttpConnect": ["servername", "serverport"],
-    }
     for process in processes:
-        process_name = process["module_path"] if process.get("module_path") else process["process_name"]
         network_calls = []
-        loaded_dlls = []
-        services_involved = []
-        decrypted_buffers = []
+        crypto_buffers = []
+        loaded_modules = []
+        services_events = []
+        drivers_events = []
+        registry_events = []
+        file_events = []
+        misc_events = []
+        hooking_events = []
+        process_events = []
+        interprocess_comm = []
         calls = process["calls"]
         for call in calls:
             category = call.get("category", "does_not_exist")
             api = call["api"]
-            if category in ["network", "crypto", "system"] and api in api_calls_of_interest.keys():
-                args = call["arguments"]
-                args_of_interest: Dict[str, str] = {}
-                for arg in api_calls_of_interest.get(api, []):
-                    # Call arguments are split into dictionaries, each containing a name and value kv pair
-                    for kv in args:
-                        if arg == kv["name"].lower() and kv["value"]:
-                            if category == "system" and "cfg:" in kv["value"]:
-                                args_of_interest[arg] = kv["value"]
-                                break
-                            elif category in ["network", "crypto"]:
-                                if is_tag_safelisted(
-                                    kv["value"],
-                                    ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"],
-                                    safelist,
-                                ):
-                                    continue
-                                args_of_interest[arg] = kv["value"]
-                                break
-                            elif category == "system" and "api" not in kv["value"]:
-                                args_of_interest[arg] = kv["value"].lower().replace(".dll", "")
-                                break
-                if args_of_interest:
-                    item_to_add = {api: args_of_interest}
-                    if category == "network" and item_to_add not in network_calls:
-                        network_calls.append(item_to_add)
-                    elif next(iter(item_to_add)) in ["LdrLoadDll", "LoadLibraryExW", "LdrGetDllHandle"] and next(iter(next(iter(item_to_add.values())).values())) not in loaded_dlls:
-                        dll_name = next(iter(next(iter(item_to_add.values())).values())) 
-                        adding_dll = True
-                        for loaded_dll in loaded_dlls:
-                            dll_chunck = loaded_dll.split("\\")
-                            if dll_name in dll_chunck:
-                                adding_dll = False
-                            elif dll_chunck[-1] in dll_name.split("\\"):
-                                adding_dll = False
-                        if adding_dll:    
-                            loaded_dlls.append(next(iter(next(iter(item_to_add.values())).values())))
-                    elif next(iter(item_to_add)) in ["CreateServiceA", "CreateServiceW", "StartServiceA", "StartServiceW"] and item_to_add not in services_involved:
-                        services_involved.append(item_to_add)
-                    elif category in ["crypto", "system"] and next(iter(item_to_add)) not in ["LdrLoadDll", "LoadLibraryExW", "LdrGetDllHandle", "CreateServiceA", "CreateServiceW", "StartServiceA", "StartServiceW"] and item_to_add not in decrypted_buffers:
-                        decrypted_buffers.append(item_to_add)
+            for event in API_CALLS:
+                if api in event["apis"]:
+                    args_of_interest = {}
+                    safelisted_values = False
+                    args = call["arguments"]
+                    for arg in args:
+                        if arg["name"].lower() in [arg_tuple[1] for arg_tuple in event["arguments"]]:
+                            if category in ["network", "crypto"]:
+                                if is_tag_safelisted(arg["value"], ["network.dynamic.ip", "network.dynamic.uri", "network.dynamic.domain"],safelist):
+                                    safelisted_values = True
+                                    break
+                            parsed_arg_name = next((arg_tuple[0] for arg_tuple in event["arguments"] if arg["name"].lower() == arg_tuple[1]), arg["name"])
+                            args_of_interest[parsed_arg_name] = arg["value"]
+                    if args_of_interest and not safelisted_values:
+                        interesting_event = {
+                            "event": event["event"],
+                            "object": event["object"],
+                            "api": api,
+                            "arguments": args_of_interest,
+                            "source": "API"
+                        }
+                        if interesting_event["object"] == "Network" and interesting_event not in network_calls:
+                            network_calls.append(interesting_event)
+                        elif interesting_event["object"] == "Crypt" and interesting_event not in crypto_buffers:
+                            crypto_buffers.append(interesting_event)
+                        elif interesting_event["object"] in ["DLL", "Function"] and interesting_event not in loaded_modules:
+                              loaded_modules.append(interesting_event)
+                        elif interesting_event["object"] == "Service" and interesting_event not in services_events:
+                            services_events.append(interesting_event)
+                        elif interesting_event["object"] == "Driver" and interesting_event not in drivers_events:
+                            drivers_events.append(interesting_event)
+                        elif interesting_event["object"] == "Registry" and interesting_event not in registry_events:
+                            registry_events.append(interesting_event)
+                        elif interesting_event["object"] in ["File", "Dir"] and interesting_event not in file_events:
+                            file_events.append(interesting_event)
+                        elif interesting_event["event"] == "Misc" and interesting_event not in misc_events:
+                            misc_events.append(interesting_event)
+                        elif interesting_event["event"] in ["Hooking", "Unhooking"] and interesting_event not in hooking_events:
+                            hooking_events.append(interesting_event)
+                        elif interesting_event["object"] == "Process" and interesting_event not in process_events:
+                            process_events.append(interesting_event)
+                        elif interesting_event["object"] in ["NamedPipe", "Event"] and interesting_event not in interprocess_comm:
+                            interprocess_comm.append(interesting_event)
+        first_seen = process.get("first_seen")
+        if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
+            first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
+        first_seen = first_seen.replace(",", ".")
         pid = process["process_id"]
         process_map[pid] = {
-            "name": process_name,
-            "network_calls": network_calls,
-            "decrypted_buffers": decrypted_buffers,
-            "loaded_modules": loaded_dlls,
-            "services_involved": services_involved,
+            "name": process["process_name"],
+            "image": process["module_path"],
+            "ppid": process["parent_id"],
+            "start_time": first_seen,
+            "command_line": process["environ"]["CommandLine"],
+            "network_calls": network_calls,# object-->Network
+            "crypto_buffers": crypto_buffers,# object-->Crypt
+            "loaded_modules": loaded_modules,# object-->DLL object-->Function
+            "services_events": services_events,# object-->Service
+            "drivers_events": drivers_events,# object-->Driver
+            "registry_events": registry_events,# object-->Registry
+            "file_events": file_events,# object-->File object-->dir
+            "misc_events": misc_events,# event-->Misc
+            "hooking_events": hooking_events,# event-->Hooking event-->Unhooking
+            "process_events": process_events,# object-->process
+            "interprocess_comm": interprocess_comm,# object-->NamedPipe object-->Event
         }
     return process_map
 
+def build_process_tree(
+        processtree: List[Dict[str, Any]], 
+        processtree_id_safelist: List[str],
+    ):
+    root_parent = 0
+    result = {
+        root_parent: {
+
+        }
+    }
+    for node in processtree:
+        if node.get("parent_id"):
+            if node["parent_id"] not in result[root_parent].keys():
+                result[root_parent][node["parent_id"]] = {node.get("pid"): {}}
+            else:
+                result[root_parent][node["parent_id"]][node.get("pid")] = {}
+        if node.get("children") and len(node.get("children")) > 0:
+            for child in node["children"]:
+                result[root_parent][node["parent_id"]][node.get("pid")][child["pid"]] = {}
+    return result
+
+def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, List[str]]]):
+    #Sysmon event id list:
+    #Event ID 1: Process creation *
+    #Event ID 2: A process changed a file creation time *
+    #Event ID 3: Network connection *
+    #Event ID 4: Sysmon service state changed
+    #Event ID 5: Process terminated *
+    #Event ID 6: Driver loaded *
+    #Event ID 7: Image loaded *
+    #Event ID 8: CreateRemoteThread *
+    #Event ID 9: RawAccessRead *
+    #Event ID 10: ProcessAccess *
+    #Event ID 11: FileCreate *
+    #Event ID 12: RegistryEvent (Object create and delete) *
+    #Event ID 13: RegistryEvent (Value Set) *
+    #Event ID 14: RegistryEvent (Key and Value Rename) *
+    #Event ID 15: FileCreateStreamHash *
+    #Event ID 16: ServiceConfigurationChange
+    #Event ID 17: PipeEvent (Pipe Created) *
+    #Event ID 18: PipeEvent (Pipe Connected) *
+    #Event ID 19: WmiEvent (WmiEventFilter activity detected) *
+    #Event ID 20: WmiEvent (WmiEventConsumer activity detected) *
+    #Event ID 21: WmiEvent (WmiEventConsumerToFilter activity detected) *
+    #Event ID 22: DNSEvent (DNS query) *
+    #Event ID 23: FileDelete (File Delete archived)
+    #Event ID 24: ClipboardChange (New content in the clipboard)
+    #Event ID 25: ProcessTampering (Process image change)
+    #Event ID 26: FileDeleteDetected (File Delete logged)
+    #Event ID 27: FileBlockExecutable
+    #Event ID 28: FileBlockShredding
+    #Event ID 29: FileExecutableDetected
+    #Event ID 255: Error
+    #We care only for processes and network connection atm
+    processes = {}
+    for event in sysmon:
+        event_id = int(event["System"]["EventID"])
+        process: Dict[str, str] = {}
+        event_data = event["EventData"]["Data"]
+        if event_id in [1,2,5,8,9,10]:
+            for data in event_data:
+                name = data["@Name"].lower()
+                text = data.get("#text")
+                process["safelisted"] = False
+                # Process Create and Terminate
+                if name == "utctime" and event_id in [1, 5]:
+                    t = ensure_time_format(text, LOCAL_FMT_WITH_MS)
+                    if event_id == 1:
+                        process["start_time"] = t
+                    else:
+                        process["start_time"] = MIN_TIME
+                        process["end_time"] = t
+                elif name == "utctime":
+                    t = ensure_time_format(text, LOCAL_FMT_WITH_MS)
+                    process["time_observed"] = t
+                elif name in ["sourceprocessguid", "parentprocessguid"]:
+                    process["pguid"] = text
+                elif name in ["processguid", "targetprocessguid"]:
+                    process["guid"] = text
+                elif name in ["parentprocessid", "sourceprocessid"]:
+                    process["ppid"] = int(text)
+                elif name in ["processid", "targetprocessid"]:
+                    process["pid"] = int(text)
+                elif name in ["sourceimage"]:
+                    process["pimage"] = text
+                elif name in ["image", "targetimage"]:
+                    # This is a Linux-specific behaviour in Sysmon
+                    if text.endswith(" (deleted)"):
+                        text = text[: text.index(" (deleted)")]
+                    if not is_tag_safelisted(text, ["dynamic.process.file_name"], safelist):
+                        process["image"] = text
+                    else:
+                        process["safelisted"] = True
+                elif name in ["parentcommandline"]:
+                    if not is_tag_safelisted(text, ["dynamic.process.command_line"], safelist):
+                        process["pcommand_line"] = text
+                elif name in ["commandline"]:
+                    if not is_tag_safelisted(text, ["dynamic.process.command_line"], safelist):
+                        process["command_line"] = text
+                    else:
+                        process["safelisted"] = True
+                elif name == "originalfilename":
+                    process["original_file_name"] = text
+                elif name == "integritylevel":
+                    process["integrity_level"] = text
+                elif name == "hashes":
+                    split_hash = text.split("=")
+                    if len(split_hash) == 2:
+                        _, hash_value = split_hash
+                        process["image_hash"] = hash_value
+            
+            if not process.get("pid") or not process.get("guid") or not process.get("image") or not process.get("start_time"):
+                continue
+
+            process["event_id"] = event_id
+
+            if process["pid"] not in processes.keys():
+                processes[process["pid"]] = []
+                processes[process["pid"]].append(process)
+            elif f'{process["pid"]}-->{process["guid"]}' in processes.keys():
+                processes[f'{process["pid"]}-->{process["guid"]}'].append(process)
+            else:
+                if process["guid"] in [proc["guid"] for proc in processes[process["pid"]]]:
+                    processes[process["pid"]].append(process)
+                else:
+                    processes[f'{process["pid"]}-->{process["guid"]}'] = []
+                    processes[f'{process["pid"]}-->{process["guid"]}'].append(process)
+        elif event_id in [3,22]:
+             # There are two main EventIDs that describe network events: 3 (Network connection) and 22 (DNS query)
+            if event_id == 3:
+                protocol = None
+                network_conn = {
+                    "src": None,
+                    "dst": None,
+                    "time": None,
+                    "dport": None,
+                    "sport": None,
+                    "guid": None,
+                    "pid": None,
+                    "image": None,
+                }
+                for data in event["EventData"]["Data"]:
+                    name = data["@Name"]
+                    text = data.get("#text")
+                    if name == "UtcTime":
+                        network_conn["time"] = ensure_time_format(text, LOCAL_FMT_WITH_MS)
+                    elif name == "ProcessGuid":
+                        network_conn["guid"] = text
+                    elif name == "ProcessId":
+                        network_conn["pid"] = int(text)
+                    elif name == "Image":
+                        # Sysmon for Linux adds this to the image if the file is deleted.
+                        if text.endswith(" (deleted)"):
+                            text = text[: len(text) - len(" (deleted)")]
+                        network_conn["image"] = text
+                    elif name == "Protocol":
+                        protocol = text.lower()
+                    elif name == "SourceIp":
+                        if re_match(IPV4_REGEX, text):
+                            network_conn["src"] = text
+                    elif name == "SourcePort":
+                        network_conn["sport"] = int(text)
+                    elif name == "DestinationIp":
+                        if re_match(IPV4_REGEX, text):
+                            network_conn["dst"] = text
+                    elif name == "DestinationPort":
+                        network_conn["dport"] = int(text)
+                if any(network_conn[key] is None for key in network_conn.keys()) or not protocol:
+                    continue
+
+                network_conn["event_id"] = event_id
+
+                if network_conn["pid"] in processes.keys():
+                    processes[network_conn["pid"]].append(network_conn)
+                elif f'{network_conn["pid"]}-->{network_conn["guid"]}' in processes.keys():
+                    processes[f'{network_conn["pid"]}-->{network_conn["guid"]}'].append(network_conn)
+                #if this point is reached, this is an orphan event
+            elif event_id == 22:
+                dns_query = {
+                    "request": None,
+                    "answers": [],
+                    "first_seen": None,
+                    "guid": None,
+                    "pid": None,
+                    "image": None,
+                }
+                for data in event["EventData"]["Data"]:
+                    name = data["@Name"]
+                    text = data.get("#text")
+                    if text is None:
+                        continue
+                    if name == "UtcTime":
+                        dns_query["first_seen"] = ensure_time_format(text, LOCAL_FMT_WITH_MS)
+                    elif name == "ProcessGuid":
+                        dns_query["guid"] = text
+                    elif name == "ProcessId":
+                        dns_query["pid"] = int(text)
+                    elif name == "QueryName":
+                        if not is_tag_safelisted(text, ["network.dynamic.domain"], safelist):
+                            dns_query["request"] = text
+                    elif name == "QueryResults":
+                        records = text.split(';')
+                        for record in records:
+                            try:
+                                dns_type_value = int(search(DNS_TYPE_REGEX, record).group(1))
+                                dns_type = DNS_TYPE[dns_type_value] 
+                            except IndexError:
+                                dns_type = "A"
+                            except AttributeError:
+                                dns_type = "A"
+                            ip = findall(IP_REGEX, record)
+                            for item in ip:
+                                if re_match(r"::ffff:\d{1,2}", item):
+                                    continue
+                                if {"data": item, "type": dns_type} not in dns_query["answers"]:
+                                    dns_query["answers"].append({"data": item, "type": dns_type})
+                            domain = findall(DOMAIN_REGEX, record)
+                            for item in domain:
+                                if {"data": item, "type": dns_type} not in dns_query["answers"]:
+                                    dns_query["answers"].append({"data": item, "type": dns_type})
+                    elif name == "Image":
+                        # Sysmon for Linux adds this to the image if the file is deleted.
+                        if text.endswith(" (deleted)"):
+                            text = text[: len(text) - len(" (deleted)")]
+                        dns_query["image"] = text
+
+                if any(dns_query[key] is None for key in dns_query.keys()):
+                    continue
+
+                dns_query["event_id"] = event_id
+                
+                if dns_query["pid"] in processes.keys():
+                    processes[dns_query["pid"]].append(dns_query)
+                elif f'{dns_query["pid"]}-->{dns_query["guid"]}' in processes.keys():
+                    processes[f'{dns_query["pid"]}-->{dns_query["guid"]}'].append(dns_query)
+                #if this point is reached, this is an orphan event
+    return processes
+
+def process_behavior(behaviour):
+    processes = behaviour["processes"]
+    if len(processes) < 1:
+        return []
+    else:
+        parent_pid = processes[0]["parent_id"]
+        initial_process = processes[0]["process_name"]
+        initial_process_pid = processes[0]["process_id"]
+
+        # Adding special case for iexplore, since HH creates two dumps for the main process and it's child
+        if initial_process == "iexplore.exe":
+            return [
+                (process["process_id"], process["process_name"])
+                for process in processes
+                if process["parent_id"] == parent_pid
+                or process["process_name"] == initial_process
+                and process["parent_id"] == initial_process_pid
+            ]
+        else:
+            return [
+                (process["process_id"], process["process_name"])
+                for process in processes
+                if process["parent_id"] == parent_pid
+            ]
+
+def _remove_bytes_from_buffer(buffer: str) -> str:
+    """
+    This method removes byte characters from a buffer string
+    """
+    non_byte_chars = []
+    for item in buffer.split("\\"):
+        if not item:
+            continue
+        res = sub(BYTE_CHAR, "", item)
+        if res and len(res) >= MIN_DOMAIN_CHARS:
+            if res in ["http/1.1"]:
+                continue
+            non_byte_chars.append(res)
+    return ",".join(non_byte_chars)
+
+def convert_processtree_id_to_tree_id(processtree_id: str) -> str:
+    possible_sha256 = ""
+    for proc in processtree_id.split("|"):
+        value_to_create_hash_from = (possible_sha256 + proc).encode()
+        tree_id = sha256(value_to_create_hash_from).hexdigest()
+        possible_sha256 = tree_id
+
+    return tree_id
+
+def _remove_network_http_noise(sigs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    This method removes the network_http signature if the network_cnc_http signature has been raised.
+    This is because if the network_cnc_http signature has been raised, it is guaranteed that the network_http signature
+    will also be raised and this signature will only create noise.
+    :param sigs: The JSON of the signatures section from the report generated by CAPE
+    :return: The modified (if applicable) JSON of the signatures section from the report generated by CAPE
+    """
+    if any(sig["name"] == "network_cnc_http" for sig in sigs):
+        return [sig for sig in sigs if sig["name"] != "network_http"]
+    else:
+        return sigs
+    
+def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[str]) -> List[str]:
+    # An assumption is being made here that the first UDP flow to port 53 is
+    # for DNS.
+    if len(network.get("udp", [])) > 0:
+        dst = next(
+            (udp_flow["dst"] for udp_flow in network["udp"] if udp_flow["dport"] == 53),
+            None,
+        )
+        if dst:
+            dns_servers = [dst]
+        else:
+            dns_servers = []
+    else:
+        dns_servers = []
+
+    for item in inetsim_dns_servers:
+        if item not in dns_servers:
+            dns_servers.append(item)
+
+    return dns_servers
+
+def _remove_network_call(
+    dom: str,
+    dest_ip: str,
+    dns_servers: List[str],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
+    inetsim_network: IPv4Network,
+    safelist: Dict[str, Dict[str, List[str]]],
+) -> bool:
+    list_of_all_answers = []
+    for _, attempts in dns_requests.items():
+        for attempt in attempts:
+            if isinstance(attempt["answers"], List):
+                list_of_all_answers.extend(attempt["answers"])
+            elif attempt["answers"] == None:
+                continue
+            else:
+                list_of_all_answers.append(attempt["answers"])
+    # if domain is safe-listed
+    if is_tag_safelisted(dom, ["network.dynamic.domain"], safelist):
+        return True
+    # if no domain and destination ip is safe-listed or is the dns server
+    elif (not dom and is_tag_safelisted(dest_ip, ["network.dynamic.ip"], safelist)) or dest_ip in dns_servers:
+        return True
+    # if dest ip is noise
+    elif dest_ip not in list_of_all_answers and ip_address(dest_ip) in inetsim_network:
+        return True
+
+    return False
+
+def _massage_host_data(host: str) -> str:
+    """
+    This method tries to get the actual host out of the parsed "host" value
+    :param host: The parsed "host" value
+    :return: The actual host
+    """
+    if ":" in host:  # split on port if port exists
+        host = host.split(":")[0]
+    return host
+
+def _massage_http_ex_data(
+    host: str, dns_servers: List[str], dns_requests: Dict[str, List[Dict[str, Any]]], http_call: Dict[str, Any]
+) -> Tuple[str, str, str, Dict[str, Any]]:
+    """
+    This method extracts key details from the parsed <http(s)>_ex protocol data
+    :param host: The actual host
+    :param dns_servers: A list of DNS servers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
+    :param http_call: The parsed HTTP call data
+    :return: A tuple of the URI reached out to, and the potentially modified parsed HTTP call data
+    """
+    path = http_call["uri"]
+    if host in path:
+        path = path.split(host)[1]
+
+    uri = f"{http_call['protocol']}://{host}{path}"
+
+    # The dst could be the nest IP, so we want to replace this
+    if http_call["dst"] in dns_servers and any(host == item for item in dns_requests.keys()):
+        for request, attempts in dns_requests.items():
+            for attempt in attempts:
+                if isinstance(attempt["answers"], List):
+                    answers = attempt["answers"]
+                elif attempt["answers"] == None:
+                    continue
+                else:
+                    answers = [attempt["answers"]]
+                for answer in answers:
+                    if answer.isdigit():
+                        continue
+                    if request == host:
+                        http_call["dst"] = answer
+                        break
+
+    return uri, http_call
+
+def _get_important_fields_from_http_call(
+    protocol: str,
+    host: str,
+    dns_servers: List[str],
+    dns_requests: Dict[str, List[Dict[str, Any]]],
+    http_call: Dict[str, Any],
+) -> Tuple[str, int, str, Dict[str, Any]]:
+    """
+    This method extracts key details from the parsed <http(s)(_ex)> protocol data
+    :param
+    :param host: The actual host
+    :param dns_servers: A list of DNS servers
+    :param dns_requests: A map of process IDs to process names, network calls, and decrypted buffers
+    :param http_call: The parsed HTTP call data
+    :return: A tuple of the request data, destination port, URI reached out to, and the potentially modified parsed HTTP call data
+    """
+    # <protocol>_ex data is weird and requires special parsing
+    if "ex" in protocol:
+        uri, http_call = _massage_http_ex_data(host, dns_servers, dns_requests, http_call)
+        request = http_call["request"]
+        port = http_call["dport"]
+    else:
+        request = http_call["data"]
+        port = http_call["port"]
+        uri = http_call["uri"]
+    return request, port, uri, http_call
+
+def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]], uri: str) -> bool:
+    """
+    This method checks to see if the host or uri is safelisted
+    :param host: The actual host
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :param uri: URI reached out to
+    :return: A boolean representing if the parsed HTTP call data contains safelisted values
+    """
+    return (
+        is_tag_safelisted(host, ["network.dynamic.ip", "network.dynamic.domain"], safelist)
+        or is_tag_safelisted(uri, ["network.dynamic.uri"], safelist)
+        or "/wpad.dat" in uri
+        or not re_match(FULL_URI, uri)
+    )
+
+def _massage_body_paths(http_call: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
+    """
+    This method tries to get the body paths for the request and response objects out of the parsed "path" values
+    :param http_call: The parsed HTTP call data
+    :return: A tuple containing the path to the request/reponse body dumps
+    """
+    request_body_path = http_call.get("req", {}).get("path")
+    response_body_path = http_call.get("resp", {}).get("path")
+
+    if request_body_path:
+        request_body_path = request_body_path[request_body_path.index("network/") :]
+    if response_body_path:
+        response_body_path = response_body_path[response_body_path.index("network/") :]
+
+    return request_body_path, response_body_path
+
+def _get_destination_ip(
+    http_call: Dict[str, Any], dns_servers: List[str]
+) -> Optional[str]:
+    """
+    This method returns the destination IP used for the HTTP call
+    :param http_call: The parsed HTTP call data
+    :param dns_servers: A list of DNS servers
+    :param host: The actual host
+    :param ontres: The Ontology Results class object
+    :return: The destination IP reached out to, if it exists
+    """
+    destination_ip = None
+    if http_call.get("dst") and http_call["dst"] not in dns_servers:
+        destination_ip = http_call["dst"]
+    return destination_ip
+
+def _uris_are_equal_despite_discrepancies(api_uri: Optional[str], pcap_uri: str) -> bool:
+    """
+    Sometimes there are discrepancies between the URIs associated with an HTTP request between PCAP parsing and API call parsing
+    Ex. http://<domain>:443 and https://<domain>:443/
+    :param api_uri: The URI parsed from an API call
+    :param pcap_uri: The URI parsed from PCAP traffic
+    :return: A boolean indicating whether the two URIs are equal*
+    """
+    if api_uri and pcap_uri:
+        # Okay so far so good
+        if api_uri.startswith("https://") and pcap_uri.startswith("http://"):
+            return _handle_similar_netloc_and_path(api_uri, pcap_uri)
+
+    return False
+
+def _handle_similar_netloc_and_path(api_uri: str, pcap_uri: str) -> bool:
+    """
+    This method handles the same netloc and path between API URLs and PCAP URLs
+    :param api_uri: The URI parsed from an API call
+    :param pcap_uri: The URI parsed from PCAP traffic
+    :return: A boolean indicating whether the two netlocs and paths are equal*
+    """
+    # Getting warmer...
+    api_domain_and_path = api_uri.split("://", 1)[1]
+    pcap_domain_and_path = pcap_uri.split("://", 1)[1]
+
+    if api_domain_and_path == pcap_domain_and_path:
+        # Jackpot!
+        return True
+
+    # If no jackpot yet, here is another discrepancy
+    elif (
+        api_domain_and_path.endswith("/")
+        and not pcap_domain_and_path.endswith("/")
+        and api_domain_and_path.rstrip("/") == pcap_domain_and_path
+    ):
+        # Bingo bongo!
+        return True
+
+    return False
+
+def _handle_http_headers(header_string: str) -> Dict[str, str]:
+    """
+    This method parses an HTTP header string and returns the parsed string in a nice dictionary
+    :param header_string: The HTTP header string to be parsed
+    :return: A dictionary that represents the HTTP headers
+    """
+    request_headers = {}
+    if not header_string or "\r\n" not in header_string:
+        return request_headers
+    headers = header_string.split("\r\n")[1:]
+    for header_pair in headers:
+        if not header_pair:
+            continue
+        values = header_pair.split(": ")
+        if len(values) == 2:
+            header, value = values
+            request_headers[header.replace("-", "")] = value
+    return request_headers
 
 def _create_signature_result_section(
     name: str,
@@ -2636,7 +2908,7 @@ def _create_signature_result_section(
     safelist: Dict[str, Dict[str, List[str]]],
     uses_https_proxy_in_sandbox: bool,
     signature_map: Dict[str, Dict[str, Any]] = {},
-) -> Optional[ResultMultiSection]:
+) -> tuple[Optional[ResultMultiSection], List]:
     """
     This method creates a ResultMultiSection for the given signature
     :param name: The name of the signature
@@ -2667,7 +2939,7 @@ def _create_signature_result_section(
     action = SIGNATURE_TO_ATTRIBUTE_ACTION_MAP.get(name)
     fp_mark_count = 0
     iocs_found_in_data_res_sec: Optional[ResultTableSection] = None
-
+    pids = []
     for mark in signature["data"]:
         if mark_count >= 10 and not message_added:
             sig_res.add_section_part(
@@ -2683,6 +2955,8 @@ def _create_signature_result_section(
         if _is_mark_call(mark.keys()):
             call_count += 1
             _handle_mark_call(mark.get("pid"), action, attributes, ontres)
+            if mark.get("pid") and mark.get("pid") not in pids:
+                pids.append(mark.get("pid"))
         else:
             iocs_found_in_data_res_sec = _handle_mark_data(
                 mark.items(),
@@ -2710,67 +2984,7 @@ def _create_signature_result_section(
         [ontres_sig.add_attribute(attribute) for attribute in attributes]
     ontres_sig.update(name=name, score=translated_score)
 
-    # If there are more true positive marks than false positive marks, return signature result section
-    if not fp_mark_count or fp_mark_count != len(signature["data"]) - call_count:
-        return sig_res
-    else:
-        log.debug(f"The signature {name} was marked as a false positive, ignoring...")
-        return None
-
-
-def _set_heuristic_signature(
-    name: str, signature: Dict[str, Any], sig_res: ResultMultiSection, translated_score: int
-) -> None:
-    """
-    This method sets up the heuristic for each signature
-    :param name: The name of the signature
-    :param signature: The details of the signature
-    :param sig_res: The signature result section
-    :param translated_score: The Assemblyline-adapted score of the signature
-    :return: None
-    """
-    sig_id = get_category_id(name)
-    if sig_id == 9999:
-        log.warning(f"Unknown signature detected: {signature}")
-
-    # Creating heuristic
-    sig_res.set_heuristic(sig_id)
-
-    # Adding signature and score
-    sig_res.heuristic.add_signature_id(name, score=translated_score)
-
-
-def _set_attack_ids(attack_ids: Dict[str, Dict[str, str]], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
-    """
-    This method sets the Mitre ATT&CK ID for the heuristic and the Ontology Results Signature
-    :param attack_ids: A dictionary of ATT&CK IDs
-    :param sig_res: The signature result section
-    :param ontres_sig: The signature for the Ontology Results
-    :return: None
-    """
-    for attack_id in attack_ids:
-        if attack_id in revoke_map:
-            attack_id = revoke_map[attack_id]
-        sig_res.heuristic.add_attack_id(attack_id)
-        ontres_sig.add_attack_id(attack_id)
-    for attack_id in sig_res.heuristic.attack_ids:
-        ontres_sig.add_attack_id(attack_id)
-
-
-def _set_families(families: List[str], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
-    """
-    This method gets the signature family and tags it
-    :param families: A list of families
-    :param sig_res: The signature result section
-    :param ontres_sig: The signature for the Ontology Results
-    :return: None
-    """
-    sig_families = [family for family in families if family not in SKIPPED_FAMILIES]
-    if len(sig_families) > 0:
-        sig_res.add_section_part(TextSectionBody(body="\tFamilies: " + ",".join([safe_str(x) for x in sig_families])))
-        _ = add_tag(sig_res, "dynamic.signature.family", sig_families)
-        ontres_sig.set_malware_families(sig_families)
-
+    return (sig_res, pids)
 
 def _is_mark_call(mark_keys: List[str]) -> bool:
     """
@@ -2779,7 +2993,6 @@ def _is_mark_call(mark_keys: List[str]) -> bool:
     :return: A boolean representing if the mark is a "call"
     """
     return all(k in ["type", "pid", "cid", "call"] for k in mark_keys)
-
 
 def _handle_mark_call(
     pid: Optional[int], action: Optional[str], attributes: List[Attribute], ontres: OntologyResults
@@ -2804,7 +3017,6 @@ def _handle_mark_call(
             action=action,
         )
         attributes.append(attribute)
-
 
 def _handle_mark_data(
     mark_items: List[Tuple[str, Any]],
@@ -2839,7 +3051,7 @@ def _handle_mark_data(
         if not v or k in MARK_KEYS_TO_NOT_DISPLAY or json.dumps({k: v}) in sig_res.section_body.body:
             continue
 
-        # The mark_count limit only exists for diaply purposes
+        # The mark_count limit only exists for display purposes
         if mark_count < 10:
             if isinstance(v, str) and len(v) > 512:
                 v = truncate(v, 512)
@@ -2868,7 +3080,6 @@ def _handle_mark_data(
         )
 
     return iocs_found_in_data_res_sec
-
 
 def _tag_mark_values(
     sig_res: ResultMultiSection,
@@ -2959,17 +3170,11 @@ def _tag_mark_values(
                 if not process:
                     continue
                 for network_call in process_map[process.pid]["network_calls"]:
-                    send = next(
-                        (network_call[api_call] for api_call in HTTP_API_CALLS if api_call in network_call),
-                        {},
-                    )
-                    if (
-                        send != {}
-                        and (send.get("service", 0) == 3 or value in send.get("buffer", ""))
-                        or value in send.get("url", "")
-                    ):
-                        attribute.update(uri=value)
-                        break
+                    if network_call["event"] in ["Connect", "Request_response"]:
+                        args = network_call["arguments"]
+                        if args.get("Service", 0) in ["http", "https", "HTTP", "HTTPS", "3"] or value in args.get("Buffer", "") or value in args.get("URL", ""):
+                            attribute.update(uri=value)
+                            break
     elif key.lower() in ["dynamicloader"]:
         _ = add_tag(sig_res, "file.pe.exports.function_name", value)
     elif key.endswith("_exe"):
@@ -3007,6 +3212,343 @@ def _tag_mark_values(
         if iocs_found_in_data_res_sec.body:
             return iocs_found_in_data_res_sec
 
+def _set_heuristic_signature(
+    name: str, signature: Dict[str, Any], sig_res: ResultMultiSection, translated_score: int
+) -> None:
+    """
+    This method sets up the heuristic for each signature
+    :param name: The name of the signature
+    :param signature: The details of the signature
+    :param sig_res: The signature result section
+    :param translated_score: The Assemblyline-adapted score of the signature
+    :return: None
+    """
+    sig_id = get_category_id(name)
+    if sig_id == 9999:
+        log.warning(f"Unknown signature detected: {signature}")
+
+    # Creating heuristic
+    sig_res.set_heuristic(sig_id)
+
+    # Adding signature and score
+    sig_res.heuristic.add_signature_id(name, score=translated_score)
+
+def _set_attack_ids(attack_ids: Dict[str, Dict[str, str]], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
+    """
+    This method sets the Mitre ATT&CK ID for the heuristic and the Ontology Results Signature
+    :param attack_ids: A dictionary of ATT&CK IDs
+    :param sig_res: The signature result section
+    :param ontres_sig: The signature for the Ontology Results
+    :return: None
+    """
+    for attack_id in attack_ids:
+        if attack_id in revoke_map:
+            attack_id = revoke_map[attack_id]
+        sig_res.heuristic.add_attack_id(attack_id)
+        ontres_sig.add_attack_id(attack_id)
+    for attack_id in sig_res.heuristic.attack_ids:
+        ontres_sig.add_attack_id(attack_id)
+
+def _set_families(families: List[str], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
+    """
+    This method gets the signature family and tags it
+    :param families: A list of families
+    :param sig_res: The signature result section
+    :param ontres_sig: The signature for the Ontology Results
+    :return: None
+    """
+    sig_families = [family for family in families if family not in SKIPPED_FAMILIES]
+    if len(sig_families) > 0:
+        sig_res.add_section_part(TextSectionBody(body="\tFamilies: " + ",".join([safe_str(x) for x in sig_families])))
+        _ = add_tag(sig_res, "dynamic.signature.family", sig_families)
+        ontres_sig.set_malware_families(sig_families)
+
+def _get_dns_sec(
+    dns_requests: Dict[str, List[Dict[str, Any]]], safelist: Dict[str, Dict[str, List[str]]]
+) -> ResultTableSection:
+    """
+    This method creates the result section for DNS traffic
+    :param dns_requests: the mapping of resolved IPs and their corresponding domains
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
+    :return: the result section containing details that we care about
+    """
+    answer_exists = False
+    non_standard_dns_query_types: Set[str] = set()
+    if len(dns_requests.keys()) == 0:
+        return None
+    dns_res_sec = ResultTableSection("Protocol: DNS")
+    dns_res_sec.set_column_order(["domain", "answer", "type"])
+    dns_res_sec.set_heuristic(1000)
+    dns_body: List[Dict[str, str]] = []
+    _ = add_tag(dns_res_sec, "network.protocol", "dns")
+
+    for request, attempts in dns_requests.items():
+        for attempt in attempts:
+            request_type = attempt.get("type")
+            if isinstance(attempt["answers"], List):
+                answers = attempt["answers"]
+            elif attempt["answers"] == None:
+                continue
+            else:
+                answers = [attempt["answers"]]
+            for answer in answers:
+                _ = add_tag(dns_res_sec, "network.dynamic.ip", answer["answer"], safelist)
+                if add_tag(dns_res_sec, "network.dynamic.domain", request, safelist):
+                    if answer["answer"].isdigit():
+                        dns_request = {
+                            "domain": request,
+                            "type": request_type,
+                        }
+                    else:
+                        # If there is only UDP and no TCP traffic, then we need to tag the domains here:
+                        dns_request = {
+                            "domain": request,
+                            "answer": answer["answer"],
+                            "type": request_type,
+                        }
+                    dns_body.append(dns_request)
+                answer_exists = True
+            if request_type and request_type not in ["PTR", "A", "AAAA"]:
+                non_standard_dns_query_types.add(request_type)
+    [dns_res_sec.add_row(TableRow(**dns)) for dns in dns_body]
+
+    if not answer_exists:
+        # This is not worth failing the entire analysis over, but worth reporting.
+        _ = ResultTextSection(
+            title_text="DNS services are down!", body="Contact the CAPE administrator for details.", parent=dns_res_sec
+        )
+
+    if non_standard_dns_query_types:
+        dns_query_heur = Heuristic(1009)
+        dns_query_res = ResultTextSection(
+            dns_query_heur.name, heuristic=dns_query_heur, body=dns_query_heur.description, parent=dns_res_sec
+        )
+        for dns_query_type in sorted(non_standard_dns_query_types):
+            dns_query_res.add_line(f"\t-\t{dns_query_type}")
+
+    return dns_res_sec
+
+def _create_network_connection_for_network_flow(
+    network_flow: Dict[str, Any], session: str, ontres: OntologyResults
+):
+    if network_flow["dest_port"] in [80, 443]:
+        connection_type = NetworkConnection.HTTP
+    elif network_flow["dest_port"] in [53]:
+        connection_type = NetworkConnection.DNS
+    else:
+        connection_type = None
+    nc_oid = NetworkConnectionModel.get_oid(
+        {
+            "source_ip": network_flow["src_ip"],
+            "source_port": network_flow["src_port"],
+            "destination_ip": network_flow["dest_ip"],
+            "destination_port": network_flow["dest_port"],
+            "transport_layer_protocol": network_flow["protocol"],
+            "connection_type": connection_type,
+        }
+    )
+    objectid = ontres.create_objectid(
+        tag=NetworkConnectionModel.get_tag(
+            {
+                "destination_ip": network_flow["dest_ip"],
+                "destination_port": network_flow["dest_port"],
+            }
+        ),
+        ontology_id=nc_oid,
+        session=session,
+        time_observed=(
+            epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
+            if not isinstance(network_flow["timestamp"], str)
+            else network_flow["timestamp"]
+        ),
+    )
+    objectid.assign_guid()
+    try:
+        nc = ontres.create_network_connection(
+            objectid=objectid,
+            source_ip=network_flow["src_ip"],
+            source_port=network_flow["src_port"],
+            destination_ip=network_flow["dest_ip"],
+            destination_port=network_flow["dest_port"],
+            transport_layer_protocol=network_flow["protocol"],
+            direction=NetworkConnection.OUTBOUND,
+        )
+    except ValueError as e:
+        log.warning(
+            f"{e}. The required values passed were:\n"
+            f"objectid={objectid}\n"
+            f"destination_ip={network_flow['dest_ip']}\n"
+            f"destination_port={network_flow['dest_port']}\n"
+            f"transport_layer_protocol={network_flow['protocol']}"
+        )
+        return None
+    p_oid = ProcessModel.get_oid(
+        {
+            "pid": network_flow["pid"],
+            "image": network_flow.get("image"),
+        }
+    )
+    if network_flow.get("image"):
+        nc.update_process(
+            objectid=ontres.create_objectid(
+                tag=Process.create_objectid_tag(network_flow.get("image")),
+                ontology_id=p_oid,
+                guid=network_flow.get("guid"),
+                session=session,
+            ),
+            pid=network_flow["pid"],
+            image=network_flow.get("image"),
+            start_time=(
+                epoch_to_local_with_ms(network_flow["timestamp"])
+                if not isinstance(network_flow["timestamp"], str)
+                else network_flow["timestamp"]
+            ),
+        )
+    ontres.add_network_connection(nc)
+    return nc
+
+def _setup_network_connection_with_network_http(
+    uri: str,
+    http_call: Dict[str, Any],
+    request_headers: Dict[str, str],
+    response_headers: Dict[str, str],
+    request_body_path: str,
+    response_body_path: str,
+    port: int,
+    destination_ip: str,
+    ontres: OntologyResults,
+) -> Tuple[NetworkConnection, NetworkHTTP]:
+    """
+    This method sets up the linking of a NetworkConnection object with a new NetworkHTTP object
+    :param uri: URI reached out to
+    :param http_call: The parsed HTTP call data
+    :param request_headers: A dictionary that represents the HTTP request headers
+    :param response_headers: A dictionary that represents the HTTP response headers
+    :param request_body_path: The path to the request body dump
+    :param response_body_path:The path to the response body dump
+    :param port: The destination port accessed
+    :param destination_ip: The destination IP reached out to
+    :param ontres: The Ontology Results class object
+    :return: A tuple of the linked NetworkConnection object and the new NetworkHTTP object
+    """
+    # We can now create a NetworkHTTP object
+    nh = _create_network_http(
+        uri, http_call, request_headers, response_headers, request_body_path, response_body_path, ontres
+    )
+
+    destination_port = port
+    nc = _get_network_connection_by_details(destination_ip, destination_port, ontres)
+
+    # Check if a NetworkConnection object exists
+    # A NetworkConnection already exists?!
+    if nc:
+        # Update!
+        nc.update(http_details=nh, connection_type=NetworkConnection.HTTP)
+    # A NetworkConnection does not??
+    else:
+        # Create a NetworkConnection object with a reference to the NetworkHTTP object we just created
+        nc = _create_network_connection_for_http_call(http_call, destination_ip, destination_port, nh, ontres)
+
+    return nc, nh
+
+def _create_network_http(
+    uri: str,
+    http_call: Dict[str, Any],
+    request_headers: Dict[str, str],
+    response_headers: Dict[str, str],
+    request_body_path: Optional[str],
+    response_body_path: Optional[str],
+    ontres: OntologyResults,
+) -> NetworkHTTP:
+    """
+    This method is basically a wrapper for the OntologyResults create_network_http method
+    :param uri: URI reached out to
+    :param http_call: The parsed HTTP call data
+    :param request_headers: A dictionary that represents the HTTP request headers
+    :param response_headers: A dictionary that represents the HTTP response headers
+    :param request_body_path: The path to the request body dump
+    :param response_body_path:The path to the response body dump
+    :param ontres: The Ontology Results class object
+    :return: The NetworkHTTP object
+    """
+    return ontres.create_network_http(
+        request_uri=uri,
+        response_status_code=http_call.get("status"),
+        request_method=http_call["method"],
+        request_headers=request_headers,
+        response_headers=response_headers,
+        request_body_path=request_body_path,
+        response_body_path=response_body_path,
+    )
+
+def _get_network_connection_by_details(
+    destination_ip: str, destination_port: int, ontres: OntologyResults
+) -> NetworkConnection:
+    """
+    This method is basically a wrapper for the OntologyResults get_network_connection_by_details method
+    :param destination_ip: The destination IP reached out to
+    :param destination_port: The destination port accessed
+    :param ontres: The Ontology Results class object
+    :return: The NetworkConnection object
+    """
+    return ontres.get_network_connection_by_details(
+        destination_ip=destination_ip,
+        destination_port=destination_port,
+        direction=NetworkConnection.OUTBOUND,
+        transport_layer_protocol=NetworkConnection.TCP,
+    )
+
+def _create_network_connection_for_http_call(
+    http_call: Dict[str, Any], destination_ip: str, destination_port: int, nh: NetworkHTTP, ontres: OntologyResults
+) -> NetworkConnection:
+    """
+    This method creates a NetworkConnection
+    :param http_call: The parsed HTTP call data
+    :param destination_ip: The destination IP reached out to
+    :param destination_port: The destination port accessed
+    :param nh: The NetworkHTTP object
+    :param ontres: The Ontology Results class object
+    :return: The new NetworkConnection object
+    """
+    if len(ontres.sandboxes) == 0:
+        return
+    session = ontres.sandboxes[-1].objectid.session
+    source_ip = http_call.get("src")
+    source_port = http_call.get("sport")
+    nc_oid = NetworkConnectionModel.get_oid(
+        {
+            "source_ip": source_ip,
+            "source_port": source_port,
+            "destination_ip": destination_ip,
+            "destination_port": destination_port,
+            "transport_layer_protocol": NetworkConnection.TCP,
+            "connection_type": NetworkConnection.HTTP,
+            "http_details.request_uri": http_call.get("request_uri"),
+        }
+    )
+    objectid = ontres.create_objectid(
+        tag=NetworkConnectionModel.get_tag(
+            {
+                "destination_ip": destination_ip,
+                "destination_port": destination_port,
+            }
+        ),
+        ontology_id=nc_oid,
+        session=session,
+    )
+    nc = ontres.create_network_connection(
+        objectid=objectid,
+        destination_ip=destination_ip,
+        destination_port=destination_port,
+        transport_layer_protocol=NetworkConnection.TCP,
+        direction=NetworkConnection.OUTBOUND,
+        source_ip=source_ip,
+        source_port=source_port,
+        http_details=nh,
+        connection_type=NetworkConnection.HTTP,
+    )
+    ontres.add_network_connection(nc)
+    return nc
 
 def _process_non_http_traffic_over_http(network_res: ResultSection, unique_netflows: List[Dict[str, Any]]) -> None:
     """
@@ -3040,67 +3582,275 @@ def _process_non_http_traffic_over_http(network_res: ResultSection, unique_netfl
         [non_http_traffic_result_section.add_row(TableRow(**non_http)) for non_http in non_http_list]
         network_res.add_subsection(non_http_traffic_result_section)
 
-
-def _remove_network_http_noise(sigs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _process_unseen_iocs(
+    network_res: ResultSection,
+    process_map: Dict[int, Dict[str, Any]],
+    ontres: OntologyResults,
+    safelist: Dict[str, Dict[str, List[str]]],
+) -> None:
     """
-    This method removes the network_http signature if the network_cnc_http signature has been raised.
-    This is because if the network_cnc_http signature has been raised, it is guaranteed that the network_http signature
-    will also be raised and this signature will only create noise.
-    :param sigs: The JSON of the signatures section from the report generated by CAPE
-    :return: The modified (if applicable) JSON of the signatures section from the report generated by CAPE
-    """
-    if any(sig["name"] == "network_cnc_http" for sig in sigs):
-        return [sig for sig in sigs if sig["name"] != "network_http"]
-    else:
-        return sigs
-
-
-def _update_process_map(process_map: Dict[int, Dict[str, Any]], processes: List[Process]) -> None:
-    """
-    This method updates the process map with the processes added to the Ontology Results
+    This method adds a result section detailing unseen IOCs found in API calls but not network traffic
+    :param network_res: The result section that will contain the result section detailing this traffic, if any
     :param process_map: A map of process IDs to process names, network calls, and decrypted buffers
-    :param processes: A list of processes
+    :param ontres: The Ontology Results class object
+    :param safelist: A dictionary containing matches and regexes for use in safelisting values
     :return: None
     """
-    for process in processes:
-        if process.pid in process_map or process.pid == SYSTEM_PROCESS_ID:
-            continue
+    unseen_iocs_heur = Heuristic(1013)
+    possibly_unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
+    seen_domains = [dns_netflow.domain for dns_netflow in ontres.dns_netflows]
+    seen_ips = [netflow.destination_ip for netflow in ontres.netflows]
+    seen_uris = [http_netflow.request_uri for http_netflow in ontres.http_netflows]
 
-        process_map[process.pid] = {
-            "name": process.image,
-            "network_calls": [],
-            "decrypted_buffers": [],
-        }
+    for _, process_details in process_map.items():
+        for network_call in process_details["network_calls"]:
+            iocs = [ioc for arg_name, ioc in network_call["arguments"].items() if arg_name in ["HostName", "IP", "URL", "Proxy"]]
+            for ioc in iocs:
+                if not _api_ioc_in_network_traffic(ioc, seen_domains + seen_ips + seen_uris):
+                    extract_iocs_from_text_blob(
+                        ioc,
+                        possibly_unseen_iocs_res,
+                        enforce_char_min=True,
+                        safelist=safelist,
+                        is_network_static=True,
+                    )
 
-
-def _remove_bytes_from_buffer(buffer: str) -> str:
-    """
-    This method removes byte characters from a buffer string
-    """
-    non_byte_chars = []
-    for item in buffer.split("\\"):
-        if not item:
-            continue
-        res = sub(BYTE_CHAR, "", item)
-        if res and len(res) >= MIN_DOMAIN_CHARS:
-            if res in ["http/1.1"]:
+    if possibly_unseen_iocs_res.body:
+        possibly_seen_body = json.loads(possibly_unseen_iocs_res.section_body.body)
+        unseen_iocs_res = ResultTableSection(unseen_iocs_heur.name, heuristic=unseen_iocs_heur)
+        for item in possibly_seen_body:
+            # We don't care about uri paths in this scenario
+            if item["ioc_type"] == "uri_path":
                 continue
-            non_byte_chars.append(res)
-    return ",".join(non_byte_chars)
+            if _api_ioc_in_network_traffic(item["ioc"], seen_domains + seen_ips + seen_uris):
+                continue
+            if re_match(FULL_URI, item["ioc"]):
+                ioc = _massage_api_urls(item["ioc"])
+            else:
+                ioc = item["ioc"]
+            unseen_iocs_res.add_row(TableRow({"ioc_type": item["ioc_type"], "ioc": ioc}))
+            _ = add_tag(unseen_iocs_res, "network.dynamic.uri", ioc, safelist)
 
+        if unseen_iocs_res.body:
+            network_res.add_subsection(unseen_iocs_res)
 
-def convert_processtree_id_to_tree_id(processtree_id: str) -> str:
-    possible_sha256 = ""
-    for proc in processtree_id.split("|"):
-        value_to_create_hash_from = (possible_sha256 + proc).encode()
-        tree_id = sha256(value_to_create_hash_from).hexdigest()
-        possible_sha256 = tree_id
+def _api_ioc_in_network_traffic(ioc: str, ioc_list: List[str]) -> bool:
+    """
+    This method checks if an IOC found in an API call is seen in network traffic
+    :param ioc: The IOC found in an API call to check for
+    :param ioc_list: The list of IOCs found in the network traffic
+    :return: A boolean indicating that the API call IOC was present in
+    the network traffic
+    """
+    if ioc in ioc_list:
+        return True
 
-    return tree_id
+    if re_match(FULL_URI, ioc):
+        altered_ioc = _massage_api_urls(ioc)
+        if altered_ioc in ioc_list:
+            return True
 
+    for seen_ioc in ioc_list:
+        if re_match(FULL_URI, ioc) and re_match(FULL_URI, seen_ioc):
+            if _handle_similar_netloc_and_path(ioc, seen_ioc):
+                return True
+            if _uris_are_equal_despite_discrepancies(ioc, seen_ioc):
+                return True
 
-if __name__ == "__main__":
-    from sys import argv
+    return False
+
+def _massage_api_urls(api_url: str) -> str:
+    """
+    This method massages a URL found in an API call
+    :param api_url: A URL found in an API call
+    :return: A potentially massaged URL found in an
+    """
+    altered_api_url: Optional[str] = None
+    # API call data requires some massaging. For instance, unnecessary ports in URIs
+    if api_url.startswith("http://") and ":80" in api_url:
+        altered_api_url = api_url.replace(":80", "")
+    elif api_url.startswith("https://") and ":443" in api_url:
+        altered_api_url = api_url.replace(":443", "")
+
+    if altered_api_url:
+        return altered_api_url
+    return api_url
+
+def same_dictionaries(d1, d2):
+    if not isinstance(d1, dict) or not isinstance(d2, dict):
+        if isinstance(d1, List) and isinstance(d2, List):
+            if len(d1) == 0 and len(d2) == 0:
+                 return True
+            elif len(d1) != len(d2):
+                return False
+            for index in range(0, len(d1)):
+                if d1[index] not in d2 and not (isinstance(d1[index], dict) and isinstance(d2[index], dict)):
+                    return False
+                elif isinstance(d1[index], dict) and isinstance(d2[index], dict):
+                    return any([same_dictionaries(d1[index], d2[i]) for i in range(0, len(d1))])
+            return d1.__hash__ == d2.__hash__
+        elif d1 == d2:
+            return True
+        else:
+            return False
+    if len(d1) != len(d2):
+        return False
+    for key in d1:
+        if key not in d2 or not same_dictionaries(d1[key], d2[key]):
+            return False
+    return True
+
+class Sandbox_Validator(Validator):
+    def _check_with_is_time_format_valid(self, field, value):
+        valid_format = False
+        try:
+            if isinstance(value, str):
+                if value == "-":
+                    valid_format = True
+                else:
+                    strptime(value, LOCAL_FMT_WITH_MS)
+                    valid_format = True
+        except Exception as e:
+            pass
+        if not valid_format:
+            self._error(field, "The time format is invalid")
+
+def validate_sandbox_event(event_dict, type):
+    if not isinstance(event_dict, Dict):
+        return False
+    needed_normalization = False
+    process_schema = {
+            "image": {"type": 'string', "required": True}, 
+            "start_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+            "end_time": {"type": 'string', "nullable": True, "check_with": "is_time_format_valid"},
+            "pid": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "ppid": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "command_line": {"type": 'string', "nullable": True, "maxlength": 1024},
+            "safelisted": {"type": 'boolean', "required": True},
+            "integrity_level": {"type": "string", "nullable": True, "allowed": ["low", "medium", "high", "system", "appcontainer"]},
+            "image_hash": {"type": "string", "nullable": True, "regex": r'^[A-Fa-f0-9]{64}$'},
+            "original_file_name": {"type": "string", "nullable": True},
+            "file_count": {"type": "integer", 'coerce': int, "min": 0},
+            "registry_count": {"type": "integer", 'coerce': int, "min":0},
+    }
+    attack_schema = {
+        "attack_id" : {"type": "string", "required": True},
+        "pattern": {"type": "string", "required": True},
+        "categories": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": {"type": "string"}}
+    }
+    signature_schema = {
+            "name": {"type": 'string', "required": True, "maxlength": 256},
+            "type": {"type": 'string', "required": True, "allowed": ["CUCKOO", "CAPE"]},
+            "classification": {"type": "string", "required": True},
+            "attacks": {"type": "list", "required": True, "empty": True, "schema": {"type": "dict", "schema": attack_schema}},
+            "actors": {"type": "list", "required": True, "empty": True, "schema": {"type": "string"}},
+            "malware_families": {"type": "list", "required": True, "empty": True, "schema": {"type": "string"}},
+            "data": {"type": "list", "required": True, "empty": True, "schema": {"type": "dict", "empty": False}},
+            "score": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "pid": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX}},
+            "description": {"type": "string", "required": True, "empty": True, "maxlength": 256}
+    }
+    DOMAIN_REGEX, IP_REGEX
+    dns_connection_schema = {
+        "domain": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX]},
+        "resolved_ips": {"type": "list", "nullable": True, "empty": True, "schema": {}},
+        "resolved_domains": {"type": "list", "nullable": True, "empty": True, "schema": {}},
+        "lookup_type": {"type": "string", "required": True, "allowed": list(DNS_TYPE.values())},
+
+    }
+    http_connection_schema = {
+        "request_uri": {"type": "string", "required": True, "regex": FULL_URI},
+        "request_method": {"type": "string", "required": True},
+        "request_headers": {"type": "dict", "nullable": True, "empty": True, "schema": {"type": "string"}},
+        "response_headers": {"type": "dict", "nullable": True, "empty": True, "schema": {"type": "string"}},
+        "request_body": {"type": "string", "nullable": True, "empty": True},
+        "response_status_code": {"type": "integer", "nullable": True, 'coerce': int, "min": 0},
+        "response_body": {"type": "string", "nullable": True, "empty": True},
+        "request_body_path": {"type": "string", "regex": URI_PATH},
+        "response_body_path": {"type": "string", "regex": URI_PATH},
+        "response_content_fileinfo": {"type": "dict",  "nullable": True, "empty": True, "schema": {"type": "dict"}},
+        "response_content_mimetype": {"type": "string", "nullable": True, "empty": True}
+    }
+    smtp_connection_schema = {
+        "type": "dict"
+    }
+    network_connection_schema = {
+            "destination_ip": {"type": "string", "required": True, "regex": IP_REGEX},
+            "destination_port": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": MAX_PORT_NUMBER},
+            "transport_layer_protocol": {"type": "string", "required": True, "allowed": [NetworkConnection.TCP, NetworkConnection.UDP]},
+            "direction": {"type": "string", "required": True, "allowed": [NetworkConnection.OUTBOUND, NetworkConnection.INBOUND, NetworkConnection.UNKNOWN]},
+            "process": {"type": "integer", "nullable": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+            "source_ip": {"type": "string", "nullable": True, "empty": True, "regex": IP_REGEX},
+            "source_port": {"type": "integer", "nullable": True, "empty": True, 'coerce': int, "min": 0, "max": MAX_PORT_NUMBER},
+            "http_details": {"type": "dict", "nullable": True, "empty": True, "schema": http_connection_schema},
+            "dns_details": {"type": "dict", "nullable": True, "empty": True, "schema": dns_connection_schema},
+            "smtp_details": {"type": "dict", "nullable": True, "empty": True, "schema": smtp_connection_schema},
+            "connection_type": {"type": "string", "required": True, "allowed": [NetworkConnection.HTTP, NetworkConnection.DNS]},
+            "time_observed": {"type": 'string', "nullable": True, "empty": True, "check_with": "is_time_format_valid"},
+    }
+    machine_metadata_schema = {
+        "ip": {"type": "string", "required": True, "regex": IP_REGEX},
+        "hypervisor": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "hostname": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX]},
+        "platform": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "version": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256},
+        "architecture": {"type": "string", "required": True, "empty": True, "nullable": True, "maxlength": 256}
+    }
+    analysis_metadata_schema = {
+        "start_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+        "task_id": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
+        "end_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
+        "routing": {"type": "string", "required": True, "allowed": ROUTING_LIST},
+        "machine_metadata": {"type": "dict", "nullable": True, "empty": True, "schema": machine_metadata_schema},
+        "window_size": {"type": "string", "nullable": True, "empty": True}
+    }
+    analysis_info_schema = {
+        "analysis_metadata": {"type": "dict", "required": True, "schema": analysis_metadata_schema},
+        "sandbox_name": {"type": "string", "required": True, "allowed": ["CAPE"]},
+        "sandbox_version": {"type": "string", "required": True, "maxlength": 64}
+    }
+    complete_schema = {
+            "signatures": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": { "type": "dict", "schema": signature_schema}},
+            "network_connections": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": { "type": "dict", "schema": network_connection_schema}},
+            "processes": {"type": "list", "required": True, "schema": { "type": "dict", "schema": process_schema}},
+            "analysis_information": {"type": "dict", "required": True, "schema": analysis_info_schema},
+        }
+    used_schema = {}
+    if type == "process":
+        used_schema = process_schema
+        identifier = event_dict.get("pid", -1)
+    elif type == "signature":
+        used_schema = signature_schema
+        identifier = event_dict.get("name", "")
+    elif type == "network_connection":
+        used_schema = network_connection_schema
+        dest = event_dict.get("destination_ip", " ")
+        dest_port = event_dict.get("destination_port", 0)
+        src = event_dict.get("source_ip", " ")
+        src_port = event_dict.get("source_port", 0)
+        identifier = f"{src}:{src_port}-->{dest}:{dest_port}"
+    elif type == "complete":
+        used_schema = complete_schema
+        identifier = "Sandbox_full_schema"
+    else:
+        log.debug(f"Invalid format. Skipping {identifier}")
+        return False
+    v = Sandbox_Validator(used_schema, purge_unknown=True)
+    initial_event_dict = event_dict
+    event_dict = v.normalized(event_dict, always_return_document = True)
+    if not same_dictionaries(initial_event_dict, event_dict):
+        needed_normalization = True
+    return_value = v.validate(event_dict)
+    if not return_value:
+        log.debug(f"Invalid data format for event : {identifier} --> {v.errors}")
+        return False
+    else:
+        if needed_normalization:
+            return event_dict
+        else:
+            return True
+
+def main(argv):
 
     # pip install PyYAML
     import yaml
@@ -3109,7 +3859,7 @@ if __name__ == "__main__":
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
     from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-
+    log.setLevel(DEBUG)
     report_path = argv[1]
     file_ext = argv[2]
     random_ip_range = argv[3]
@@ -3149,7 +3899,7 @@ if __name__ == "__main__":
         ]
     )
 
-    cape_artifact_pids, main_process_tuples = generate_al_result(
+    cape_artifact_pids, main_process_tuples, process_events = generate_al_result(
         api_report,
         al_result,
         file_ext,
@@ -3169,6 +3919,8 @@ if __name__ == "__main__":
     ontres.preprocess_ontology(custom_tree_id_safelist)
     # Print the ontres
     print(json.dumps(ontres.as_primitives(), indent=4))
+    with open("result_ontology.json", "w") as output:
+        json.dump(ontres.as_primitives(), output, indent=4)
     attach_dynamic_ontology(service, ontres)
 
     # Convert Result object to dict
@@ -3201,3 +3953,12 @@ if __name__ == "__main__":
 
     # Print the result
     print(json.dumps(output, indent=4))
+    with open("result.json", "w") as result:
+        json.dump(output, result, indent=4)
+    
+    with open("Section.json", "w") as f:
+        json.dump(process_events ,f)
+
+if __name__ == "__main__":
+    from sys import argv
+    main(argv)

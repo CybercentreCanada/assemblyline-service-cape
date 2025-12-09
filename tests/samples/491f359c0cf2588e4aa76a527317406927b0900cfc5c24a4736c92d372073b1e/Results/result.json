@@ -1,0 +1,419 @@
+{
+    "result": {
+        "score": 140,
+        "sections": [
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 0,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Parent",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"CAPE Task ID\": 279601, \"Duration\": \"00h 01m 44s\\t(2025-11-21 15:38:32.000 to 2025-11-21 15:40:16.000)\", \"Routing\": \"inetsim\", \"CAPE Version\": \"2.4-CAPE\"}",
+                "classification": "TLP:C",
+                "body_format": "KEY_VALUE",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Analysis Information",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Network Activity",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 1.720794916152954, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49739, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 4.790482997894287, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49741, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 7.877798795700073, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49743, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 10.934748888015747, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49744, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 14.006747007369995, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49745, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 17.07638692855835, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49747, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 20.163736820220947, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49748, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 23.2236909866333, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49749, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 26.29643487930298, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49751, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 29.365921020507812, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49757, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 32.646097898483276, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49758, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 35.70087695121765, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49759, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 38.775797843933105, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49760, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 41.845059871673584, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49761, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 44.91974687576294, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49762, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 48.0070538520813, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49763, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 51.06266498565674, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49764, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 54.1350998878479, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49765, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 57.23705792427063, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49766, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 60.34292387962341, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49767, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 63.415573835372925, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49768, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 66.48673701286316, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49769, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 69.55836701393127, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49770, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 72.63074088096619, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49771, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 75.70484399795532, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49772, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 78.77314591407776, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49773, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 81.87737584114075, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49774, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 84.99079895019531, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49775, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 88.05512881278992, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49779, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 91.1250228881836, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49780, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1004,
+                    "score": 10,
+                    "name": "TCP/UDP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "protocol": [
+                            "tcp"
+                        ],
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        },
+                        "port": [
+                            443,
+                            49739,
+                            49741,
+                            49743,
+                            49744,
+                            49745,
+                            49747,
+                            49748,
+                            49749,
+                            49751,
+                            49757,
+                            49758,
+                            49759,
+                            49760,
+                            49761,
+                            49762,
+                            49763,
+                            49764,
+                            49765,
+                            49766,
+                            49767,
+                            49768,
+                            49769,
+                            49770,
+                            49771,
+                            49772,
+                            49773,
+                            49774,
+                            49775,
+                            49779,
+                            49780
+                        ]
+                    }
+                },
+                "title_text": "TCP/UDP Network Traffic",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 3,
+                "heuristic": {
+                    "heur_id": 1010,
+                    "score": 10,
+                    "name": "TCP Detected",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {},
+                "title_text": "TCP Network Traffic Detected",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": true,
+                "promote_to": null
+            },
+            {
+                "body": "[{\"timestamp\": 1.720794916152954, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49739, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 4.790482997894287, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49741, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 7.877798795700073, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49743, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 10.934748888015747, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49744, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 14.006747007369995, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49745, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 17.07638692855835, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49747, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 20.163736820220947, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49748, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 23.2236909866333, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49749, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 26.29643487930298, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49751, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 29.365921020507812, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49757, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 32.646097898483276, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49758, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 35.70087695121765, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49759, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 38.775797843933105, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49760, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 41.845059871673584, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49761, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 44.91974687576294, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49762, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 48.0070538520813, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49763, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 51.06266498565674, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49764, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 54.1350998878479, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49765, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 57.23705792427063, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49766, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 60.34292387962341, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49767, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 63.415573835372925, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49768, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 66.48673701286316, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49769, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 69.55836701393127, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49770, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 72.63074088096619, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49771, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 75.70484399795532, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49772, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 78.77314591407776, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49773, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 81.87737584114075, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49774, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 84.99079895019531, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49775, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 88.05512881278992, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49779, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 91.1250228881836, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.74\", \"src_port\": 49780, \"domain\": null, \"dest_ip\": \"74.178.240.61\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "classification": "TLP:C",
+                "body_format": "TABLE",
+                "body_config": {
+                    "column_order": [
+                        "timestamp",
+                        "protocol",
+                        "src_ip",
+                        "src_port",
+                        "domain",
+                        "dest_ip",
+                        "dest_port",
+                        "image",
+                        "pid",
+                        "guid"
+                    ]
+                },
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 1005,
+                    "score": 10,
+                    "name": "Non-HTTP Traffic over HTTP ports",
+                    "attack": [],
+                    "signature": []
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        },
+                        "port": [
+                            443
+                        ]
+                    }
+                },
+                "title_text": "Non-HTTP Traffic Over HTTP Ports",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": null,
+                "classification": "TLP:C",
+                "body_format": "TEXT",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Signatures",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Network activity detected but not expressed in monitor API logs\", {}], [\"KEY_VALUE\", {\"ip\": \"74.178.240.61\"}, {}], [\"KEY_VALUE\", {\"domain\": \"online_nat.online_nat\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 52,
+                    "score": 10,
+                    "name": "Stealth",
+                    "attack": [
+                        {
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
+                            "categories": [
+                                "defense-evasion"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "stealth_network",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "network": {
+                        "dynamic": {
+                            "ip": [
+                                "74.178.240.61"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: stealth_network",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Queries the computer locale (possible geofencing)\", {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 9999,
+                    "score": 10,
+                    "name": "Unknown",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "queries_locale_api",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {},
+                "title_text": "Signature: queries_locale_api",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Checks system language via registry key (possible geofencing)\", {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\CustomLocale\\\\en-US\"}, {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\ControlSet001\\\\Control\\\\Nls\\\\ExtendedLocale\\\\en-US\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 9999,
+                    "score": 10,
+                    "name": "Unknown",
+                    "attack": [],
+                    "signature": [
+                        {
+                            "name": "language_check_registry",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "registry_key": [
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\CustomLocale\\en-US",
+                            "HKEY_LOCAL_MACHINE\\SYSTEM\\ControlSet001\\Control\\Nls\\ExtendedLocale\\en-US"
+                        ]
+                    }
+                },
+                "title_text": "Signature: language_check_registry",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Uses Windows utilities for basic functionality\", {}], [\"KEY_VALUE\", {\"command\": \"C:\\\\WINDOWS\\\\system32\\\\cmd.exe /c echo hai\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 16,
+                    "score": 30,
+                    "name": "Command",
+                    "attack": [
+                        {
+                            "attack_id": "T1059",
+                            "pattern": "Command and Scripting Interpreter",
+                            "categories": [
+                                "execution"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "uses_windows_utilities",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "process": {
+                            "command_line": [
+                                "C:\\WINDOWS\\system32\\cmd.exe /c echo hai"
+                            ]
+                        }
+                    }
+                },
+                "title_text": "Signature: uses_windows_utilities",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "[[\"TEXT\", \"Installs itself for autorun at Windows startup\", {}], [\"KEY_VALUE\", {\"regkey\": \"HKEY_CURRENT_USER\\\\SOFTWARE\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run\\\\TestApiHooks\"}, {}], [\"KEY_VALUE\", {\"data\": \"Hoi\"}, {}]]",
+                "classification": "TLP:C",
+                "body_format": "MULTI",
+                "body_config": {},
+                "depth": 2,
+                "heuristic": {
+                    "heur_id": 44,
+                    "score": 50,
+                    "name": "Persistence",
+                    "attack": [
+                        {
+                            "attack_id": "T1546.010",
+                            "pattern": "AppInit DLLs",
+                            "categories": [
+                                "privilege-escalation",
+                                "persistence"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1547.001",
+                            "pattern": "Registry Run Keys / Startup Folder",
+                            "categories": [
+                                "persistence",
+                                "privilege-escalation"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1098",
+                            "pattern": "Account Manipulation",
+                            "categories": [
+                                "persistence",
+                                "privilege-escalation"
+                            ]
+                        }
+                    ],
+                    "signature": [
+                        {
+                            "name": "persistence_autorun",
+                            "frequency": 1,
+                            "safe": false
+                        }
+                    ]
+                },
+                "tags": {
+                    "dynamic": {
+                        "registry_key": [
+                            "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\TestApiHooks"
+                        ]
+                    }
+                },
+                "title_text": "Signature: persistence_autorun",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            },
+            {
+                "body": "{\"analysis_information\": {\"sandbox_name\": \"CAPE\", \"sandbox_version\": \"2.4-CAPE\", \"analysis_metadata\": {\"task_id\": 279601, \"start_time\": \"2025-11-21 15:38:32.000\", \"end_time\": \"2025-11-21 15:40:16.000\", \"routing\": \"inetsim\", \"window_size\": null, \"machine_metadata\": null}}, \"processes\": [{\"image\": \"C:\\\\Windows\\\\System32\\\\slui.exe\", \"start_time\": \"2025-11-21 15:39:44.648\", \"ppid\": 836, \"pid\": 2096, \"command_line\": \"C:\\\\WINDOWS\\\\System32\\\\slui.exe -Embedding\", \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"25E7624D469A592934AB8C509D12C153C2799E604C2A4B8A83650A7268577DFF\", \"original_file_name\": \"slui.exe\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\wbem\\\\WmiPrvSE.exe\", \"start_time\": \"2025-11-21 15:39:03.736\", \"ppid\": 836, \"pid\": 6508, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"system\", \"image_hash\": \"2198A7B58BCCB758036B969DDAE6CC2ECE07565E2659A7C541A313A0492231A3\", \"original_file_name\": \"Wmiprvse.exe\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 15:38:58.306\", \"ppid\": 1584, \"pid\": 4856, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 15:38:57.999\", \"ppid\": 7044, \"pid\": 4532, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 15:38:57.840\", \"ppid\": 2340, \"pid\": 5164, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 15:38:57.724\", \"ppid\": 2980, \"pid\": 4368, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\System32\\\\conhost.exe\", \"start_time\": \"2025-11-21 15:38:57.526\", \"ppid\": 2976, \"pid\": 1324, \"command_line\": null, \"end_time\": \"9999-12-31 23:59:59.999999\", \"integrity_level\": \"high\", \"image_hash\": \"57B0CCD3AEBC6C7126E7C19F5DAC492DF51D904A505C5F5B0CB02270D53F8684\", \"original_file_name\": \"CONHOST.EXE\", \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\apihooks.exe\", \"start_time\": \"2025-11-21 15:38:57.106\", \"ppid\": 5740, \"pid\": 4228, \"command_line\": \"\\\"C:\\\\Users\\\\buddy\\\\AppData\\\\Local\\\\Temp\\\\apihooks.exe\\\" \", \"end_time\": \"2025-11-21 15:38:58.325\", \"integrity_level\": null, \"image_hash\": null, \"original_file_name\": null, \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}, {\"image\": \"C:\\\\Windows\\\\SysWOW64\\\\cmd.exe\", \"start_time\": \"2025-11-21 15:38:57.715\", \"ppid\": 4228, \"pid\": 1248, \"command_line\": \"C:\\\\WINDOWS\\\\system32\\\\cmd.exe /c echo hai\", \"end_time\": \"2025-11-21 15:38:58.059\", \"integrity_level\": null, \"image_hash\": null, \"original_file_name\": null, \"safelisted\": false, \"file_count\": 0, \"registry_count\": 0}], \"network_connections\": [{\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 15:38:58.401\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"1.128.254.169.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 15:39:00.319\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"61.240.178.74.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}, {\"destination_ip\": \"169.254.128.1\", \"destination_port\": 53, \"transport_layer_protocol\": null, \"direction\": \"outbound\", \"process\": null, \"source_ip\": null, \"source_port\": null, \"time_observed\": \"2025-11-21 15:39:07.350\", \"connection_type\": \"dns\", \"dns_details\": {\"domain\": \"255.143.254.169.in-addr.arpa\", \"lookup_type\": \"PTR\", \"resolved_ips\": [\"\"], \"resolved_domains\": []}}], \"signatures\": [{\"name\": \"stealth_network\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [{\"attack_id\": \"T1036\", \"pattern\": \"Masquerading\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1564.001\", \"pattern\": \"Hidden Files and Directories\", \"categories\": [\"defense-evasion\"]}, {\"attack_id\": \"T1070\", \"pattern\": \"Indicator Removal\", \"categories\": [\"defense-evasion\"]}], \"actors\": [], \"malware_families\": [], \"description\": \"Network activity detected but not expressed in monitor API logs\", \"pid\": [], \"score\": 10}, {\"name\": \"queries_locale_api\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [], \"actors\": [], \"malware_families\": [], \"description\": \"Queries the computer locale (possible geofencing)\", \"pid\": [1248], \"score\": 10}, {\"name\": \"language_check_registry\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [], \"actors\": [], \"malware_families\": [], \"description\": \"Checks system language via registry key (possible geofencing)\", \"pid\": [], \"score\": 10}, {\"name\": \"uses_windows_utilities\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [{\"attack_id\": \"T1059\", \"pattern\": \"Command and Scripting Interpreter\", \"categories\": [\"execution\"]}], \"actors\": [], \"malware_families\": [], \"description\": \"Uses Windows utilities for basic functionality\", \"pid\": [], \"score\": 30}, {\"name\": \"persistence_autorun\", \"type\": \"CUCKOO\", \"classification\": \"TLP:C\", \"attacks\": [{\"attack_id\": \"T1547.001\", \"pattern\": \"Registry Run Keys / Startup Folder\", \"categories\": [\"persistence\", \"privilege-escalation\"]}, {\"attack_id\": \"T1546.010\", \"pattern\": \"AppInit DLLs\", \"categories\": [\"privilege-escalation\", \"persistence\"]}, {\"attack_id\": \"T1098\", \"pattern\": \"Account Manipulation\", \"categories\": [\"persistence\", \"privilege-escalation\"]}], \"actors\": [], \"malware_families\": [], \"description\": \"Installs itself for autorun at Windows startup\", \"pid\": [4228], \"score\": 50}]}",
+                "classification": "TLP:C",
+                "body_format": "SANDBOX",
+                "body_config": {},
+                "depth": 1,
+                "heuristic": null,
+                "tags": {},
+                "title_text": "Processes",
+                "zeroize_on_tag_safe": false,
+                "auto_collapse": false,
+                "promote_to": null
+            }
+        ]
+    }
+}
