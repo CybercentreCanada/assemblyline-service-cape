@@ -778,7 +778,7 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
-    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, signature_map)
+    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, signature_map)
 
     #Process all the info from auxiliaries
         # Powershell logger
@@ -817,6 +817,7 @@ def load_ontology_and_result_section(
     safelist:  Dict[str, Dict[str, List[str]]],
     processtree_id_safelist: List[str],
     routing: str,
+    inetsim_dns_servers: List[str],
     signature_map: Dict[str, Dict[str, Any]] = {},
     ):
     if len(ontres.sandboxes) == 0:

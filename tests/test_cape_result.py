@@ -673,6 +673,7 @@ class TestCapeResult:
                 submission_params["safelist"],
                 submission_params["custom_tree_id_safelist"],
                 submission_params["routing"],
+                submission_params["inetsim_dns_servers"],
             )
             sandbox_section = sample["Sandbox"]
             assert same_dictionaries(process_events, sandbox_section), f"{identifier} sandbox section is different"
