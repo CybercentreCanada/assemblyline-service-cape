@@ -672,6 +672,7 @@ class TestCapeResult:
                 signatures,
                 submission_params["safelist"],
                 submission_params["custom_tree_id_safelist"],
+                submission_params["routing"],
             )
             sandbox_section = sample["Sandbox"]
             assert same_dictionaries(process_events, sandbox_section), f"{identifier} sandbox section is different"
