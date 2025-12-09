@@ -2021,7 +2021,7 @@ class TestCapeMain:
         mocker.patch("builtins.open")
         mocker.patch("cape.cape.loads", return_value=report_json)
         mocker.patch.object(CAPE, "report_machine_info")
-        mocker.patch("cape.cape.generate_al_result", return_value=({}, []))
+        mocker.patch("cape.cape.generate_al_result", return_value=({}, [], {}))
         mocker.patch.object(CAPE, "delete_task")
 
         host_to_use = {"auth_header": "blah", "ip": "blah", "port": "blah"}
