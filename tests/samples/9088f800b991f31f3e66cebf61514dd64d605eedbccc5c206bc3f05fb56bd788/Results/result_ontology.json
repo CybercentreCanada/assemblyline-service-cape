@@ -9,7 +9,7 @@
                 "treeid": null,
                 "processtree": null,
                 "time_observed": null,
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "analysis_metadata": {
                 "start_time": "2025-11-21 15:39:20.000",
@@ -39,7 +39,7 @@
                 "treeid": null,
                 "processtree": null,
                 "time_observed": null,
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "name": "queries_locale_api",
             "type": "CUCKOO",
@@ -50,11 +50,11 @@
                         "tag": "?sys32\\cmd.exe",
                         "ontology_id": "process_3UqtmNQT1BE7VCp0WXfNaf",
                         "service_name": "CAPE",
-                        "guid": "{62EB6744-2570-4CD7-9BED-A261D56BA36D}",
+                        "guid": "{D85A460D-63A6-4219-AE94-0683EE50AE2B}",
                         "treeid": "e06680d3d7446cbc2376169f92bb35c0a015647a67a81df278006c4b5f989050",
                         "processtree": "?sys32\\cmd.exe",
                         "time_observed": "2025-11-21 15:39:47.106",
-                        "session": "yNodFmNjajkWNMZTuQrjb"
+                        "session": "2LlUHtdNn4mny0fDAdZjMt"
                     },
                     "target": null,
                     "action": null,
@@ -76,11 +76,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_6vlOYBf1vKrwCgeD9WIlpw",
                 "service_name": "CAPE",
-                "guid": "{8268A399-6C71-491C-A8F2-3692C2137AAF}",
+                "guid": "{79AEBA3C-ABB4-4A8A-AA57-249DF1677B2F}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 15:39:44.453",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -105,11 +105,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_3PBCxmfTgloIv27TcQT7yh",
                 "service_name": "CAPE",
-                "guid": "{A961AE71-01E4-4915-908E-987F44F3F004}",
+                "guid": "{3901420F-CC5C-4815-BE00-ACB15E064F6A}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 15:39:59.376",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -134,11 +134,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_2tOxrGAfkBAsu89okIOAb9",
                 "service_name": "CAPE",
-                "guid": "{F49857A4-C1A5-48F7-9B8A-DCEBB5D5999A}",
+                "guid": "{3F2506BE-5C70-479E-8A85-7B53851672C7}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 15:39:47.369",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -163,11 +163,11 @@
                 "tag": "20.165.94.63:443",
                 "ontology_id": "network_http_23IGXCjguGeyByxykyYCRJ",
                 "service_name": "CAPE",
-                "guid": "{519B5522-1BF9-4AEB-997A-F2256E4B37D0}",
+                "guid": "{DABE611D-F975-4DA9-A98A-1A22E0006830}",
                 "treeid": "428ec806619ebb6021ff69afd270d79d10a2378f7d7330acfa2eed4185bcb0ee",
                 "processtree": "20.165.94.63:443",
                 "time_observed": "1970-01-01 00:00:02.395",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "destination_ip": "20.165.94.63",
             "destination_port": 443,
@@ -218,7 +218,7 @@
                 "treeid": "bbf11632b848f867cee2750930f9c494e5ff7ee7b565cbf2797546be4f44ade0",
                 "processtree": "?sys32\\bitsadmin.exe",
                 "time_observed": "2025-11-21 15:39:48.239",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\SysWOW64\\bitsadmin.exe",
             "start_time": "2025-11-21 15:39:48.239",
@@ -249,7 +249,7 @@
                 "treeid": "e06680d3d7446cbc2376169f92bb35c0a015647a67a81df278006c4b5f989050",
                 "processtree": "?sys32\\cmd.exe",
                 "time_observed": "2025-11-21 15:39:47.503",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\SysWOW64\\cmd.exe",
             "start_time": "2025-11-21 15:39:47.503",
@@ -285,7 +285,7 @@
                 "treeid": "aa558eeb9b669ba91d5391a702e2bb7574543d95cc66c8f2f411f8ee718274c4",
                 "processtree": "?c\\65n4hwlw\\bin\\pplinject64.exe",
                 "time_observed": "2025-11-21 15:39:57.899",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\65n4hwlw\\bin\\PPLinject64.exe",
             "start_time": "2025-11-21 15:39:57.899",
@@ -311,7 +311,7 @@
                 "treeid": "50cd8c98d6943bbee0f5f21db2f24408508fee595cb53456e9cbe2aa6dde7d9e",
                 "processtree": "?c\\65n4hwlw\\bin\\pplinject64.exe|?sys32\\services.exe",
                 "time_observed": "2025-11-21 15:39:58.182",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\System32\\services.exe",
             "start_time": "2025-11-21 15:39:58.182",
@@ -323,7 +323,7 @@
                 "treeid": "aa558eeb9b669ba91d5391a702e2bb7574543d95cc66c8f2f411f8ee718274c4",
                 "processtree": "?c\\65n4hwlw\\bin\\pplinject64.exe",
                 "time_observed": "2025-11-21 15:39:57.899",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "pimage": "C:\\65n4hwlw\\bin\\PPLinject64.exe",
             "pcommand_line": "PPLinject64.exe 600 C:\\65n4hwlw\\dll\\ASuChc.dll",
@@ -346,7 +346,7 @@
                 "treeid": "ae437964dfbc86ce1391ee7b4cd42a43208df58e44860095199cb1fde6da5b8c",
                 "processtree": "?c\\65n4hwlw\\bin\\pplinject64.exe|?sys32\\conhost.exe",
                 "time_observed": "2025-11-21 15:39:57.914",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\System32\\conhost.exe",
             "start_time": "2025-11-21 15:39:57.914",
@@ -358,7 +358,7 @@
                 "treeid": "aa558eeb9b669ba91d5391a702e2bb7574543d95cc66c8f2f411f8ee718274c4",
                 "processtree": "?c\\65n4hwlw\\bin\\pplinject64.exe",
                 "time_observed": "2025-11-21 15:39:57.899",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "pimage": "C:\\65n4hwlw\\bin\\PPLinject64.exe",
             "pcommand_line": "PPLinject64.exe 600 C:\\65n4hwlw\\dll\\ASuChc.dll",
@@ -381,7 +381,7 @@
                 "treeid": "cb97843cdc4f965a5b30b2cdaf7db26ce72b8d417398d2519ac888f4f05e7a28",
                 "processtree": "?sys32\\waasmedicagent.exe|?sys32\\conhost.exe",
                 "time_observed": "2025-11-21 15:39:44.691",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\System32\\conhost.exe",
             "start_time": "2025-11-21 15:39:44.691",
@@ -393,7 +393,7 @@
                 "treeid": "25a026bdd54385f3aaefb8e1723f5be97b7c36e255b2c48f7f7f8a66d9df7eb8",
                 "processtree": "?sys32\\waasmedicagent.exe",
                 "time_observed": "2025-11-21 15:39:44.663",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "pimage": "C:\\Windows\\System32\\WaaSMedicAgent.exe",
             "pcommand_line": "C:\\WINDOWS\\System32\\WaaSMedicAgent.exe 19c37640f8314b761bc4f6c794eb9692 p3RdrwwvPE+RsVBmn96rEg.0.1.0.0.0",
@@ -412,11 +412,11 @@
                 "tag": "?sys32\\cmd.exe",
                 "ontology_id": "process_3UqtmNQT1BE7VCp0WXfNaf",
                 "service_name": "CAPE",
-                "guid": "{62EB6744-2570-4CD7-9BED-A261D56BA36D}",
+                "guid": "{D85A460D-63A6-4219-AE94-0683EE50AE2B}",
                 "treeid": "e06680d3d7446cbc2376169f92bb35c0a015647a67a81df278006c4b5f989050",
                 "processtree": "?sys32\\cmd.exe",
                 "time_observed": "2025-11-21 15:39:47.106",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\SysWOW64\\cmd.exe",
             "start_time": "2025-11-21 15:39:47.106",
@@ -445,11 +445,11 @@
                 "tag": "?sys32\\services.exe",
                 "ontology_id": "process_qtNcmCJfSX95JSvdLA6B6",
                 "service_name": "CAPE",
-                "guid": "{65170DD6-9E1D-4AB0-B539-F043C756E4D0}",
+                "guid": "{20C175A8-F2DD-4532-AC5D-E1B1AEFC57A8}",
                 "treeid": "a364a5fcf64b5d9e29ba27262a73ccfbb88725651716677862622411c7d3d2f3",
                 "processtree": "?sys32\\services.exe",
                 "time_observed": "2025-11-21 15:39:58.246",
-                "session": "yNodFmNjajkWNMZTuQrjb"
+                "session": "2LlUHtdNn4mny0fDAdZjMt"
             },
             "image": "C:\\Windows\\System32\\services.exe",
             "start_time": "2025-11-21 15:39:58.246",
