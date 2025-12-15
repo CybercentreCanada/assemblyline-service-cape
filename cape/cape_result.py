@@ -846,83 +846,84 @@ def load_ontology_and_result_section(
     pids_of_interest = process_map.keys()
     sysmon_enrichment = {}
     processes_still_to_create = list(pids_of_interest)
-    for process_id, process_details in parsed_sysmon.items():
-        created_process = False
-        for event in process_details:
-            if event["event_id"] == 1:
-                if ontres.is_guid_in_gpm(event["guid"]):
-                    ontres.update_process(**event)
-                else:
-                    if event["pid"] in pids_of_interest:
-                        services = []
-                        for service_event in process_map[event["pid"]]["services_events"]:
-                            if service_event["arguments"]["Service"] not in services:
-                                services.append(service_event["arguments"]["Service"])
-                        modules = []
-                        for module_event in process_map[event["pid"]]["loaded_modules"]:
-                            if module_event["object"] == "DLL":
-                                if module_event["arguments"]["DLLName"] not in modules:
-                                    modules.append(module_event["arguments"]["DLLName"])
-                            elif module_event["object"] == "Function":
-                                if module_event["arguments"].get("FunctionName", None) and module_event["arguments"]["FunctionName"] not in modules:
-                                    modules.append(module_event["arguments"]["FunctionName"])
-                        if len(services) > 0:
-                            event["services_involved"] = services
-                        if len(modules) > 0:
-                            event["loaded_modules"] = modules
-                    p_oid = ProcessModel.get_oid(
-                        {
-                            "pid": event["pid"],
-                            "ppid": event.get("ppid"),
-                            "image": event["image"],
-                            "command_line": event.get("command_line"),
-                        }
-                    )
-                    safelisted = event["safelisted"]
-                    event.pop("safelisted", None)
-                    event.pop("event_id", None)
-                    p = ontres.create_process(
-                            objectid=ontres.create_objectid(
-                                tag=Process.create_objectid_tag(event["image"]),
-                                ontology_id=p_oid,
-                                guid=event.get("guid"),
-                                session=session,
-                                ),
-                            **event,
+    if parsed_sysmon is not None:
+        for process_id, process_details in parsed_sysmon.items():
+            created_process = False
+            for event in process_details:
+                if event["event_id"] == 1:
+                    if ontres.is_guid_in_gpm(event["guid"]):
+                        ontres.update_process(**event)
+                    else:
+                        if event["pid"] in pids_of_interest:
+                            services = []
+                            for service_event in process_map[event["pid"]]["services_events"]:
+                                if service_event["arguments"]["Service"] not in services:
+                                    services.append(service_event["arguments"]["Service"])
+                            modules = []
+                            for module_event in process_map[event["pid"]]["loaded_modules"]:
+                                if module_event["object"] == "DLL":
+                                    if module_event["arguments"]["DLLName"] not in modules:
+                                        modules.append(module_event["arguments"]["DLLName"])
+                                elif module_event["object"] == "Function":
+                                    if module_event["arguments"].get("FunctionName", None) and module_event["arguments"]["FunctionName"] not in modules:
+                                        modules.append(module_event["arguments"]["FunctionName"])
+                            if len(services) > 0:
+                                event["services_involved"] = services
+                            if len(modules) > 0:
+                                event["loaded_modules"] = modules
+                        p_oid = ProcessModel.get_oid(
+                            {
+                                "pid": event["pid"],
+                                "ppid": event.get("ppid"),
+                                "image": event["image"],
+                                "command_line": event.get("command_line"),
+                            }
                         )
-                    ontres.add_process(p)
-                    created_process = True
-                    process_dict = p.as_primitives()
-                    process_dict["safelisted"] = safelisted
-                    if process_dict["pid"] in sysmon_enrichment.keys():
-                        process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
-                    if event["pid"] in pids_of_interest:
-                        process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
-                        process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
-                    process_dict.pop("objectid")
-                    process_dict.pop("pimage")
-                    process_dict.pop("pcommand_line")
-                    process_dict.pop("pobjectid")
-                    process_dict.pop("loaded_modules")
-                    process_dict.pop("services_involved")
-                    validity = validate_sandbox_event(process_dict, "process")
-                    if validity:
-                        if isinstance(validity,bool):
-                            process_events["processes"].append(process_dict)  
-                        elif isinstance(validity,Dict):
-                            process_events["processes"].append(validity)
-                        else:
-                            log.debug(f"Validator misbehaving for processes {process_dict}") 
-            elif created_process and event["event_id"] == 5:
-                end_time = event.get("end_time", "-")
-                for proc in process_events["processes"]:
-                    if proc["pid"] == event["pid"]:
-                        proc["end_time"] = end_time
-            elif event["event_id"] == 5:
-                sysmon_enrichment[event["pid"]] = event.get("end_time", "-")
+                        safelisted = event["safelisted"]
+                        event.pop("safelisted", None)
+                        event.pop("event_id", None)
+                        p = ontres.create_process(
+                                objectid=ontres.create_objectid(
+                                    tag=Process.create_objectid_tag(event["image"]),
+                                    ontology_id=p_oid,
+                                    guid=event.get("guid"),
+                                    session=session,
+                                    ),
+                                **event,
+                            )
+                        ontres.add_process(p)
+                        created_process = True
+                        process_dict = p.as_primitives()
+                        process_dict["safelisted"] = safelisted
+                        if process_dict["pid"] in sysmon_enrichment.keys():
+                            process_dict["end_time"] = sysmon_enrichment[process_dict["pid"]]
+                        if event["pid"] in pids_of_interest:
+                            process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
+                            process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
+                        process_dict.pop("objectid")
+                        process_dict.pop("pimage")
+                        process_dict.pop("pcommand_line")
+                        process_dict.pop("pobjectid")
+                        process_dict.pop("loaded_modules")
+                        process_dict.pop("services_involved")
+                        validity = validate_sandbox_event(process_dict, "process")
+                        if validity:
+                            if isinstance(validity,bool):
+                                process_events["processes"].append(process_dict)  
+                            elif isinstance(validity,Dict):
+                                process_events["processes"].append(validity)
+                            else:
+                                log.debug(f"Validator misbehaving for processes {process_dict}") 
+                elif created_process and event["event_id"] == 5:
+                    end_time = event.get("end_time", "-")
+                    for proc in process_events["processes"]:
+                        if proc["pid"] == event["pid"]:
+                            proc["end_time"] = end_time
+                elif event["event_id"] == 5:
+                    sysmon_enrichment[event["pid"]] = event.get("end_time", "-")
 
-        if created_process and process_id in pids_of_interest:
-            processes_still_to_create.remove(process_id)
+            if created_process and process_id in pids_of_interest:
+                processes_still_to_create.remove(process_id)
         
     for process_id in processes_still_to_create:
         this_process = {
@@ -1011,112 +1012,113 @@ def load_ontology_and_result_section(
         network_res.add_subsection(dns_res_sec)
 
     #DNS ontology
-    for request, attempts in dns_requests.items():
-        if contains_safelisted_value(request, safelist):
-            continue
-        for attempt in attempts:
-            have_domain_answers = False
-            have_ip_answers = False
-            ip_answers = []
-            domain_answers = []
-            all_answers = []
-            for answer in attempt["answers"]:
-                if answer in ["", " "] or None:
-                    continue
-                all_answers.append(answer["answer"])
-                if is_valid_ip(answer["answer"]) or search(IP_REGEX, answer["answer"]):
-                    have_ip_answers = True
-                    ip_answers.append(answer["answer"])
-                elif is_valid_domain(answer["answer"]):
-                    have_domain_answers = True
-                    domain_answers.append(answer["answer"])
-            if have_ip_answers and have_domain_answers:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=ip_answers, resolved_domains=domain_answers, lookup_type=attempt.get("type")
-                )
-            elif have_domain_answers:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=None, resolved_domains=domain_answers, lookup_type=attempt.get("type")
-                )
-            elif have_ip_answers:
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=ip_answers, resolved_domains=None, lookup_type=attempt.get("type")
-                )
-            else:
-                if len(all_answers) == 0:
-                    all_answers.append("")
-                nd = ontres.create_network_dns(
-                    domain=request, resolved_ips=all_answers, resolved_domains=None, lookup_type=attempt.get("type")
-                )
-            destination_ip = dns_servers[0] if dns_servers else None
-            destination_port = 53
-            transport_layer_protocol = NetworkConnection.UDP
-            nc_oid = NetworkConnectionModel.get_oid(
-                {
-                    "destination_ip": destination_ip,
-                    "destination_port": destination_port,
-                    "transport_layer_protocol": transport_layer_protocol,
-                    "connection_type": NetworkConnection.DNS,
-                    "dns_details": nd.as_primitives(),
-                    "lookup_type": attempt.get("type"),
-                }
-            )
-            objectid = ontres.create_objectid(
-                tag=NetworkConnectionModel.get_tag(
+    if dns_requests is not None:
+        for request, attempts in dns_requests.items():
+            if contains_safelisted_value(request, safelist):
+                continue
+            for attempt in attempts:
+                have_domain_answers = False
+                have_ip_answers = False
+                ip_answers = []
+                domain_answers = []
+                all_answers = []
+                for answer in attempt["answers"]:
+                    if answer in ["", " "] or None:
+                        continue
+                    all_answers.append(answer["answer"])
+                    if is_valid_ip(answer["answer"]) or search(IP_REGEX, answer["answer"]):
+                        have_ip_answers = True
+                        ip_answers.append(answer["answer"])
+                    elif is_valid_domain(answer["answer"]):
+                        have_domain_answers = True
+                        domain_answers.append(answer["answer"])
+                if have_ip_answers and have_domain_answers:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=ip_answers, resolved_domains=domain_answers, lookup_type=attempt.get("type")
+                    )
+                elif have_domain_answers:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=None, resolved_domains=domain_answers, lookup_type=attempt.get("type")
+                    )
+                elif have_ip_answers:
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=ip_answers, resolved_domains=None, lookup_type=attempt.get("type")
+                    )
+                else:
+                    if len(all_answers) == 0:
+                        all_answers.append("")
+                    nd = ontres.create_network_dns(
+                        domain=request, resolved_ips=all_answers, resolved_domains=None, lookup_type=attempt.get("type")
+                    )
+                destination_ip = dns_servers[0] if dns_servers else None
+                destination_port = 53
+                transport_layer_protocol = NetworkConnection.UDP
+                nc_oid = NetworkConnectionModel.get_oid(
                     {
                         "destination_ip": destination_ip,
                         "destination_port": destination_port,
+                        "transport_layer_protocol": transport_layer_protocol,
+                        "connection_type": NetworkConnection.DNS,
+                        "dns_details": nd.as_primitives(),
+                        "lookup_type": attempt.get("type"),
                     }
-                ),
-                ontology_id=nc_oid,
-                session=session,
-                time_observed=attempt["time"],
-            )
-            objectid.assign_guid()
-            try:
-                nc = ontres.create_network_connection(
-                    objectid=objectid,
-                    destination_ip=destination_ip,
-                    destination_port=destination_port,
-                    transport_layer_protocol=transport_layer_protocol,
-                    direction=NetworkConnection.OUTBOUND,
-                    dns_details=nd,
-                    connection_type=NetworkConnection.DNS,
                 )
-            except ValueError as e:
-                log.warning(
-                    f"{e}. The required values passed were:\n"
-                    f"objectid={objectid}\n"
-                    f"destination_ip={destination_ip}\n"
-                    f"destination_port={destination_port}\n"
-                    f"transport_layer_protocol={transport_layer_protocol}"
+                objectid = ontres.create_objectid(
+                    tag=NetworkConnectionModel.get_tag(
+                        {
+                            "destination_ip": destination_ip,
+                            "destination_port": destination_port,
+                        }
+                    ),
+                    ontology_id=nc_oid,
+                    session=session,
+                    time_observed=attempt["time"],
                 )
-                continue
-            p = ontres.get_process_by_guid(attempt["guid"])
-            if not p:
-                p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
-            if p:
-                nc.set_process(p)
-            ontres.add_network_connection(nc)
-            ontres.add_network_dns(nd)
-            if not nc.process and attempt["process_id"]:
-                # A OntologyResults process should exist for every pid in the process map
-                p = ontres.get_process_by_pid(attempt["process_id"])
-                nc.set_process(p)
-            elif attempt["process_id"] and attempt["process_name"]:
-                nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
-            if nc:
-                net_dict = nc.as_primitives()
-                net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
-                net_dict.pop("objectid")
-                validity = validate_sandbox_event(net_dict, "network_connection")
-                if validity:
-                    if isinstance(validity,bool):
-                        process_events["network_connections"].append(net_dict)  
-                    elif isinstance(validity,Dict):
-                        process_events["network_connections"].append(validity)
-                    else:
-                        log.debug(f"Validator misbehaving for network connection {net_dict}")
+                objectid.assign_guid()
+                try:
+                    nc = ontres.create_network_connection(
+                        objectid=objectid,
+                        destination_ip=destination_ip,
+                        destination_port=destination_port,
+                        transport_layer_protocol=transport_layer_protocol,
+                        direction=NetworkConnection.OUTBOUND,
+                        dns_details=nd,
+                        connection_type=NetworkConnection.DNS,
+                    )
+                except ValueError as e:
+                    log.warning(
+                        f"{e}. The required values passed were:\n"
+                        f"objectid={objectid}\n"
+                        f"destination_ip={destination_ip}\n"
+                        f"destination_port={destination_port}\n"
+                        f"transport_layer_protocol={transport_layer_protocol}"
+                    )
+                    continue
+                p = ontres.get_process_by_guid(attempt["guid"])
+                if not p:
+                    p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
+                if p:
+                    nc.set_process(p)
+                ontres.add_network_connection(nc)
+                ontres.add_network_dns(nd)
+                if not nc.process and attempt["process_id"]:
+                    # A OntologyResults process should exist for every pid in the process map
+                    p = ontres.get_process_by_pid(attempt["process_id"])
+                    nc.set_process(p)
+                elif attempt["process_id"] and attempt["process_name"]:
+                    nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
+                if nc:
+                    net_dict = nc.as_primitives()
+                    net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
+                    net_dict.pop("objectid")
+                    validity = validate_sandbox_event(net_dict, "network_connection")
+                    if validity:
+                        if isinstance(validity,bool):
+                            process_events["network_connections"].append(net_dict)  
+                        elif isinstance(validity,Dict):
+                            process_events["network_connections"].append(validity)
+                        else:
+                            log.debug(f"Validator misbehaving for network connection {net_dict}")
 
     #TCP/UDP section and ontology
     netflows_sec = ResultTableSection("TCP/UDP Network Traffic")
@@ -1804,11 +1806,33 @@ def _get_dns_map(
         )
 
     # Attempt mapping process_name to the dns_call using the API calls
-    for process, process_details in process_map.items():
-        for network_call in process_details["network_calls"]:
-            if network_call["event"] == "DNS":
-                dns = network_call["arguments"]
-                if dns != {} and (dns.get("HostName")):
+    if process_map is not None:
+        for process, process_details in process_map.items():
+            for network_call in process_details["network_calls"]:
+                if network_call["event"] == "DNS":
+                    dns = network_call["arguments"]
+                    if dns != {} and (dns.get("HostName")):
+                        for request, attempts in dns_requests.items():
+                            for index, attempt in enumerate(attempts):
+                                answers = attempt["answers"]
+                                if answers == None:
+                                    continue
+                                for answer in answers:
+                                    if answer is not Dict:
+                                        continue
+                                    #Currently API calls do not track the response so this first condition will never trigger and might be a list in the future
+                                    if answer["answer"] == dns.get("Response") or request == dns.get("HostName"):
+                                        if not dns_requests[request][index].get("process_name"):
+                                            dns_requests[request][index]["process_name"] = process_details["name"]
+                                        if not dns_requests[request][index].get("process_id"):
+                                            dns_requests[request][index]["process_id"] = process
+                                    else:
+                                        continue
+    # Attempt mapping process_name to the dns_call using sysmon
+    if parsed_sysmon is not None:
+        for process, process_details in parsed_sysmon.items():
+            for event in process_details:
+                if event["event_id"] == 22:
                     for request, attempts in dns_requests.items():
                         for index, attempt in enumerate(attempts):
                             answers = attempt["answers"]
@@ -1817,34 +1841,14 @@ def _get_dns_map(
                             for answer in answers:
                                 if answer is not Dict:
                                     continue
-                                #Currently API calls do not track the response so this first condition will never trigger and might be a list in the future
-                                if answer["answer"] == dns.get("Response") or request == dns.get("HostName"):
+                                if (answer["answer"], answer["Type"]) in [(resp["data"], resp["type"]) for resp in event["answers"]]  or request == event["request"]:
                                     if not dns_requests[request][index].get("process_name"):
-                                        dns_requests[request][index]["process_name"] = process_details["name"]
+                                        dns_requests[request][index]["process_name"] = event["image"]
+
                                     if not dns_requests[request][index].get("process_id"):
                                         dns_requests[request][index]["process_id"] = process
                                 else:
                                     continue
-    # Attempt mapping process_name to the dns_call using sysmon
-    for process, process_details in parsed_sysmon.items():
-        for event in process_details:
-            if event["event_id"] == 22:
-                for request, attempts in dns_requests.items():
-                    for index, attempt in enumerate(attempts):
-                        answers = attempt["answers"]
-                        if answers == None:
-                            continue
-                        for answer in answers:
-                            if answer is not Dict:
-                                continue
-                            if (answer["answer"], answer["Type"]) in [(resp["data"], resp["type"]) for resp in event["answers"]]  or request == event["request"]:
-                                if not dns_requests[request][index].get("process_name"):
-                                    dns_requests[request][index]["process_name"] = event["image"]
-
-                                if not dns_requests[request][index].get("process_id"):
-                                    dns_requests[request][index]["process_id"] = process
-                            else:
-                                continue
 
     return dict(dns_requests)
 
@@ -1882,28 +1886,30 @@ def _get_low_level_flows(
                 "guid": network_call.get("guid"),
             }
             # Attempt mapping process_name to the netflow using the API calls
-            for process, process_details in process_map.items():
-                for net_call in process_details["network_calls"]:
-                    if net_call["event"] in ["Connect", "Request_response", "Proxying"]:
-                        call = net_call["arguments"]
-                        if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL")):
-                            if network_flow["dest_ip"] in [call.get("HostName"), call.get("IP"), call.get("URL")] or network_flow["domain"] in [call.get("HostName"), call.get("IP"), call.get("URL")]:
-                                if str(network_flow["dest_port"]) == call.get("Port") or call.get("Port") is None:
-                                    if not network_flow.get("image"):
-                                        network_flow["image"] = process_details["name"]
-                                    if not network_flow.get("pid"):
-                                        network_flow["pid"] = process                       
+            if process_map is not None:
+                for process, process_details in process_map.items():
+                    for net_call in process_details["network_calls"]:
+                        if net_call["event"] in ["Connect", "Request_response", "Proxying"]:
+                            call = net_call["arguments"]
+                            if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL")):
+                                if network_flow["dest_ip"] in [call.get("HostName"), call.get("IP"), call.get("URL")] or network_flow["domain"] in [call.get("HostName"), call.get("IP"), call.get("URL")]:
+                                    if str(network_flow["dest_port"]) == call.get("Port") or call.get("Port") is None:
+                                        if not network_flow.get("image"):
+                                            network_flow["image"] = process_details["name"]
+                                        if not network_flow.get("pid"):
+                                            network_flow["pid"] = process                       
              # Attempt mapping process_name to the dns_call using sysmon
             if not network_flow.get("image") or not network_flow.get("pid"):
-                for process, process_details in parsed_sysmon.items():
-                    for event in process_details:
-                        if event["event_id"] == 3:
-                            if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
-                                if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
-                                    if not network_flow.get("image"):
-                                        network_flow["image"] = process_details["name"]
-                                    if not network_flow.get("pid"):
-                                        network_flow["pid"] = process
+                if parsed_sysmon is not None:
+                    for process, process_details in parsed_sysmon.items():
+                        for event in process_details:
+                            if event["event_id"] == 3:
+                                if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
+                                    if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
+                                        if not network_flow.get("image"):
+                                            network_flow["image"] = process_details["name"]
+                                        if not network_flow.get("pid"):
+                                            network_flow["pid"] = process
             network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2005,38 +2011,40 @@ def _process_http_calls(
                 "Flagged_language": flagged_language,
             }
              # Attempt mapping process_name to the netflow using the API calls
-            for process, process_details in process_map.items():
-                for net_call in process_details["network_calls"]:
-                    if net_call["event"] in ["Connect", "Request_response"]:
-                        call = net_call["arguments"]
-                         # According to https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetconnecta, service = 3 stands for "INTERNET_SERVICE_HTTP"
-                        if call.get("Port") in ["80", "443"] or call.get("Service", 0) in ["http", "https", "HTTP", "HTTPS", "3"]:
-                            if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL") or call.get("Buffer")):
+            if process_map is not None:
+                for process, process_details in process_map.items():
+                    for net_call in process_details["network_calls"]:
+                        if net_call["event"] in ["Connect", "Request_response"]:
+                            call = net_call["arguments"]
+                             # According to https://learn.microsoft.com/en-us/windows/win32/api/wininet/nf-wininet-internetconnecta, service = 3 stands for "INTERNET_SERVICE_HTTP"
+                            if call.get("Port") in ["80", "443"] or call.get("Service", 0) in ["http", "https", "HTTP", "HTTPS", "3"]:
+                                if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL") or call.get("Buffer")):
+                                    if (
+                                    http_request["dst"] in [call.get("HostName"), call.get("IP"), call.get("URL")] 
+                                    or http_request["host"] in [call.get("HostName"), call.get("IP"), call.get("URL")]
+                                    or http_request["request"] == call.get("Buffer")
+                                    or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
+                                    ):
+                                        if str(http_request["port"]) == call.get("Port") or call.get("Port") is None:
+                                            if not http_request.get("image"):
+                                                http_request["image"] = process_details["name"]
+                                            if not http_request.get("pid"):
+                                                http_request["pid"] = process                       
+             # Attempt mapping process_name to the dns_call using sysmon
+            if not http_request.get("image") or not http_request.get("pid"):
+                if parsed_sysmon is not None:
+                    for process, process_details in parsed_sysmon.items():
+                        for event in process_details:
+                            if event["event_id"] == 3:
                                 if (
-                                http_request["dst"] in [call.get("HostName"), call.get("IP"), call.get("URL")] 
-                                or http_request["host"] in [call.get("HostName"), call.get("IP"), call.get("URL")]
-                                or http_request["request"] == call.get("Buffer")
-                                or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
-                                ):
-                                    if str(http_request["port"]) == call.get("Port") or call.get("Port") is None:
+                                    http_request["dst"] == event["dst"]  or http_request["host"] == event["dst"]
+                                    or _uris_are_equal_despite_discrepancies(http_request["host"], event["dst"])
+                                    ):
+                                    if http_request["port"] == event["dport"]:
                                         if not http_request.get("image"):
                                             http_request["image"] = process_details["name"]
                                         if not http_request.get("pid"):
-                                            http_request["pid"] = process                       
-             # Attempt mapping process_name to the dns_call using sysmon
-            if not http_request.get("image") or not http_request.get("pid"):
-                for process, process_details in parsed_sysmon.items():
-                    for event in process_details:
-                        if event["event_id"] == 3:
-                            if (
-                                http_request["dst"] == event["dst"]  or http_request["host"] == event["dst"]
-                                or _uris_are_equal_despite_discrepancies(http_request["host"], event["dst"])
-                                ):
-                                if http_request["port"] == event["dport"]:
-                                    if not http_request.get("image"):
-                                        http_request["image"] = process_details["name"]
-                                    if not http_request.get("pid"):
-                                        http_request["pid"] = process
+                                            http_request["pid"] = process
             http_requests.append(http_request)
     return http_requests    
 
