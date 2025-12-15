@@ -758,21 +758,22 @@ def generate_al_result(
     #Load the powershell commands and cmd commands
     ps1_commands = []
     bat_commands = []
-    for _, events in parsed_sysmon.items():
-        for event in events:
-            if event["event_id"] == 1:
-                if event.get("command_line"):   
-                    ps1_matches = find_powershell_strings(event["command_line"].encode())
-                    for match in ps1_matches:
-                        command = get_powershell_command(match.value)
-                        if command and command + b"\n" not in ps1_commands:
-                            ps1_commands.append(command + b"\n")
-
-                    cmd_matches = find_cmd_strings(event["command_line"].encode())
-                    for match in cmd_matches:
-                        command = get_cmd_command(match.value)
-                        if command and command + b"\n" not in bat_commands:
-                            bat_commands.append(command + b"\n")   
+    if parsed_sysmon is not None:
+        for _, events in parsed_sysmon.items():
+            for event in events:
+                if event["event_id"] == 1:
+                    if event.get("command_line"):   
+                        ps1_matches = find_powershell_strings(event["command_line"].encode())
+                        for match in ps1_matches:
+                            command = get_powershell_command(match.value)
+                            if command and command + b"\n" not in ps1_commands:
+                                ps1_commands.append(command + b"\n")
+    
+                        cmd_matches = find_cmd_strings(event["command_line"].encode())
+                        for match in cmd_matches:
+                            command = get_cmd_command(match.value)
+                            if command and command + b"\n" not in bat_commands:
+                                bat_commands.append(command + b"\n")   
                     
     if ps1_commands:
         with open(PS1_COMMANDS_PATH, "wb") as f:
