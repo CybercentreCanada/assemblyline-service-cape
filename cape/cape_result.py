@@ -1911,7 +1911,7 @@ def _get_low_level_flows(
                                     if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
                                         if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
                                             if not network_flow.get("image"):
-                                                network_flow["image"] = process_details["name"]
+                                                network_flow["image"] = event["image"]
                                             if not network_flow.get("pid"):
                                                 network_flow["pid"] = process
                 network_flows_table.append(network_flow)
@@ -1960,7 +1960,7 @@ def _process_http_calls(
                 request_body_path, response_body_path = _massage_body_paths(http_call)
                 request_headers = _handle_http_headers(request)
                 response_headers = _handle_http_headers(http_call.get("response"))
-    
+
                 for header,header_value in request_headers.items():
                     if header in STANDARD_HTTP_HEADERS:
                         request_headers[header] = header.replace("-", "")
@@ -1977,7 +1977,7 @@ def _process_http_calls(
                     else:
                         http_call["Non_standard_request_headers"] = {}
                         http_call["Non_standard_request_headers"][header] = header_value
-    
+
                 destination_ip = _get_destination_ip(http_call, dns_servers)
                 if not destination_ip:
                     continue
@@ -2047,7 +2047,7 @@ def _process_http_calls(
                                         ):
                                         if http_request["port"] == event["dport"]:
                                             if not http_request.get("image"):
-                                                http_request["image"] = process_details["name"]
+                                                http_request["image"] = event["image"]
                                             if not http_request.get("pid"):
                                                 http_request["pid"] = process
                 http_requests.append(http_request)
