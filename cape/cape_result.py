@@ -22,7 +22,7 @@ from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms, LOCAL_FMT_WITH_MS, ensure_time_format
 from assemblyline.common.net import is_valid_ip, is_valid_domain
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH, IPV6_REGEX
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
@@ -858,7 +858,7 @@ def load_ontology_and_result_section(
                                 if module_event["arguments"]["DLLName"] not in modules:
                                     modules.append(module_event["arguments"]["DLLName"])
                             elif module_event["object"] == "Function":
-                                if module_event["arguments"]["FunctionName"] not in modules:
+                                if module_event["arguments"].get("FunctionName", None) and module_event["arguments"]["FunctionName"] not in modules:
                                     modules.append(module_event["arguments"]["FunctionName"])
                         if len(services) > 0:
                             event["services_involved"] = services
@@ -1015,6 +1015,8 @@ def load_ontology_and_result_section(
             domain_answers = []
             all_answers = []
             for answer in attempt["answers"]:
+                if answer in ["", " "] or None:
+                    continue
                 all_answers.append(answer["answer"])
                 if is_valid_ip(answer["answer"]) or search(IP_REGEX, answer["answer"]):
                     have_ip_answers = True
@@ -3135,7 +3137,7 @@ def _tag_mark_values(
     elif key.lower() in ["command", "service_path"]:
         _ = add_tag(sig_res, "dynamic.process.command_line", value)
     elif key.lower() in ["ip"]:
-        if ":" in value:
+        if ":" in value and not search(IPV6_REGEX, value):
             split_values = value.split(":")
             _ = add_tag(sig_res, "network.dynamic.ip", split_values[0].strip())
             if "(" in split_values[1]:
