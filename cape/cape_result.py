@@ -694,6 +694,12 @@ def generate_al_result(
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
     cape: Dict[str, Any] = api_report.get("CAPE", {})
 
+    parsed_sysmon = None
+    dns_servers = None
+    dns_requests = None 
+    low_level_flow = None
+    http_calls = None
+    signatures = None 
      #Info section
     if info:
         process_info(info, al_result, ontres)
