@@ -858,7 +858,7 @@ def load_ontology_and_result_section(
                                 if module_event["arguments"]["DLLName"] not in modules:
                                     modules.append(module_event["arguments"]["DLLName"])
                             elif module_event["object"] == "Function":
-                                if module_event["arguments"]["FunctionName"] not in modules:
+                                if module_event["arguments"].get("FunctionName", None) and module_event["arguments"]["FunctionName"] not in modules:
                                     modules.append(module_event["arguments"]["FunctionName"])
                         if len(services) > 0:
                             event["services_involved"] = services
