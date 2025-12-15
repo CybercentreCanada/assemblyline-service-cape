@@ -768,7 +768,7 @@ def generate_al_result(
                             command = get_powershell_command(match.value)
                             if command and command + b"\n" not in ps1_commands:
                                 ps1_commands.append(command + b"\n")
-    
+
                         cmd_matches = find_cmd_strings(event["command_line"].encode())
                         for match in cmd_matches:
                             command = get_cmd_command(match.value)
@@ -1301,63 +1301,64 @@ def load_ontology_and_result_section(
         al_result.add_subsection(network_res)
         
     #Signature section and ontology
-    for signature in signatures:
-        data = {
-            "name": signature["name"],
-            "type": signature["type"],
-            "classification": signature["classification"],
-        }
-        s_tag = SignatureModel.get_tag(data)
-        s_oid = SignatureModel.get_oid(data)
-        ontres_sig = ontres.create_signature(
-            objectid=ontres.create_objectid(
-                tag=s_tag,
-                ontology_id=s_oid,
-                session=session,
-            ),
-            name=signature["name"],
-            type=signature["type"],
-            score=signature["score"],
-            classification=signature["classification"],
-        )
-        sig_res, pids = _create_signature_result_section(
-            signature["name"],
-            signature,
-            signature["score"],
-            ontres_sig,
-            ontres,
-            process_map,
-            safelist,
-            uses_https_proxy_in_sandbox,
-            signature_map,
-        )
-
-        if sig_res:
-            ontres.add_signature(ontres_sig)
-            sigs_res.add_subsection(sig_res)
-        if ontres_sig:
-            signature_dict = ontres_sig.as_primitives()
-            interesting_data = []
-            for data in signature["data"]:
-                if "type" not in data.keys() or data["type"]!="call":
-                    interesting_data.append(data) 
-            signature_dict["data"] = interesting_data 
-            signature_dict["score"] = signature["score"]
-            if len(pids) > 0:
-                signature_dict["pid"] = pids
-            else:
-                signature_dict["pid"] = None
-            signature_dict.pop("objectid")
-            signature_dict.pop("attributes")
-            signature_dict["description"] = signature["description"]
-            validity = validate_sandbox_event(signature_dict, "signature")
-            if validity:
-                if isinstance(validity,bool):
-                    process_events["signatures"].append(signature_dict) 
-                elif isinstance(validity,Dict):
-                    process_events["signatures"].append(validity)
+    if signatures is not None:
+        for signature in signatures:
+            data = {
+                "name": signature["name"],
+                "type": signature["type"],
+                "classification": signature["classification"],
+            }
+            s_tag = SignatureModel.get_tag(data)
+            s_oid = SignatureModel.get_oid(data)
+            ontres_sig = ontres.create_signature(
+                objectid=ontres.create_objectid(
+                    tag=s_tag,
+                    ontology_id=s_oid,
+                    session=session,
+                ),
+                name=signature["name"],
+                type=signature["type"],
+                score=signature["score"],
+                classification=signature["classification"],
+            )
+            sig_res, pids = _create_signature_result_section(
+                signature["name"],
+                signature,
+                signature["score"],
+                ontres_sig,
+                ontres,
+                process_map,
+                safelist,
+                uses_https_proxy_in_sandbox,
+                signature_map,
+            )
+    
+            if sig_res:
+                ontres.add_signature(ontres_sig)
+                sigs_res.add_subsection(sig_res)
+            if ontres_sig:
+                signature_dict = ontres_sig.as_primitives()
+                interesting_data = []
+                for data in signature["data"]:
+                    if "type" not in data.keys() or data["type"]!="call":
+                        interesting_data.append(data) 
+                signature_dict["data"] = interesting_data 
+                signature_dict["score"] = signature["score"]
+                if len(pids) > 0:
+                    signature_dict["pid"] = pids
                 else:
-                    log.debug(f"Validator misbehaving for signature {signature_dict}")
+                    signature_dict["pid"] = None
+                signature_dict.pop("objectid")
+                signature_dict.pop("attributes")
+                signature_dict["description"] = signature["description"]
+                validity = validate_sandbox_event(signature_dict, "signature")
+                if validity:
+                    if isinstance(validity,bool):
+                        process_events["signatures"].append(signature_dict) 
+                    elif isinstance(validity,Dict):
+                        process_events["signatures"].append(validity)
+                    else:
+                        log.debug(f"Validator misbehaving for signature {signature_dict}")
             
     validity = validate_sandbox_event(process_events, "complete")
     if not validity:
