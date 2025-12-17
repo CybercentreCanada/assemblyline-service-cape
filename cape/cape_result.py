@@ -901,6 +901,9 @@ def load_ontology_and_result_section(
                         if event["pid"] in pids_of_interest:
                             process_dict["file_count"] = len(process_map[event["pid"]]["file_events"])
                             process_dict["registry_count"] = len(process_map[event["pid"]]["registry_events"])
+                            process_dict["source"] = "capemon"
+                        else:
+                            process_dict["source"] = "sysmon"
                         process_dict.pop("objectid")
                         process_dict.pop("pimage")
                         process_dict.pop("pcommand_line")
@@ -981,6 +984,7 @@ def load_ontology_and_result_section(
         process_dict.pop("pobjectid")
         process_dict.pop("loaded_modules")
         process_dict.pop("services_involved")
+        process_dict["source"] = "capemon"
         validity = validate_sandbox_event(process_dict, "process")
         if validity:
             if isinstance(validity,bool):
@@ -1112,6 +1116,7 @@ def load_ontology_and_result_section(
                     net_dict = nc.as_primitives()
                     net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
                     net_dict.pop("objectid")
+                    net_dict["source"] = attempt["source"]
                     validity = validate_sandbox_event(net_dict, "network_connection")
                     if validity:
                         if isinstance(validity,bool):
@@ -1146,6 +1151,7 @@ def load_ontology_and_result_section(
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
+                netflow_dict["source"] = flow["source"]
                 validity = validate_sandbox_event(netflow_dict, "network_connection")
                 if validity:
                     if isinstance(validity,bool):
@@ -1268,6 +1274,7 @@ def load_ontology_and_result_section(
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
+                netflow_dict["source"] = http_call["source"]
                 validity = validate_sandbox_event(netflow_dict, "network_connection")
                 if validity:
                     if isinstance(validity,bool):
@@ -1352,6 +1359,13 @@ def load_ontology_and_result_section(
                 signature_dict.pop("objectid")
                 signature_dict.pop("attributes")
                 signature_dict["description"] = signature["description"]
+                source_name = "CAPE"
+                if signature_map:
+                    for sig_info in signature_map.values():
+                        if sig_info["name"] == signature["name"]:
+                            source_name = sig_info["source"]
+                signature_dict["source"] = source_name
+
                 validity = validate_sandbox_event(signature_dict, "signature")
                 if validity:
                     if isinstance(validity,bool):
@@ -1806,6 +1820,7 @@ def _get_dns_map(
                     "time": first_seen,
                     "guid": dns_call.get("guid"),
                     "type": dns_type,
+                    "source": "PCAP"
                 }
             )
 
@@ -1830,6 +1845,7 @@ def _get_dns_map(
                                                 dns_requests[request][index]["process_name"] = process_details["name"]
                                             if not dns_requests[request][index].get("process_id"):
                                                 dns_requests[request][index]["process_id"] = process
+                                            dns_requests[request][index]["source"] = "API"
                                         else:
                                             continue
         # Attempt mapping process_name to the dns_call using sysmon
@@ -1851,6 +1867,8 @@ def _get_dns_map(
 
                                         if not dns_requests[request][index].get("process_id"):
                                             dns_requests[request][index]["process_id"] = process
+                                        if dns_requests[request][index]["source"] != "API":
+                                            dns_requests[request][index]["source"] = "sysmon"
                                     else:
                                         continue
 
@@ -1888,6 +1906,7 @@ def _get_low_level_flows(
                     "image": network_call.get("image"),
                     "pid": network_call.get("pid"),
                     "guid": network_call.get("guid"),
+                    "source": "PCAP"
                 }
                 # Attempt mapping process_name to the netflow using the API calls
                 if process_map is not None:
@@ -1901,7 +1920,8 @@ def _get_low_level_flows(
                                             if not network_flow.get("image"):
                                                 network_flow["image"] = process_details["name"]
                                             if not network_flow.get("pid"):
-                                                network_flow["pid"] = process                       
+                                                network_flow["pid"] = process
+                                                network_flow["source"] = "API"                       
                  # Attempt mapping process_name to the dns_call using sysmon
                 if not network_flow.get("image") or not network_flow.get("pid"):
                     if parsed_sysmon is not None:
@@ -1914,6 +1934,8 @@ def _get_low_level_flows(
                                                 network_flow["image"] = event["image"]
                                             if not network_flow.get("pid"):
                                                 network_flow["pid"] = process
+                                            if network_flow["source"] != "API":
+                                                network_flow["source"] = "sysmon"
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2014,6 +2036,7 @@ def _process_http_calls(
                     "Suspicious_agent": sus_agent,
                     "Non_standard_request_headers": http_call.get("Non_standard_request_headers"),
                     "Flagged_language": flagged_language,
+                    "source": "PCAP"
                 }
                  # Attempt mapping process_name to the netflow using the API calls
                 if process_map is not None:
@@ -2034,7 +2057,8 @@ def _process_http_calls(
                                                 if not http_request.get("image"):
                                                     http_request["image"] = process_details["name"]
                                                 if not http_request.get("pid"):
-                                                    http_request["pid"] = process                       
+                                                    http_request["pid"] = process
+                                                    http_request["source"] = "API"                       
                  # Attempt mapping process_name to the dns_call using sysmon
                 if not http_request.get("image") or not http_request.get("pid"):
                     if parsed_sysmon is not None:
@@ -2050,6 +2074,8 @@ def _process_http_calls(
                                                 http_request["image"] = event["image"]
                                             if not http_request.get("pid"):
                                                 http_request["pid"] = process
+                                            if http_request["source"] != "API":
+                                                http_request["source"] = "sysmon"
                 http_requests.append(http_request)
     return http_requests    
 
@@ -3755,6 +3781,7 @@ def validate_sandbox_event(event_dict, type):
             "original_file_name": {"type": "string", "nullable": True},
             "file_count": {"type": "integer", 'coerce': int, "min": 0},
             "registry_count": {"type": "integer", 'coerce': int, "min":0},
+            "source": {"type": "string", "nullable": True}
     }
     attack_schema = {
         "attack_id" : {"type": "string", "required": True},
@@ -3771,7 +3798,8 @@ def validate_sandbox_event(event_dict, type):
             "data": {"type": "list", "required": True, "empty": True, "schema": {"type": "dict", "empty": False}},
             "score": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
             "pid": {"type": "list", "required": True, "nullable": True, "empty": True, "schema": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX}},
-            "description": {"type": "string", "required": True, "empty": True, "maxlength": 256}
+            "description": {"type": "string", "required": True, "empty": True, "maxlength": 256},
+            "source": {"type": "string", "nullable": True}
     }
     DOMAIN_REGEX, IP_REGEX
     dns_connection_schema = {
@@ -3810,6 +3838,7 @@ def validate_sandbox_event(event_dict, type):
             "smtp_details": {"type": "dict", "nullable": True, "empty": True, "schema": smtp_connection_schema},
             "connection_type": {"type": "string", "required": True, "allowed": [NetworkConnection.HTTP, NetworkConnection.DNS]},
             "time_observed": {"type": 'string', "nullable": True, "empty": True, "check_with": "is_time_format_valid"},
+            "source": {"type": "string", "nullable": True}
     }
     machine_metadata_schema = {
         "ip": {"type": "string", "required": True, "regex": IP_REGEX},
