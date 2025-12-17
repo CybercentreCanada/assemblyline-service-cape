@@ -42,7 +42,7 @@
                 "promote_to": null
             },
             {
-                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}]",
                 "classification": "TLP:C",
                 "body_format": "TABLE",
                 "body_config": {
@@ -56,7 +56,8 @@
                         "dest_port",
                         "image",
                         "pid",
-                        "guid"
+                        "guid",
+                        "source"
                     ]
                 },
                 "depth": 2,
@@ -113,7 +114,7 @@
                 "promote_to": null
             },
             {
-                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null}]",
+                "body": "[{\"timestamp\": 0.013483047485351562, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49732, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 2.048821210861206, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49733, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 3.1125681400299072, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49735, \"domain\": null, \"dest_ip\": \"13.71.55.58\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 3.126866102218628, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49736, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}, {\"timestamp\": 6.183864116668701, \"protocol\": \"tcp\", \"src_ip\": \"169.254.128.153\", \"src_port\": 49738, \"domain\": null, \"dest_ip\": \"135.233.95.144\", \"dest_port\": 443, \"image\": null, \"pid\": null, \"guid\": null, \"source\": \"PCAP\"}]",
                 "classification": "TLP:C",
                 "body_format": "TABLE",
                 "body_config": {
@@ -127,7 +128,8 @@
                         "dest_port",
                         "image",
                         "pid",
-                        "guid"
+                        "guid",
+                        "source"
                     ]
                 },
                 "depth": 2,
