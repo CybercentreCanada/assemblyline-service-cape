@@ -622,6 +622,7 @@ HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
 DNS_TYPE_REGEX = r"^type:  (\d{1,2}) "
+REVERSE_DNS_REGEX = r"^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}in-addr\.arpa$"
 
 #Machine related tags
 x86_IMAGE_SUFFIX = "x86"
@@ -831,8 +832,8 @@ def load_ontology_and_result_section(
         return
     session = ontres.sandboxes[-1].objectid.session
     process_res = ResultSandboxSection(PROCESS_TREE_AND_EVENTS_SECTION_TITLE)
-    sigs_res = ResultSection(SIGNATURES_SECTION_TITLE)
-    network_res = ResultSection(NETWORK_SECTION_TITLE)
+    sigs_res = ResultSection(SIGNATURES_SECTION_TITLE, auto_collapse=True)
+    network_res = ResultSection(NETWORK_SECTION_TITLE, auto_collapse=True)
     process_events = {
         "signatures": [],
         "network_connections": [],
@@ -1305,8 +1306,6 @@ def load_ontology_and_result_section(
     if http_sec.body or http_sec.subsections:
         network_res.add_subsection(http_sec)
     _process_unseen_iocs(network_res, process_map, ontres, safelist)
-    if len(network_res.subsections) > 0:
-        al_result.add_subsection(network_res)
         
     #Signature section and ontology
     if signatures is not None:
@@ -1380,9 +1379,6 @@ def load_ontology_and_result_section(
         log.debug("Invalid Sandbox format")
     elif isinstance(validity, Dict):
         process_events = validity
-    if len(sigs_res.subsections) > 0:
-        al_result.add_subsection(sigs_res)
-
 
     #Build the process tree 
     _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
@@ -1520,7 +1516,11 @@ def load_ontology_and_result_section(
                 actors = sig["actors"],
                 malware_families = sig["malware_families"],
             ))
-    al_result.add_subsection(process_res)
+    al_result.add_subsection(process_res, on_top=True)
+    if len(network_res.subsections) > 0:
+        al_result.add_subsection(network_res)
+    if len(sigs_res.subsections) > 0:
+        al_result.add_subsection(sigs_res)
     return process_events
     
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
@@ -3803,7 +3803,7 @@ def validate_sandbox_event(event_dict, type):
     }
     DOMAIN_REGEX, IP_REGEX
     dns_connection_schema = {
-        "domain": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX]},
+        "domain": {"type": "string", "required": True, 'anyof_regex': [DOMAIN_REGEX, IP_REGEX, REVERSE_DNS_REGEX]},
         "resolved_ips": {"type": "list", "nullable": True, "empty": True, "schema": {}},
         "resolved_domains": {"type": "list", "nullable": True, "empty": True, "schema": {}},
         "lookup_type": {"type": "string", "required": True, "allowed": list(DNS_TYPE.values())},
@@ -3836,7 +3836,7 @@ def validate_sandbox_event(event_dict, type):
             "http_details": {"type": "dict", "nullable": True, "empty": True, "schema": http_connection_schema},
             "dns_details": {"type": "dict", "nullable": True, "empty": True, "schema": dns_connection_schema},
             "smtp_details": {"type": "dict", "nullable": True, "empty": True, "schema": smtp_connection_schema},
-            "connection_type": {"type": "string", "required": True, "allowed": [NetworkConnection.HTTP, NetworkConnection.DNS]},
+            "connection_type": {"type": "string", "required": True, "nullable": True, "allowed": [NetworkConnection.HTTP, NetworkConnection.DNS]},
             "time_observed": {"type": 'string', "nullable": True, "empty": True, "check_with": "is_time_format_valid"},
             "source": {"type": "string", "nullable": True}
     }
