@@ -1142,13 +1142,13 @@ def load_ontology_and_result_section(
             _ = add_tag(netflows_sec, "network.port", flow["src_port"])
             flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
             nc = _create_network_connection_for_network_flow(flow, session, ontres)
-            if not nc.process and flow["pid"]:
-                # A OntologyResults process should exist for every pid in the process map
-                p = ontres.get_process_by_pid(flow["pid"])
-                nc.set_process(p)
-            elif flow["pid"] and flow["image"]:
-                nc.update_process(image=flow["image"], pid=flow["pid"])
             if nc:
+                if not nc.process and flow["pid"]:
+                    # A OntologyResults process should exist for every pid in the process map
+                    p = ontres.get_process_by_pid(flow["pid"])
+                    nc.set_process(p)
+                elif flow["pid"] and flow["image"]:
+                    nc.update_process(image=flow["image"], pid=flow["pid"])
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
