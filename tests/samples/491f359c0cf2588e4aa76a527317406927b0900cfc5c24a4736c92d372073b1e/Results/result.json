@@ -219,8 +219,8 @@
                     "name": "Stealth",
                     "attack": [
                         {
-                            "attack_id": "T1564.001",
-                            "pattern": "Hidden Files and Directories",
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
                             "categories": [
                                 "defense-evasion"
                             ]
@@ -233,8 +233,8 @@
                             ]
                         },
                         {
-                            "attack_id": "T1070",
-                            "pattern": "Indicator Removal",
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
                             "categories": [
                                 "defense-evasion"
                             ]
@@ -372,19 +372,19 @@
                     "name": "Persistence",
                     "attack": [
                         {
-                            "attack_id": "T1546.010",
-                            "pattern": "AppInit DLLs",
-                            "categories": [
-                                "privilege-escalation",
-                                "persistence"
-                            ]
-                        },
-                        {
                             "attack_id": "T1547.001",
                             "pattern": "Registry Run Keys / Startup Folder",
                             "categories": [
                                 "persistence",
                                 "privilege-escalation"
+                            ]
+                        },
+                        {
+                            "attack_id": "T1546.010",
+                            "pattern": "AppInit DLLs",
+                            "categories": [
+                                "privilege-escalation",
+                                "persistence"
                             ]
                         },
                         {

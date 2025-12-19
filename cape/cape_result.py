@@ -1154,6 +1154,13 @@ def load_ontology_and_result_section(
                 elif flow["pid"] and flow["image"]:
                     nc.update_process(image=flow["image"], pid=flow["pid"])
                 netflow_dict = nc.as_primitives()
+                if netflow_dict.get("process"):
+                    if isinstance(netflow_dict.get("process"), Dict):
+                        netflow_dict["process"] = netflow_dict["process"]["pid"]
+                    elif not isinstance(netflow_dict.get("process"), int):
+                        net_dict["process"] = flow.get("pid", None)
+                elif flow.get("pid"):
+                    netflow_dict["process"] = flow.get("pid", None)
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
                 netflow_dict["sources"] = flow["sources"]
@@ -1924,18 +1931,17 @@ def _get_low_level_flows(
                                                 network_flow["pid"] = process
                                             network_flow["sources"].append("API")                       
                  # Attempt mapping process_name to the dns_call using sysmon
-                if not network_flow.get("image") or not network_flow.get("pid"):
-                    if parsed_sysmon is not None:
-                        for process, process_details in parsed_sysmon.items():
-                            for event in process_details:
-                                if event["event_id"] == 3:
-                                    if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
-                                        if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
-                                            if not network_flow.get("image"):
-                                                network_flow["image"] = event["image"]
-                                            if not network_flow.get("pid"):
-                                                network_flow["pid"] = process
-                                            network_flow["sources"].append("sysmon")
+                if parsed_sysmon is not None:
+                    for process, process_details in parsed_sysmon.items():
+                        for event in process_details:
+                            if event["event_id"] == 3:
+                                if (network_flow["dest_ip"] == event["dst"]  or network_flow["domain"] == event["dst"]) and network_flow["src_ip"] == event["src"]:
+                                    if network_flow["dest_port"] == event["dport"] and network_flow["src_port"] == event["sport"]:
+                                        if not network_flow.get("image"):
+                                            network_flow["image"] = event["image"]
+                                        if not network_flow.get("pid"):
+                                            network_flow["pid"] = process
+                                        network_flow["sources"].append("sysmon")
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2060,21 +2066,20 @@ def _process_http_calls(
                                                     http_request["pid"] = process
                                                 http_request["sources"].append("API")                       
                  # Attempt mapping process_name to the dns_call using sysmon
-                if not http_request.get("image") or not http_request.get("pid"):
-                    if parsed_sysmon is not None:
-                        for process, process_details in parsed_sysmon.items():
-                            for event in process_details:
-                                if event["event_id"] == 3:
-                                    if (
-                                        http_request["dst"] == event["dst"]  or http_request["host"] == event["dst"]
-                                        or _uris_are_equal_despite_discrepancies(http_request["host"], event["dst"])
-                                        ):
-                                        if http_request["port"] == event["dport"]:
-                                            if not http_request.get("image"):
-                                                http_request["image"] = event["image"]
-                                            if not http_request.get("pid"):
-                                                http_request["pid"] = process
-                                            http_request["sources"].append("sysmon")
+                if parsed_sysmon is not None:
+                    for process, process_details in parsed_sysmon.items():
+                        for event in process_details:
+                            if event["event_id"] == 3:
+                                if (
+                                    http_request["dst"] == event["dst"]  or http_request["host"] == event["dst"]
+                                    or _uris_are_equal_despite_discrepancies(http_request["host"], event["dst"])
+                                    ):
+                                    if http_request["port"] == event["dport"]:
+                                        if not http_request.get("image"):
+                                            http_request["image"] = event["image"]
+                                        if not http_request.get("pid"):
+                                            http_request["pid"] = process
+                                        http_request["sources"].append("sysmon")
                 http_requests.append(http_request)
     return http_requests    
 

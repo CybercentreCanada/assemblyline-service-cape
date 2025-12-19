@@ -9,7 +9,7 @@
                 "treeid": null,
                 "processtree": null,
                 "time_observed": null,
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "analysis_metadata": {
                 "start_time": "2025-11-21 15:59:42.000",
@@ -36,11 +36,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_2tOxrGAfkBAsu89okIOAb9",
                 "service_name": "CAPE",
-                "guid": "{3F6B448D-B017-4E25-9B0B-E31120B10B0F}",
+                "guid": "{7236435D-B5A5-41A4-91EB-DFC99214E926}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:00:08.131",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -65,11 +65,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_5QRHPNJpwzOTiUOhiSzWyJ",
                 "service_name": "CAPE",
-                "guid": "{C5F63CE4-EEBE-4E95-AFE6-10A101DBDD03}",
+                "guid": "{B74D9D61-59B4-4462-BCB1-430416945164}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:00:31.260",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -94,11 +94,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_ktSw1rws8RtBln1Uif4m2",
                 "service_name": "CAPE",
-                "guid": "{EE2C20C9-8000-4557-A47E-C049570AC888}",
+                "guid": "{75F942FC-DE6A-47C0-9706-61CBD4A2743C}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:00:31.261",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -123,11 +123,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_5OVwNDMkVflkXE8KUwaKaw",
                 "service_name": "CAPE",
-                "guid": "{55B9685D-DFD6-4A88-A8C2-4E15A0B0A65F}",
+                "guid": "{0C119C97-BC5A-4AFD-BCDD-9A9EF064B4C4}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:00:32.276",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -152,11 +152,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_x1v3ZLiFKnb3Xo4haRTE8",
                 "service_name": "CAPE",
-                "guid": "{8155CCEC-B982-4F6E-ADE3-3A5BCB9DAFF7}",
+                "guid": "{56E7F7DD-A1E3-477D-B1F2-962E313DD572}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:00:32.276",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -181,11 +181,11 @@
                 "tag": "20.72.205.209:443",
                 "ontology_id": "network_http_3uCzDfXe5dzPkg2LaiVkpO",
                 "service_name": "CAPE",
-                "guid": "{3982F870-26D6-4D9B-9A4F-D8DA7C20B4F4}",
+                "guid": "{5385FAD7-F209-4D6B-AFC5-AD94B1064C33}",
                 "treeid": "bdedf70d8bdbb1671422f49dc31233f44a1d9261ee82812bca9a455f7c8537c3",
                 "processtree": "20.72.205.209:443",
                 "time_observed": "2025-11-21 15:59:42.002865",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "20.72.205.209",
             "destination_port": 443,
@@ -203,11 +203,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_2ZH7szAoi6qtGTm2EcgBKx",
                 "service_name": "CAPE",
-                "guid": "{1A45748D-6669-40D2-A9B7-E93B2D6549C8}",
+                "guid": "{A335EA84-26EF-4EA5-8448-2A67E56D919B}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 15:59:48.673366",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -270,11 +270,11 @@
                 "tag": "?usrtmp\\etw-dns-app.exe",
                 "ontology_id": "process_hnExv8pSRFKeN0HX5rr9Q",
                 "service_name": "CAPE",
-                "guid": "{7FD39E93-BB0D-4566-8712-70B893823A86}",
+                "guid": "{386E01ED-B753-4F27-A831-56F76D2613E6}",
                 "treeid": "fd5bb9b299efd21a1b6d24a6d40780968160cfca0be66b926c81ae715c3a08f5",
                 "processtree": "?usrtmp\\etw-dns-app.exe",
                 "time_observed": "2025-11-21 16:00:08.753",
-                "session": "3TjfaijBmVKth9dZt03ceP"
+                "session": "7OvHs3UwNmxsdXAeIAuJU6"
             },
             "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\etw-dns-app.exe",
             "start_time": "2025-11-21 16:00:08.753",

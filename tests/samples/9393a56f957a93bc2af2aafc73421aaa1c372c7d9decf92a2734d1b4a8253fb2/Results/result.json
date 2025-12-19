@@ -193,8 +193,8 @@
                     "name": "Stealth",
                     "attack": [
                         {
-                            "attack_id": "T1564.001",
-                            "pattern": "Hidden Files and Directories",
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
                             "categories": [
                                 "defense-evasion"
                             ]
@@ -207,8 +207,8 @@
                             ]
                         },
                         {
-                            "attack_id": "T1070",
-                            "pattern": "Indicator Removal",
+                            "attack_id": "T1564.001",
+                            "pattern": "Hidden Files and Directories",
                             "categories": [
                                 "defense-evasion"
                             ]
