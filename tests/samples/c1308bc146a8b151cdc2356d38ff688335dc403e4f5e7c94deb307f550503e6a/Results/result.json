@@ -223,15 +223,15 @@
                             ]
                         },
                         {
-                            "attack_id": "T1070",
-                            "pattern": "Indicator Removal",
+                            "attack_id": "T1036",
+                            "pattern": "Masquerading",
                             "categories": [
                                 "defense-evasion"
                             ]
                         },
                         {
-                            "attack_id": "T1036",
-                            "pattern": "Masquerading",
+                            "attack_id": "T1070",
+                            "pattern": "Indicator Removal",
                             "categories": [
                                 "defense-evasion"
                             ]

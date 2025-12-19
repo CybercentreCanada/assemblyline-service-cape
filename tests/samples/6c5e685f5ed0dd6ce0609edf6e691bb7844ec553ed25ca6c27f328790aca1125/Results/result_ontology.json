@@ -9,7 +9,7 @@
                 "treeid": null,
                 "processtree": null,
                 "time_observed": null,
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "analysis_metadata": {
                 "start_time": "2025-11-21 16:29:37.000",
@@ -39,7 +39,7 @@
                 "treeid": null,
                 "processtree": null,
                 "time_observed": null,
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "name": "resumethread_remote_process",
             "type": "CUCKOO",
@@ -50,11 +50,11 @@
                         "tag": "?usrtmp\\suspended-process.exe",
                         "ontology_id": "process_1yqnQSVadKuTRpnsPmHWr6",
                         "service_name": "CAPE",
-                        "guid": "{E9883EDA-081B-4910-8154-9A1204081501}",
+                        "guid": "{0CD0F4E1-ABCB-475D-B010-7FCE70BED8D5}",
                         "treeid": "12dfcfa30fb170378c8edb876db5a17805c23466d54d4cb69a6c4fe8f3354c61",
                         "processtree": "?usrtmp\\suspended-process.exe",
                         "time_observed": "2025-11-21 16:30:01.129",
-                        "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                        "session": "2O2XstZD3pknbhHEbu0Asc"
                     },
                     "target": null,
                     "action": null,
@@ -85,11 +85,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_2tOxrGAfkBAsu89okIOAb9",
                 "service_name": "CAPE",
-                "guid": "{B9940EF8-7674-4B4D-A9CE-A3E6817E6E84}",
+                "guid": "{09FAA137-CF87-4B18-B23C-057FDB37578E}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:30:02.852",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -114,11 +114,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_5xxVSfwJlk955zOiUbjLTb",
                 "service_name": "CAPE",
-                "guid": "{C19FF2DD-520A-47DB-B06E-F05066ABA1FE}",
+                "guid": "{78A0E60E-DC58-4339-8154-CBCF454CA4C2}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:30:04.763",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -143,11 +143,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_6vlOYBf1vKrwCgeD9WIlpw",
                 "service_name": "CAPE",
-                "guid": "{8C88A443-D82C-4661-B395-2AE98F769962}",
+                "guid": "{65050A9A-8AE6-4017-8C9B-9A9EC16EAE80}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:30:10.655",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -172,11 +172,11 @@
                 "tag": "169.254.128.1:53",
                 "ontology_id": "network_dns_3PBCxmfTgloIv27TcQT7yh",
                 "service_name": "CAPE",
-                "guid": "{F758211C-7F73-4A57-A444-318CDDF9B2FF}",
+                "guid": "{37F9A8F8-13EF-4EE1-991D-44041F7E96EF}",
                 "treeid": "54dc49e62a2b23500556ee3b9502f825c149a5385c21dd0c50e00cc1a0dc659f",
                 "processtree": "169.254.128.1:53",
                 "time_observed": "2025-11-21 16:30:14.858",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "169.254.128.1",
             "destination_port": 53,
@@ -201,11 +201,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_6cyH35iP8q9ejLxnIsHLkS",
                 "service_name": "CAPE",
-                "guid": "{670FB7DA-36DC-4310-8A23-87765159F6BC}",
+                "guid": "{52F4CB07-8A95-4B66-8BD5-25590B1BD99E}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:37.003485",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -223,11 +223,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4YQUMoNkkgG2NJdo51Phv5",
                 "service_name": "CAPE",
-                "guid": "{F7DC9A20-7D5F-40C9-8C90-60774E55DDAF}",
+                "guid": "{6566E3DD-4065-471B-BDAC-91065D41F1F7}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:40.127193",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -245,11 +245,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_wNIhoqoq7YjgcsMSqAubK",
                 "service_name": "CAPE",
-                "guid": "{8F9ABD6D-D708-4C07-8CBD-C98EDD1960D4}",
+                "guid": "{3A2DAF29-AE22-4ECF-8C3A-39948D505B5C}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:43.241699",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -267,11 +267,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_lOUpstqpkUlmSQiEtfV7J",
                 "service_name": "CAPE",
-                "guid": "{4CA32005-E4A7-41AF-85C5-6E21BCF52D22}",
+                "guid": "{9265E5A0-C46F-4183-AFCA-B0201FB4B221}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:46.311720",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -289,11 +289,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_fFnhn3JPfBk4wLlrENJCC",
                 "service_name": "CAPE",
-                "guid": "{3B3A3C5D-168E-4266-927C-FD4E7BC11FD3}",
+                "guid": "{E63CA1FD-FBDA-4603-BA64-7928A1B2A400}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:49.383039",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -311,11 +311,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_dFFEMB9LmkSEtE8IFU04U",
                 "service_name": "CAPE",
-                "guid": "{F2EB5C9A-45D0-4EA5-96DB-8C56731B2340}",
+                "guid": "{26A269E5-F00D-4E9E-B459-8D08DEE669B0}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:52.476227",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -333,11 +333,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_3nLRPeNSkLAaBdkXGAlbTS",
                 "service_name": "CAPE",
-                "guid": "{65B6E27F-634F-4572-8C08-B7DAD6696A12}",
+                "guid": "{05BDA0A1-45D2-4D45-A56C-E5008B3C7D30}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:55.588950",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -355,11 +355,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4624MVnaCY8kRl2BFaqYhU",
                 "service_name": "CAPE",
-                "guid": "{44195A61-5E74-4180-933D-3339AEA0A195}",
+                "guid": "{45CAA680-48F7-47A2-9E6B-7096F8890608}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:29:58.665653",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -377,11 +377,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_7FVI4s2yuw5EEIS8bv32dm",
                 "service_name": "CAPE",
-                "guid": "{8C4A010B-DFC7-44B2-9760-1C17FADF39D3}",
+                "guid": "{52370A80-6E13-4637-9DBB-A05A6F20B59D}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:01.736276",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -399,11 +399,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_7X5j4PmgYOs1ddl8dmIktI",
                 "service_name": "CAPE",
-                "guid": "{DF899F56-CD90-4C2F-B979-7C66349F9978}",
+                "guid": "{29D49182-6B01-4DA3-B1D4-B69A8497EF02}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:05.004921",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -421,11 +421,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_ZaO9j8YXXqcEgjMWqrMyN",
                 "service_name": "CAPE",
-                "guid": "{0FC4F8BE-0829-444A-AC9D-B58A5A8F73CF}",
+                "guid": "{52486308-62E0-4E57-BAAC-1FAE594A1DB2}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:08.069145",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -443,11 +443,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4qyyL3AyIkEP9mSSmG53ny",
                 "service_name": "CAPE",
-                "guid": "{2271BDE8-06A7-40E7-9DFD-212E4902CA2C}",
+                "guid": "{856BFB79-E59A-4E1B-A1C0-51674F57E418}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:11.142344",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -465,11 +465,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_2OZg4XeJwiTH2JuhzR3G3z",
                 "service_name": "CAPE",
-                "guid": "{B342193F-E23B-409D-8B13-678B49B217C5}",
+                "guid": "{0484FB1B-2CB2-413A-A5BC-D90F2B4552FF}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:14.215067",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -487,11 +487,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4U9yNplpH6WR9cycEHp3hk",
                 "service_name": "CAPE",
-                "guid": "{5EE83E96-FBC4-4A39-9309-2ECF72E11D01}",
+                "guid": "{96B6D8D0-A08A-474B-B9BE-8FFB91BBE4EC}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:17.286888",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -509,11 +509,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_m9PQhopXqXlRPOD9I2MvG",
                 "service_name": "CAPE",
-                "guid": "{1EFDF98B-3EA7-4C29-8530-98C651FC280A}",
+                "guid": "{44F4497B-1F21-4024-BCB8-5A29BB9A3FD7}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:20.360566",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -531,11 +531,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_2Av3CGwD05K2UEtanDmoGl",
                 "service_name": "CAPE",
-                "guid": "{F494B65A-6911-4B25-AB46-994E85CE45DB}",
+                "guid": "{C702821B-6E81-431E-9458-C3CEE495EDBC}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:23.431371",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -553,11 +553,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_3JPwtZfdZnjgktN3M2YL8W",
                 "service_name": "CAPE",
-                "guid": "{F18B2E3F-CCB3-479A-A862-EB5FE8E72A5A}",
+                "guid": "{6A365412-E712-4CB4-9918-C9FD646025A8}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:26.500902",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -575,11 +575,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4Z29wWYJNsQSqIMUvEaaJg",
                 "service_name": "CAPE",
-                "guid": "{D006D28D-8CAC-465D-8F1E-B3DA51F0FA98}",
+                "guid": "{F0A33D7F-FEDE-44D0-88FE-9C8245CE9DCA}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:29.607880",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -597,11 +597,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_5FnM7iMg8mTwWMw9Khsf8z",
                 "service_name": "CAPE",
-                "guid": "{BE1FAA41-DB2A-4059-A9BE-28BC90A0EE48}",
+                "guid": "{1C5E3809-5294-489D-91DE-F475B4AF81EA}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:32.713147",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -619,11 +619,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_tV4KCuEp7W6edZmuW7ouf",
                 "service_name": "CAPE",
-                "guid": "{D3FF33F7-B643-4064-91E1-CC0669458940}",
+                "guid": "{969D03CA-3B3C-4E54-AF16-CA544FECF2C0}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:35.783306",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -641,11 +641,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_FIy8QzIwSe0y9XuKR3xDv",
                 "service_name": "CAPE",
-                "guid": "{F23CDED2-F029-423C-81B1-5843CC5A23CD}",
+                "guid": "{7CDB6ABC-9965-424B-8D03-19C1673C62F4}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:38.853404",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -663,11 +663,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_2kRjsUT1LuMqI0u0O8te2N",
                 "service_name": "CAPE",
-                "guid": "{B5EFAC4B-1274-4FCF-A238-1836DFF9DC8D}",
+                "guid": "{1F779C1E-7F1A-4202-AA9D-D3A2EA37125F}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:41.926871",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -685,11 +685,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_6uRROFsSO3GJe8MuUXhoIG",
                 "service_name": "CAPE",
-                "guid": "{01B80401-393F-4C74-9D29-8C85BEDB8457}",
+                "guid": "{4FB0BF04-E5CF-4373-BA6B-A16E0C94372A}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:44.997169",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -707,11 +707,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_1PIJZJtbFls8YUzUcC7yKn",
                 "service_name": "CAPE",
-                "guid": "{C0BD2904-BC65-4525-9E0F-7B4F77796C63}",
+                "guid": "{B470D684-A6D6-43AE-A9A2-20623B7E60DB}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:48.070551",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -729,11 +729,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_ePPaSqkpNlK6Zx1LuJRpu",
                 "service_name": "CAPE",
-                "guid": "{5209B5E0-39C7-42B1-BD4A-A2F6FB1FF69B}",
+                "guid": "{41E6C009-B3B7-45B2-82FB-69240CBCAD06}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:51.142740",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -751,11 +751,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_5Tjt2qCD78rcurCyHOlNzd",
                 "service_name": "CAPE",
-                "guid": "{07150C97-54AA-49B4-A021-531A04D8CBCC}",
+                "guid": "{B5E9929E-3A3E-4A9B-97B8-2C46E887ABE5}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:54.240539",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -773,11 +773,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_4YHlW3rcFAT5l01OFAhlQw",
                 "service_name": "CAPE",
-                "guid": "{6D1C53FD-1FA8-40CC-94B2-14C84DB47AC5}",
+                "guid": "{F5155E6F-6F68-4631-9382-6BA23D2E424D}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:30:57.348976",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -795,11 +795,11 @@
                 "tag": "135.232.92.137:443",
                 "ontology_id": "network_http_5SX93WPoYX69z06Nl55qXH",
                 "service_name": "CAPE",
-                "guid": "{9B490274-BA3F-4B8E-942D-08F19E2C38C8}",
+                "guid": "{4BBEAAAE-9933-4462-8EB7-626224A1523B}",
                 "treeid": "bd081b01dbaefcaedfcaee41197615282473d38bd9831191eb6b7949b4b34c0e",
                 "processtree": "135.232.92.137:443",
                 "time_observed": "2025-11-21 16:31:00.422528",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "destination_ip": "135.232.92.137",
             "destination_port": 443,
@@ -858,7 +858,7 @@
                 "treeid": "12dfcfa30fb170378c8edb876db5a17805c23466d54d4cb69a6c4fe8f3354c61",
                 "processtree": "?usrtmp\\suspended-process.exe",
                 "time_observed": "2025-11-21 16:30:01.346",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\suspended-process.exe",
             "start_time": "2025-11-21 16:30:01.346",
@@ -901,7 +901,7 @@
                 "treeid": "cb97843cdc4f965a5b30b2cdaf7db26ce72b8d417398d2519ac888f4f05e7a28",
                 "processtree": "?sys32\\waasmedicagent.exe|?sys32\\conhost.exe",
                 "time_observed": "2025-11-21 16:30:00.707",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "image": "C:\\Windows\\System32\\conhost.exe",
             "start_time": "2025-11-21 16:30:00.707",
@@ -913,7 +913,7 @@
                 "treeid": "25a026bdd54385f3aaefb8e1723f5be97b7c36e255b2c48f7f7f8a66d9df7eb8",
                 "processtree": "?sys32\\waasmedicagent.exe",
                 "time_observed": "2025-11-21 16:30:00.688",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "pimage": "C:\\Windows\\System32\\WaaSMedicAgent.exe",
             "pcommand_line": "C:\\WINDOWS\\System32\\WaaSMedicAgent.exe b098cce136e47cc880f4d6ffb08f0da1 cdCgDNXuN0+IJG5JiSdzOA.0.1.0.0.0",
@@ -932,11 +932,11 @@
                 "tag": "?usrtmp\\suspended-process.exe",
                 "ontology_id": "process_1yqnQSVadKuTRpnsPmHWr6",
                 "service_name": "CAPE",
-                "guid": "{E9883EDA-081B-4910-8154-9A1204081501}",
+                "guid": "{0CD0F4E1-ABCB-475D-B010-7FCE70BED8D5}",
                 "treeid": "12dfcfa30fb170378c8edb876db5a17805c23466d54d4cb69a6c4fe8f3354c61",
                 "processtree": "?usrtmp\\suspended-process.exe",
                 "time_observed": "2025-11-21 16:30:01.129",
-                "session": "4krYiJ1Qtxke2mrKhSh66Y"
+                "session": "2O2XstZD3pknbhHEbu0Asc"
             },
             "image": "C:\\Users\\buddy\\AppData\\Local\\Temp\\suspended-process.exe",
             "start_time": "2025-11-21 16:30:01.129",
