@@ -1,7 +1,7 @@
 import json
 import os
 from collections import defaultdict, Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
 from logging import getLogger, DEBUG
@@ -1100,20 +1100,21 @@ def load_ontology_and_result_section(
                         f"transport_layer_protocol={transport_layer_protocol}"
                     )
                     continue
-                p = ontres.get_process_by_guid(attempt["guid"])
-                if not p:
-                    p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
-                if p:
-                    nc.set_process(p)
-                ontres.add_network_connection(nc)
-                ontres.add_network_dns(nd)
-                if not nc.process and attempt["process_id"]:
-                    # A OntologyResults process should exist for every pid in the process map
-                    p = ontres.get_process_by_pid(attempt["process_id"])
-                    nc.set_process(p)
-                elif attempt["process_id"] and attempt["process_name"]:
-                    nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
                 if nc:
+                    p = ontres.get_process_by_guid(attempt["guid"])
+                    if not p:
+                        p = ontres.get_process_by_pid_and_time(attempt["process_id"], nc.objectid.time_observed)
+                    if p:
+                        nc.set_process(p)
+                    ontres.add_network_connection(nc)
+                    ontres.add_network_dns(nd)
+                    if not nc.process and attempt["process_id"]:
+                        # A OntologyResults process should exist for every pid in the process map
+                        p = ontres.get_process_by_pid(attempt["process_id"])
+                        nc.set_process(p)
+                    elif attempt["process_id"] and attempt["process_name"]:
+                        nc.update_process(image=attempt["process_name"], pid=attempt["process_id"])
+
                     net_dict = nc.as_primitives()
                     net_dict["time_observed"] = net_dict["objectid"].get("time_observed", "")
                     net_dict.pop("objectid")
@@ -1132,6 +1133,9 @@ def load_ontology_and_result_section(
     netflows_sec.set_column_order(
         ["timestamp", "protocol", "src_ip", "src_port", "domain", "dest_ip", "dest_port", "image", "pid"]
     )
+    tcp_seen = False
+    udp_seen = False
+    unique_netflows: List[Dict[str, Any]] = []
     if low_level_flow is not None:
         for flow in low_level_flow:
             _ = add_tag(netflows_sec, "network.dynamic.domain", flow["domain"])
@@ -1140,15 +1144,15 @@ def load_ontology_and_result_section(
             _ = add_tag(netflows_sec, "network.dynamic.ip", flow["src_ip"], safelist)
             _ = add_tag(netflows_sec, "network.port", flow["dest_port"])
             _ = add_tag(netflows_sec, "network.port", flow["src_port"])
-
+            flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
             nc = _create_network_connection_for_network_flow(flow, session, ontres)
-            if not nc.process and flow["pid"]:
-                # A OntologyResults process should exist for every pid in the process map
-                p = ontres.get_process_by_pid(flow["pid"])
-                nc.set_process(p)
-            elif flow["pid"] and flow["image"]:
-                nc.update_process(image=flow["image"], pid=flow["pid"])
             if nc:
+                if not nc.process and flow["pid"]:
+                    # A OntologyResults process should exist for every pid in the process map
+                    p = ontres.get_process_by_pid(flow["pid"])
+                    nc.set_process(p)
+                elif flow["pid"] and flow["image"]:
+                    nc.update_process(image=flow["image"], pid=flow["pid"])
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
@@ -1162,21 +1166,13 @@ def load_ontology_and_result_section(
                     else:
                         log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
 
-
-    unique_netflows: List[Dict[str, Any]] = []
-    if len(low_level_flow) > 0:
-        tcp_seen = False
-        udp_seen = False
-        # Need to convert each dictionary to a string in order to get the set of low_level_flow, since
-        # dictionaries are not hashable
-        for item in low_level_flow:
-            if item not in unique_netflows:  # Remove duplicates
-                unique_netflows.append(item)
-                netflows_sec.add_row(TableRow(**item))
-                if item["protocol"] == "tcp":
-                    tcp_seen = True
-                elif item["protocol"] == "udp":
-                    udp_seen = True
+                if flow not in unique_netflows:  # Remove duplicates
+                    unique_netflows.append(flow)
+                    netflows_sec.add_row(TableRow(**flow))
+                    if flow["protocol"] == "tcp":
+                        tcp_seen = True
+                    elif flow["protocol"] == "udp":
+                        udp_seen = True
 
         if tcp_seen:
             netflows_sec.add_subsection(
@@ -1262,16 +1258,16 @@ def load_ontology_and_result_section(
                 nh_to_add = True
             else:
                 nc = ontres.get_network_connection_by_network_http(nh)
-
-            if nh_to_add:
-                ontres.add_network_http(nh)
-            if not nc.process and http_call["pid"]:
-                # A OntologyResults process should exist for every pid in the process map
-                p = ontres.get_process_by_pid(http_call["pid"])
-                nc.set_process(p)
-            elif http_call["pid"] and http_call["image"]:
-                nc.update_process(image=http_call["image"], pid=http_call["pid"])
             if nc:
+                if nh_to_add:
+                    ontres.add_network_http(nh)
+                if not nc.process and http_call["pid"]:
+                    # A OntologyResults process should exist for every pid in the process map
+                    p = ontres.get_process_by_pid(http_call["pid"])
+                    nc.set_process(p)
+                elif http_call["pid"] and http_call["image"]:
+                    nc.update_process(image=http_call["image"], pid=http_call["pid"])
+    
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
@@ -1285,14 +1281,14 @@ def load_ontology_and_result_section(
                     else:
                         log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
 
-            http_sec.add_row(
-                TableRow(
-                    process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
-                    method=http_call["method"],
-                    request=http_call["request_headers"],
-                    uri=http_call["uri"],
+                http_sec.add_row(
+                    TableRow(
+                        process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
+                        method=http_call["method"],
+                        request=http_call["request_headers"],
+                        uri=http_call["uri"],
+                    )
                 )
-            )
 
     if remote_file_access_sec.heuristic:
         http_sec.add_subsection(remote_file_access_sec)
@@ -1522,7 +1518,7 @@ def load_ontology_and_result_section(
                 malware_families = sig["malware_families"],
                 sources = sig["sources"]
             ))
-    al_result.add_subsection(process_res, on_top=True)
+    al_result.add_subsection(process_res)
     if len(network_res.subsections) > 0:
         al_result.add_subsection(network_res)
     if len(sigs_res.subsections) > 0:
