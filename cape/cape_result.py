@@ -1,7 +1,7 @@
 import json
 import os
 from collections import defaultdict, Counter
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 from ipaddress import IPv4Network, ip_address, ip_network
 from logging import getLogger, DEBUG
@@ -1140,7 +1140,7 @@ def load_ontology_and_result_section(
             _ = add_tag(netflows_sec, "network.dynamic.ip", flow["src_ip"], safelist)
             _ = add_tag(netflows_sec, "network.port", flow["dest_port"])
             _ = add_tag(netflows_sec, "network.port", flow["src_port"])
-
+            flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
             nc = _create_network_connection_for_network_flow(flow, session, ontres)
             if not nc.process and flow["pid"]:
                 # A OntologyResults process should exist for every pid in the process map
@@ -1522,7 +1522,7 @@ def load_ontology_and_result_section(
                 malware_families = sig["malware_families"],
                 sources = sig["sources"]
             ))
-    al_result.add_subsection(process_res, on_top=True)
+    al_result.add_subsection(process_res)
     if len(network_res.subsections) > 0:
         al_result.add_subsection(network_res)
     if len(sigs_res.subsections) > 0:
