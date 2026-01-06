@@ -1001,14 +1001,15 @@ def load_ontology_and_result_section(
         dns_server_heur.name, heuristic=dns_server_heur, body=dns_server_heur.description
     )
     dns_server_hit = False
-    for dns_server in dns_servers:
-        if (
-            add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist)
-            and not ip_address(dns_server) in inetsim_network
-            and (routing == INETSIM.lower() and dns_server not in inetsim_dns_servers)
-        ):
-            dns_server_sec.add_line(f"\t-\t{dns_server}")
-            dns_server_hit = True
+    if dns_servers is not None:
+        for dns_server in dns_servers:
+            if (
+                add_tag(dns_server_sec, "network.dynamic.ip", dns_server, safelist)
+                and not ip_address(dns_server) in inetsim_network
+                and (routing == INETSIM.lower() and dns_server not in inetsim_dns_servers)
+            ):
+                dns_server_sec.add_line(f"\t-\t{dns_server}")
+                dns_server_hit = True
     if dns_server_hit:
         network_res.add_subsection(dns_server_sec)
 
