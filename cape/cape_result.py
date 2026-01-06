@@ -3328,7 +3328,7 @@ def _get_dns_sec(
     """
     answer_exists = False
     non_standard_dns_query_types: Set[str] = set()
-    if len(dns_requests.keys()) == 0:
+    if dns_requests is None or len(dns_requests) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
     dns_res_sec.set_column_order(["domain", "answer", "type"])
