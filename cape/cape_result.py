@@ -1204,12 +1204,12 @@ def load_ontology_and_result_section(
     http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
     http_header_anomaly_sec.set_heuristic(1012)
     sus_user_agents_used = []
-    if len(http_calls) > 0:
-        http_sec.set_heuristic(1002)
-        _ = add_tag(http_sec, "network.protocol", "http")
-    else:
-        _process_non_http_traffic_over_http(network_res, unique_netflows)
     if http_calls is not None:
+        if len(http_calls) > 0:
+            http_sec.set_heuristic(1002)
+            _ = add_tag(http_sec, "network.protocol", "http")
+        else:
+            _process_non_http_traffic_over_http(network_res, unique_netflows)
         for http_call in http_calls:
             _ = add_tag(http_sec, "network.dynamic.uri", http_call["uri"], safelist)
             for _, value in http_call["request_headers"].items():
