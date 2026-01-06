@@ -1204,12 +1204,12 @@ def load_ontology_and_result_section(
     http_header_anomaly_sec = ResultTableSection("Non-Standard HTTP Headers")
     http_header_anomaly_sec.set_heuristic(1012)
     sus_user_agents_used = []
-    if len(http_calls) > 0:
-        http_sec.set_heuristic(1002)
-        _ = add_tag(http_sec, "network.protocol", "http")
-    else:
-        _process_non_http_traffic_over_http(network_res, unique_netflows)
     if http_calls is not None:
+        if len(http_calls) > 0:
+            http_sec.set_heuristic(1002)
+            _ = add_tag(http_sec, "network.protocol", "http")
+        else:
+            _process_non_http_traffic_over_http(network_res, unique_netflows)
         for http_call in http_calls:
             _ = add_tag(http_sec, "network.dynamic.uri", http_call["uri"], safelist)
             for _, value in http_call["request_headers"].items():
@@ -3328,7 +3328,7 @@ def _get_dns_sec(
     """
     answer_exists = False
     non_standard_dns_query_types: Set[str] = set()
-    if len(dns_requests.keys()) == 0:
+    if dns_requests is None or len(dns_requests) == 0:
         return None
     dns_res_sec = ResultTableSection("Protocol: DNS")
     dns_res_sec.set_column_order(["domain", "answer", "type"])
