@@ -2159,6 +2159,7 @@ class CAPE(ServiceBase):
             # has a YARA rule associated with it
             "CAPE": "Memory Dump",
             "procdump": "Memory Dump",
+            "ETW": "ETW monitor logs",
         }
         if self.request.deep_scan:
             zip_file_map["macros"] = "Macros found during analysis"
