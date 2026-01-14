@@ -1706,7 +1706,10 @@ def process_signatures(
                 for k, v in mark.items():
                     if not v or k in MARK_KEYS_TO_NOT_DISPLAY:
                         if isinstance(k, str):
-                            k = int(k)
+                            try:
+                                k = int(k)
+                            except Exception as e:
+                                pass
                         sig["data"].pop(k)
                         fp_mark_count += 1
                     else:
