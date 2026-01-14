@@ -1,0 +1,2 @@
+Start-BitsTransfer -Source http://www.example.com/package.zip -Destination C:\Users\buddy\testfile1.txt
+bitsadmin /transfer myDownloadJob /download /priority normal http://www.example.com/package.zip C:\\Users\\buddy\\testfile2.txt

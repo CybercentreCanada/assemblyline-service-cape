@@ -1,0 +1,6 @@
+{"path": "procdump/b15dd3e7f16a3b347e497c92f0c67f1cd9354bf6f920211fb582c59ce10ece95", "filepath": "C:\\uLtpDoL\\CAPE\\6264_3034474015215112025", "pids": [6264], "ppids": [3932], "metadata": "1;?C:\\Windows\\SysWOW64\\cmd.exe;?C:\\Windows\\SysWOW64\\cmd.exe;?", "category": "procdump"}
+{"path": "procdump/1473048e6c83d0e4ad969b6c8d4d1e0a7dfe3506b74ac764e57aeb3410de668c", "filepath": "C:\\uLtpDoL\\CAPE\\7560_8815544015215112025", "pids": [7560], "ppids": [6264], "metadata": "1;?C:\\Windows\\SysWOW64\\cmd.exe;?C:\\Windows\\SysWOW64\\cmd.exe;?", "category": "procdump"}
+{"path": "hollowshunter/hh_process_7888_290000.bitsadmin.exe", "filepath": "C:\\\\hollowshunter\\process_7888\\290000.bitsadmin.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "hollowshunter/hh_process_7560_a20000.cmd.exe", "filepath": "C:\\\\hollowshunter\\process_7560\\a20000.cmd.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "hollowshunter/hh_process_6264_a20000.cmd.exe", "filepath": "C:\\\\hollowshunter\\process_6264\\a20000.cmd.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "hollowshunter/hh_hollowshunter_hollows.log", "filepath": "C:\\hollowshunter\\hollows.log", "pids": [], "ppids": [], "metadata": "", "category": ""}

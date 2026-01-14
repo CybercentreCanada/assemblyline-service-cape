@@ -2004,7 +2004,7 @@ class CAPE(ServiceBase):
             if self.routing.lower() == INETSIM.lower():
                 inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
 
-            cape_artifact_pids, main_process_tuples = generate_al_result(
+            cape_artifact_pids, main_process_tuples, _ = generate_al_result(
                 cape_task.report,
                 parent_section,
                 file_ext,
@@ -2159,6 +2159,10 @@ class CAPE(ServiceBase):
             # has a YARA rule associated with it
             "CAPE": "Memory Dump",
             "procdump": "Memory Dump",
+            "ETW/etw_dns.json": "ETW monitor DNS logs",
+            "ETW/etw_netevent.json": "ETW monitor network event logs",
+            "ETW/etw_proc_spoof.json": "ETW monitor process creation logs",
+            "ETW/wmi_etw.json": "ETW monitor WMI logs",
         }
         if self.request.deep_scan:
             zip_file_map["macros"] = "Macros found during analysis"
