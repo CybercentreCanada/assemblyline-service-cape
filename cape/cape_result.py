@@ -2814,12 +2814,12 @@ def _massage_http_ex_data(
                     continue
                 else:
                     answers = [attempt["answers"]]
-                for answer in answers:
-                    if answer["answer"].isdigit():
-                        continue
-                    if request == host:
-                        http_call["dst"] = answer["answer"]
-                        break
+                    for answer in answers:
+                        if answer["answer"].isdigit():
+                            continue
+                        if request == host:
+                            http_call["dst"] = answer["answer"]
+                            break
 
     return uri, http_call
 
