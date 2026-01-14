@@ -2813,8 +2813,8 @@ def _massage_http_ex_data(
                 else:
                     answers = [attempt["answers"]]
                 for answer in answers:
-                    if answer.isdigit():
-                        continue
+                        if answer["answer"].isdigit():
+                            continue
                     if request == host:
                         http_call["dst"] = answer
                         break
