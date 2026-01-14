@@ -2815,8 +2815,12 @@ def _massage_http_ex_data(
                 else:
                     answers = [attempt["answers"]]
                     for answer in answers:
-                        if answer["answer"].isdigit():
-                            continue
+                        if isinstance(answer, Dict):
+                            if answer["answer"].isdigit():
+                                continue
+                        elif isinstance(answer, str):
+                            if answer.isdigit():
+                                continue
                         if request == host:
                             http_call["dst"] = answer["answer"]
                             break
