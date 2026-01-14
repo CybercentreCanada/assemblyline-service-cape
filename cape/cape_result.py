@@ -1710,7 +1710,10 @@ def process_signatures(
                                 k = int(k)
                             except Exception as e:
                                 pass
-                        sig["data"].pop(k)
+                        try:
+                            sig["data"].pop(k)
+                        except Exception as e:
+                            pass
                         fp_mark_count += 1
                     else:
                         mark_count +=1
