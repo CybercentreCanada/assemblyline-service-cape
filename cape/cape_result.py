@@ -948,8 +948,11 @@ def load_ontology_and_result_section(
                 if module_event["arguments"]["DLLName"] not in modules:
                     modules.append(module_event["arguments"]["DLLName"])
             elif module_event["object"] == "Function":
-                if module_event["arguments"]["FunctionName"] not in modules:
-                    modules.append(module_event["arguments"]["FunctionName"])
+                if module_event["arguments"].get("FunctionName", None):
+                    if module_event["arguments"]["FunctionName"] not in modules:
+                        modules.append(module_event["arguments"]["FunctionName"])
+                elif module_event["arguments"].get("Identifier", None):
+                    modules.append(module_event["arguments"]["Identifier"])
             if len(services) > 0:
                 this_process["services_involved"] = services
             if len(modules) > 0:
@@ -1702,7 +1705,7 @@ def process_signatures(
             else:
                 for k, v in mark.items():
                     if not v or k in MARK_KEYS_TO_NOT_DISPLAY:
-                        sig["data"].pop(k, None)
+                        sig["data"].pop(k)
                         fp_mark_count += 1
                     else:
                         mark_count +=1
