@@ -2028,7 +2028,7 @@ def _process_http_calls(
                     split_path = http_call["uri"].rsplit("/", 1)
                     if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
                         download = True
-                if http_call["user-agent"] in SUSPICIOUS_USER_AGENTS:
+                if http_call.get("user-agent", None) in SUSPICIOUS_USER_AGENTS:
                     sus_agent = True
                 http_request = {
                     "protocol": protocol,
@@ -2038,7 +2038,7 @@ def _process_http_calls(
                     "uri": uri,
                     "method": http_call["method"],
                     "path": http_call["path"],
-                    "user-agent": http_call["user-agent"],
+                    "user-agent": http_call.get("user-agent", None),
                     "timestamp": first_seen,
                     "version": http_call["version"],
                     "request": request,
