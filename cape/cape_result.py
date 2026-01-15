@@ -1429,13 +1429,13 @@ def load_ontology_and_result_section(
     _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
 
     if len(signature_list) > 0:
-        process_res.set_heuristic(56)
+        process_res.set_heuristic(3)
         signature_dict = Counter(signature_list)
         for signature,occurence in signature_dict.items():
             process_res.heuristic.add_signature_id(signature, 0, occurence)
     
     #if len(possible_spoofing) > 0:
-    #    .set_heuristic(40)
+    #    .set_heuristic(4)
     #    .heuristic.add_signature_id("Parent_Process_Spoofing", 0, len(possible_spoofing))
 
     #Build the sandbox section
@@ -2387,7 +2387,7 @@ def process_cape(cape: Dict[str, Any], parent_result_section: ResultSection) -> 
         )
 
     if cape.get("configs", []):
-        malware_heur = Heuristic(38)
+        malware_heur = Heuristic(5)
         malware_heur.add_signature_id("config_extracted", 1000)
         configs_sec = ResultSection(CONFIG_EXTRACT_SECTION_TITLE, parent=parent_result_section, heuristic=malware_heur)
 
@@ -3483,14 +3483,19 @@ def _set_heuristic_signature(
     :param translated_score: The Assemblyline-adapted score of the signature
     :return: None
     """
-    sig_id = get_category_id(name)
-    if sig_id == 9999:
+    sig_category = get_category(name)
+    heuristic_id = 1
+    if sig_category == "unknown":
+        heuristic_id = 9999
         log.warning(f"Unknown signature detected: {signature}")
-
+    if sig_category == "Capemon Yara Hit":
+        heuristic_id = 2
     # Creating heuristic
-    sig_res.set_heuristic(sig_id)
+    sig_res.set_heuristic(heuristic_id)
 
     # Adding signature and score
+    if sig_category != "unknown":
+        name = sig_category + ":" + name 
     sig_res.heuristic.add_signature_id(name, score=translated_score)
 
 def _set_attack_ids(attack_ids: Dict[str, Dict[str, str]], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
