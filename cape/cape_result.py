@@ -948,8 +948,11 @@ def load_ontology_and_result_section(
                 if module_event["arguments"]["DLLName"] not in modules:
                     modules.append(module_event["arguments"]["DLLName"])
             elif module_event["object"] == "Function":
-                if module_event["arguments"]["FunctionName"] not in modules:
-                    modules.append(module_event["arguments"]["FunctionName"])
+                if module_event["arguments"].get("FunctionName", None):
+                    if module_event["arguments"]["FunctionName"] not in modules:
+                        modules.append(module_event["arguments"]["FunctionName"])
+                elif module_event["arguments"].get("Identifier", None):
+                    modules.append(module_event["arguments"]["Identifier"])
             if len(services) > 0:
                 this_process["services_involved"] = services
             if len(modules) > 0:
@@ -1702,7 +1705,15 @@ def process_signatures(
             else:
                 for k, v in mark.items():
                     if not v or k in MARK_KEYS_TO_NOT_DISPLAY:
-                        sig["data"].pop(k, None)
+                        if isinstance(k, str):
+                            try:
+                                k = int(k)
+                            except Exception as e:
+                                pass
+                        try:
+                            sig["data"].pop(k)
+                        except Exception as e:
+                            pass
                         fp_mark_count += 1
                     else:
                         mark_count +=1
@@ -2017,7 +2028,7 @@ def _process_http_calls(
                     split_path = http_call["uri"].rsplit("/", 1)
                     if len(split_path) > 1 and search(r"[^\\]*\.(\w+)$", split_path[-1]):
                         download = True
-                if http_call["user-agent"] in SUSPICIOUS_USER_AGENTS:
+                if http_call.get("user-agent", None) in SUSPICIOUS_USER_AGENTS:
                     sus_agent = True
                 http_request = {
                     "protocol": protocol,
@@ -2027,7 +2038,7 @@ def _process_http_calls(
                     "uri": uri,
                     "method": http_call["method"],
                     "path": http_call["path"],
-                    "user-agent": http_call["user-agent"],
+                    "user-agent": http_call.get("user-agent", None),
                     "timestamp": first_seen,
                     "version": http_call["version"],
                     "request": request,
@@ -2809,12 +2820,16 @@ def _massage_http_ex_data(
                     continue
                 else:
                     answers = [attempt["answers"]]
-                for answer in answers:
-                    if answer.isdigit():
-                        continue
-                    if request == host:
-                        http_call["dst"] = answer
-                        break
+                    for answer in answers:
+                        if isinstance(answer, Dict):
+                            if answer["answer"].isdigit():
+                                continue
+                        elif isinstance(answer, str):
+                            if answer.isdigit():
+                                continue
+                        if request == host:
+                            http_call["dst"] = answer["answer"]
+                            break
 
     return uri, http_call
 
