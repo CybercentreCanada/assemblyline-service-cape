@@ -216,7 +216,6 @@ submission_params:
     value: false
 
 heuristics:
- heuristics:
   - heur_id: 1
     name: CAPE Yara Hit
     score: 0
