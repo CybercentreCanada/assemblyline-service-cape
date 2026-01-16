@@ -110,7 +110,7 @@ CAPE_SIGNATURES = {
     "banker_zeus_url": "Banker",
     "bcdedit_command": "Generic",
     "betabot_behavior": "Trojan",
-    "binary_yara": "CAPE Yara Hit",
+    "binary_yara": "Capemon Yara Hit",
     "bitcoin_opencl": "Cryptomining",
     "blacknet_mutexes": "Rat",
     "blackrat_apis": "Rat",
@@ -548,7 +548,7 @@ CAPE_SIGNATURES = {
     "process_creation_suspicious_location": "Execution",
     "process_interest": "Generic",
     "process_needed": "Generic",
-    "procmem_yara": "CAPE Yara Hit",
+    "procmem_yara": "Capemon Yara Hit",
     "protonbot_mutexes": "Loader",
     "punch_plus_plus_pcres": "Network",
     "purplewave_mutexes": "Infostealer",
@@ -750,197 +750,6 @@ CAPE_SIGNATURES = {
     "xpertrat_mutexes": "Rat",
 }
 
-CAPE_SIGNATURE_CATEGORIES = {
-    "Account": {
-        "id": 1,
-        "description": "Adds or manipulates an administrative user account.",
-    },
-    "Anti-analysis": {
-        "id": 2,
-        "description": "Constructed to conceal or obfuscate itself to prevent analysis.",
-    },
-    "Anti-av": {
-        "id": 3,
-        "description": "Attempts to conceal itself from detection by antivirus.",
-    },
-    "Anti-debug": {
-        "id": 4,
-        "description": "Attempts to detect if it is being debugged.",
-    },
-    "Anti-emulation": {"id": 5, "description": "Detects the presence of an emulator."},
-    "Anti-sandbox": {
-        "id": 6,
-        "description": "Attempts to detect if it is in a sandbox.",
-    },
-    "Anti-vm": {
-        "id": 7,
-        "description": "Attempts to detect if it is being run in virtualized environment.",
-    },
-    "Antivirus": {"id": 8, "description": "AntiVirus hit. File is infected."},
-    "Banker": {
-        "id": 9,
-        "description": (
-            "Designed to gain access to confidential information stored or processed through online banking."
-        ),
-    },
-    "Bootkit": {
-        "id": 10,
-        "description": "Manipulates machine configurations that would affect the boot of the machine.",
-    },
-    "Bot": {
-        "id": 11,
-        "description": "Appears to be a bot or exhibits bot-like behaviour.",
-    },
-    "Browser": {
-        "id": 12,
-        "description": "Manipulates browser-settings in a suspicious way.",
-    },
-    "Bypass": {
-        "id": 13,
-        "description": "Attempts to bypass operating systems security controls (firewall, amsi, applocker, etc.)",
-    },
-    "C2": {
-        "id": 14,
-        "description": "Communicates with a server controlled by a malicious actor.",
-    },
-    "Clickfraud": {
-        "id": 15,
-        "description": "Manipulates browser settings to allow for insecure clicking.",
-    },
-    "Command": {"id": 16, "description": "A suspicious command was observed."},
-    "Credential Access": {
-        "id": 17,
-        "description": "Uses techniques to access credentials.",
-    },
-    "Credential Dumping": {
-        "id": 18,
-        "description": "Uses techniques to dump credentials.",
-    },
-    "Cryptomining": {
-        "id": 19,
-        "description": "Facilitates mining of cryptocurrency.",
-    },
-    "Discovery": {
-        "id": 20,
-        "description": "Uses techniques for discovery information about the system, the user, or the environment.",
-    },
-    "Dns": {"id": 21, "description": "Uses suspicious DNS queries."},
-    "Dotnet": {"id": 22, "description": ".NET code is used in a suspicious manner."},
-    "Downloader": {"id": 23, "description": "Trojan that downloads installs files."},
-    "Dropper": {
-        "id": 24,
-        "description": "Trojan that drops additional malware on an affected system.",
-    },
-    "Encryption": {
-        "id": 25,
-        "description": "Encryption algorithms are used for obfuscating data.",
-    },
-    "Evasion": {"id": 26, "description": "Techniques are used to avoid detection."},
-    "Execution": {
-        "id": 27,
-        "description": "Uses techniques to execute harmful code or create executables that could run harmful code.",
-    },
-    "Exploit": {
-        "id": 28,
-        "description": "Exploits an known software vulnerability or security flaw.",
-    },
-    "Exploit Kit": {
-        "id": 29,
-        "description": "Programs designed to crack or break computer and network security measures.",
-    },
-    "Generic": {
-        "id": 30,
-        "description": "Basic operating system objects are used in suspicious ways.",
-    },
-    "Infostealer": {
-        "id": 31,
-        "description": "Collects and disseminates information such as login details, usernames, passwords, etc.",
-    },
-    "Injection": {
-        "id": 32,
-        "description": (
-            "Input is not properly validated and gets processed by an interpreter as part of a command or query."
-        ),
-    },
-    "Keylogger": {"id": 33, "description": "Monitoring software detected."},
-    "Lateral": {
-        "id": 34,
-        "description": "Techniques used to move through environment and maintain access.",
-    },
-    "Loader": {
-        "id": 35,
-        "description": "Download and execute additional payloads on compromised machines.",
-    },
-    "Locker": {"id": 36, "description": "Prevents access to system data and files."},
-    "Macro": {
-        "id": 37,
-        "description": (
-            "A set of commands that automates a software to perform a certain action, found in Office macros."
-        ),
-    },
-    "Malware": {
-        "id": 38,
-        "description": "The file uses techniques associated with malicious software.",
-    },
-    "Martians": {
-        "id": 39,
-        "description": "Command shell or script process was created by unexpected parent process.",
-    },
-    "Masquerading": {
-        "id": 40,
-        "description": "The name or location of an object is manipulated to evade defenses and observation.",
-    },
-    "Network": {"id": 41, "description": "Suspicious network traffic was observed."},
-    "Office": {
-        "id": 42,
-        "description": "Makes API calls not consistent with expected/standard behaviour.",
-    },
-    "Packer": {
-        "id": 43,
-        "description": "Compresses, encrypts, and/or modifies a malicious file's format.",
-    },
-    "Persistence": {
-        "id": 44,
-        "description": (
-            "Technique used to maintain presence in system(s) across interruptions that could cut off access."
-        ),
-    },
-    "Phishing": {
-        "id": 45,
-        "description": "Techniques were observed that attempted to obtain information from the user.",
-    },
-    "Ransomware": {
-        "id": 46,
-        "description": "Designed to block access to a system until a sum of money is paid.",
-    },
-    "Rat": {
-        "id": 47,
-        "description": (
-            "Designed to provide the capability of covert surveillance and/or unauthorized access to a target."
-        ),
-    },
-    "Rootkit": {
-        "id": 48,
-        "description": (
-            "Designed to provide continued privileged access to a system while actively hiding its presence."
-        ),
-    },
-    "Static": {
-        "id": 51,
-        "description": "A suspicious characteristic was discovered during static analysis.",
-    },
-    "Stealth": {
-        "id": 52,
-        "description": "Leverages/modifies internal processes and settings to conceal itself.",
-    },
-    "Trojan": {
-        "id": 53,
-        "description": "Presents itself as legitimate in attempt to infiltrate a system.",
-    },
-    "Virus": {"id": 54, "description": "Malicious software program."},
-    "CAPE Yara Hit": {"id": 55, "description": "A Yara rule in CAPE was raised"},
-}
-
 # These are too noisy to be considered useful.
 CAPE_DROPPED_SIGNATURES = [
     "powershell_scriptblock_logging",
@@ -951,15 +760,14 @@ CAPE_DROPPED_SIGNATURES = [
 ]
 
 
-def get_category_id(sig: str) -> int:
+def get_category(sig: str) -> int:
     """
     This method returns the category ID for a given signature name
     :param sig: given signature name
     :return: the category ID
     """
-    category = CAPE_SIGNATURES.get(sig, "unknown")
-    metadata = CAPE_SIGNATURE_CATEGORIES.get(category, {})
-    return metadata.get("id", 9999)
+    return CAPE_SIGNATURES.get(sig, "unknown")
+     
 
 
 def get_signature_category(sig: str) -> str:
