@@ -872,14 +872,15 @@ def load_ontology_and_result_section(
     sysmon_enrichment = {}
     processes_still_to_create = list(pids_of_interest)
     possible_spoofing = {}
-    for pid in pids_of_interest:
-        if pid in parsed_etw["processes"].keys():
-            if parsed_etw["processes"][pid]["real_ppid"] != parsed_etw["processes"][pid]["claimed_ppid"]:
-                possible_spoofing[pid] = {"claimed_ppid": parsed_etw["processes"][pid]["claimed_ppid"], "real_ppid": parsed_etw["processes"][pid]["real_ppid"]}
-            if parsed_etw["processes"][pid]["real_ppid"] != process_map[pid]["ppid"]:
-                process_map[pid]["ppid"] = parsed_etw["processes"][pid]["real_ppid"]
-                if pid not in possible_spoofing.keys():
+    if parsed_etw and isinstance(parsed_etw, Dict) and len(parsed_etw) > 0 and parsed_etw.get("processes", False): 
+        for pid in pids_of_interest:
+            if pid in parsed_etw["processes"].keys():
+                if parsed_etw["processes"][pid]["real_ppid"] != parsed_etw["processes"][pid]["claimed_ppid"]:
                     possible_spoofing[pid] = {"claimed_ppid": parsed_etw["processes"][pid]["claimed_ppid"], "real_ppid": parsed_etw["processes"][pid]["real_ppid"]}
+                if parsed_etw["processes"][pid]["real_ppid"] != process_map[pid]["ppid"]:
+                    process_map[pid]["ppid"] = parsed_etw["processes"][pid]["real_ppid"]
+                    if pid not in possible_spoofing.keys():
+                        possible_spoofing[pid] = {"claimed_ppid": parsed_etw["processes"][pid]["claimed_ppid"], "real_ppid": parsed_etw["processes"][pid]["real_ppid"]}
             
     if parsed_sysmon is not None:
         for process_id, process_details in parsed_sysmon.items():

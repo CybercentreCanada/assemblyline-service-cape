@@ -420,9 +420,8 @@ class TestCapeMain:
         # Cleaning up the tmp directory
         samples_path = os.path.join(TEST_DIR, "samples")
         for sample in os.listdir(samples_path):
-            if os.path.isfile(os.path.join(samples_path, sample)):
-                temp_sample_path = os.path.join("/tmp", sample)
-                os.remove(temp_sample_path)
+            temp_sample_path = os.path.join("/tmp", sample)
+            os.remove(temp_sample_path)
 
     @staticmethod
     def test_init(cape_class_instance):
