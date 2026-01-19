@@ -2037,7 +2037,7 @@ def _process_http_calls(
                     "port": port,
                     "uri": uri,
                     "method": http_call["method"],
-                    "path": http_call["path"],
+                    "path": http_call.get("path", "/"),
                     "user-agent": http_call.get("user-agent", None),
                     "timestamp": first_seen,
                     "version": http_call["version"],
