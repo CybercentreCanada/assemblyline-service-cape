@@ -3,7 +3,7 @@ import pytest
 
 class TestSignatures:
     @staticmethod
-    @pytest.mark.parametrize("sig, correct_int", [("blah", 9999), ("network_cnc_http", 1)])
+    @pytest.mark.parametrize("sig, correct_int", [("blah", "unknown"), ("network_cnc_http", "Network")])
     def test_get_category(sig, correct_int):
         from cape.signatures import get_category
 
