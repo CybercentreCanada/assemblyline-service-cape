@@ -297,13 +297,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 10,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "language_check_registry",
+                            "name": "Discovery:language_check_registry",
                             "frequency": 1,
                             "safe": false
                         }
