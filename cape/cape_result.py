@@ -1943,7 +1943,9 @@ def _get_dns_map(
                             if answer["answer"] in etw_request_informations["responses"] or request == etw_request:
                                 if not dns_requests[request][index].get("process_id"):
                                     dns_requests[request][index]["process_id"] = etw_request_informations["pids"][0] #Best effort to attribute the dns call to a process
-                                dns_requests[request][index]["sources"].append("etw")
+                                if "etw" not in dns_requests[request][index]["sources"]:
+                                    dns_requests[request][index]["sources"].append("etw")
+                                break
                             else:
                                 continue
     return dict(dns_requests)
@@ -2018,7 +2020,9 @@ def _get_low_level_flows(
                                     if network_flow["dest_port"] == call["dport"] and network_flow["src_port"] == call["sport"]:
                                         if not network_flow.get("pid"):
                                             network_flow["pid"] = process_id
-                                        network_flow["sources"].append("etw") 
+                                        if "etw" not in network_flow["sources"]:
+                                            network_flow["sources"].append("etw")
+                                        break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
