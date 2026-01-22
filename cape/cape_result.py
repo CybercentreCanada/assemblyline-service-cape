@@ -1855,7 +1855,9 @@ def _get_dns_map(
                                                 dns_requests[request][index]["process_name"] = process_details["name"]
                                             if not dns_requests[request][index].get("process_id"):
                                                 dns_requests[request][index]["process_id"] = process
-                                            dns_requests[request][index]["sources"].append("API")
+                                            if "API" not in dns_requests[request][index]["sources"]:
+                                                dns_requests[request][index]["sources"].append("API")
+                                            break
                                         else:
                                             continue
         # Attempt mapping process_name to the dns_call using sysmon
@@ -1877,7 +1879,9 @@ def _get_dns_map(
 
                                         if not dns_requests[request][index].get("process_id"):
                                             dns_requests[request][index]["process_id"] = process
-                                        dns_requests[request][index]["sources"].append("sysmon")
+                                        if "sysmon" not in dns_requests[request][index]["sources"]:
+                                            dns_requests[request][index]["sources"].append("sysmon")
+                                        break
                                     else:
                                         continue
 
@@ -1930,8 +1934,10 @@ def _get_low_level_flows(
                                                 network_flow["image"] = process_details["name"]
                                             if not network_flow.get("pid"):
                                                 network_flow["pid"] = process
-                                            network_flow["sources"].append("API")                       
-                 # Attempt mapping process_name to the dns_call using sysmon
+                                            if "API" not in network_flow["sources"]:
+                                                network_flow["sources"].append("API")
+                                            break                       
+                 # Attempt mapping process_name to the netflow using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
                         for event in process_details:
@@ -1942,7 +1948,9 @@ def _get_low_level_flows(
                                             network_flow["image"] = event["image"]
                                         if not network_flow.get("pid"):
                                             network_flow["pid"] = process
-                                        network_flow["sources"].append("sysmon")
+                                        if "sysmon" not in network_flow["sources"]:
+                                            network_flow["sources"].append("sysmon")
+                                        break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2065,8 +2073,10 @@ def _process_http_calls(
                                                     http_request["image"] = process_details["name"]
                                                 if not http_request.get("pid"):
                                                     http_request["pid"] = process
-                                                http_request["sources"].append("API")                       
-                 # Attempt mapping process_name to the dns_call using sysmon
+                                                if "API" not in http_request["sources"]:
+                                                    http_request["sources"].append("API")
+                                                break                       
+                 # Attempt mapping process_name to the http_call using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
                         for event in process_details:
@@ -2080,7 +2090,9 @@ def _process_http_calls(
                                             http_request["image"] = event["image"]
                                         if not http_request.get("pid"):
                                             http_request["pid"] = process
-                                        http_request["sources"].append("sysmon")
+                                        if "sysmon" not in http_request["sources"]:
+                                            http_request["sources"].append("sysmon")
+                                        break
                 http_requests.append(http_request)
     return http_requests    
 
