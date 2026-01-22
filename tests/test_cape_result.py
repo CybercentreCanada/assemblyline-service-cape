@@ -898,7 +898,7 @@ class TestCapeResult:
                 {"blah.com": [{"answers": ["1.1.1.1"]}], "1": [{"answers": "blah"}]},
                 {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
                 "http://blah.com/blah",
-                {"uri": "blah.com/blah", "protocol": "http", "dst": "1.1.1.1"},
+                {"uri": "blah.com/blah", "protocol": "http", "dst": "127.0.0.1"},
             ),
         ],
     )
