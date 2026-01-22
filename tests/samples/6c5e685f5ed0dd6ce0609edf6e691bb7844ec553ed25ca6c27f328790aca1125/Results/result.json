@@ -297,13 +297,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 1,
+                    "heur_id": 9999,
                     "score": 30,
-                    "name": "CAPE Yara Hit",
+                    "name": "Unknown",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Injection:creates_suspended_process",
+                            "name": "creates_suspended_process",
                             "frequency": 1,
                             "safe": false
                         }

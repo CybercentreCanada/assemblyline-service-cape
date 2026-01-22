@@ -310,13 +310,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 1,
+                    "heur_id": 9999,
                     "score": 10,
-                    "name": "CAPE Yara Hit",
+                    "name": "Unknown",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Discovery:queries_locale_api",
+                            "name": "queries_locale_api",
                             "frequency": 1,
                             "safe": false
                         }
@@ -360,13 +360,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 1,
+                    "heur_id": 9999,
                     "score": 10,
-                    "name": "CAPE Yara Hit",
+                    "name": "Unknown",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Discovery:language_check_registry",
+                            "name": "language_check_registry",
                             "frequency": 1,
                             "safe": false
                         }
@@ -392,13 +392,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 1,
+                    "heur_id": 9999,
                     "score": 30,
-                    "name": "CAPE Yara Hit",
+                    "name": "Unknown",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Injection:creates_suspended_process",
+                            "name": "creates_suspended_process",
                             "frequency": 1,
                             "safe": false
                         }
