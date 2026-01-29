@@ -387,7 +387,7 @@ class CAPE(ServiceBase):
             self.artifact_list,
             self.request,
             collapsed=True,
-            injection_heur_id=32,
+            injection_heur_id=1,
             parent_relation=PARENT_RELATION.DYNAMIC,
         )
         if artifact_section:
