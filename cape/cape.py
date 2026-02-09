@@ -387,7 +387,7 @@ class CAPE(ServiceBase):
             self.artifact_list,
             self.request,
             collapsed=True,
-            injection_heur_id=32,
+            injection_heur_id=1,
             parent_relation=PARENT_RELATION.DYNAMIC,
         )
         if artifact_section:
@@ -2003,7 +2003,7 @@ class CAPE(ServiceBase):
             inetsim_dns_servers = []
             if self.routing.lower() == INETSIM.lower():
                 inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
-
+            task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
             cape_artifact_pids, main_process_tuples, _ = generate_al_result(
                 cape_task.report,
                 parent_section,
@@ -2018,6 +2018,7 @@ class CAPE(ServiceBase):
                 self.config.get("uses_https_proxy_in_sandbox", False),
                 self.config.get("suspicious_accepted_languages", []),
                 self.signatures_meta,
+                task_dir
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
