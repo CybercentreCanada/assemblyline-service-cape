@@ -33,7 +33,7 @@ from assemblyline_v4_service.common.result import (
     TextSectionBody,
 )
 from assemblyline_v4_service.common.task import PARENT_RELATION
-from cape_result import (
+from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
     BUFFER_PATH,
@@ -53,8 +53,8 @@ from cape_result import (
     x64_IMAGE_SUFFIX,
     x86_IMAGE_SUFFIX,
 )
-from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
-from yara_modules import *
+from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+from cape.yara_modules import *
 from pefile import PE, PEFormatError
 from retrying import RetryError, retry
 from SetSimilaritySearch import SearchIndex

@@ -64,8 +64,8 @@ from assemblyline_v4_service.common.result import (
     SandboxProcessItem,
     SandboxSignatureItem,
 )
-from signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category
-from standard_http_headers import STANDARD_HTTP_HEADERS
+from cape.signatures import CAPE_DROPPED_SIGNATURES, SIGNATURE_TO_ATTRIBUTE_ACTION_MAP, get_category
+from cape.standard_http_headers import STANDARD_HTTP_HEADERS
 from multidecoder.decoders.shell import (
     find_cmd_strings,
     find_powershell_strings,
@@ -4178,7 +4178,7 @@ def main(argv):
     from assemblyline_v4_service.common.base import ServiceBase
     from assemblyline_v4_service.common.helper import get_heuristics
     from assemblyline_v4_service.common.result import Result
-    from safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
+    from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
     log.setLevel(DEBUG)
     report_path = argv[1]
     file_ext = argv[2]
