@@ -2035,7 +2035,7 @@ class TestCapeMain:
         custom_tree_id_safelist = list()
 
         results = cape_class_instance._build_report(
-            report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
         )
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
@@ -2046,32 +2046,32 @@ class TestCapeMain:
         mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         # Exception tests for json.loads
         mocker.patch("cape.cape.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
         with pytest.raises(JSONDecodeError):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
     @staticmethod
