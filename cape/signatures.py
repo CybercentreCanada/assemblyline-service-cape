@@ -713,8 +713,12 @@ CAPE_SIGNATURES = {
     "uac_bypass_eventvwr": "Bypass",
     "uac_bypass_fodhelper": "Persistence",
     "uiautomationcore_load": "Evasion",
+    "unbacked_api_resolution": "Evasion",
     "unbacked_com_instantiation": "Evasion",
+    "unbacked_crypto_operations": "Evasion",
+    "unbacked_file_dropping": "Evasion",
     "unbacked_library_load": "Evasion",
+    "unbacked_memory_protection_alteration": "Evasion",
     "Unpacker": "Packer",  # CAPE
     "upatre_behavior": "Dropper",
     "upatre_files": "Rat",
