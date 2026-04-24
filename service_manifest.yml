@@ -378,6 +378,13 @@ heuristics:
   - heur_id: 26
     name: Evasion
     score: 0
+    signature_score_map:
+      unbacked_api_resolution: 0
+      unbacked_com_instantiation: 0
+      unbacked_crypto_operations: 0
+      unbacked_file_dropping: 0
+      unbacked_library_load: 0
+      unbacked_memory_protection_alteration: 0
     filetype: "*"
     description: Techniques are used to avoid detection.
 
