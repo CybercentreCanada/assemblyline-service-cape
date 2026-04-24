@@ -259,7 +259,7 @@
                 "heuristic": {
                     "heur_id": 20,
                     "score": 10,
-                    "name": "Unknown",
+                    "name": "Discovery",
                     "attack": [],
                     "signature": [
                         {
