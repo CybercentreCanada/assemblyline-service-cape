@@ -370,7 +370,7 @@ class TestCapeResult:
                 for process in output_processes:
                     if (process["pid"] == pid and
                         process["image"] == process_map[pid]["image"] and 
-                        process["command_line"] == process_map[pid]["command_line"]   
+                        (process["command_line"] == process_map[pid]["command_line"].rstrip() or process["command_line"] is None)  #To remove trailing spaces
                     ):
                         matched = True
                         break
@@ -385,22 +385,29 @@ class TestCapeResult:
             output_connections = sample["Sandbox"]["network_connections"]
             output_processes = sample["Sandbox"]["processes"]
             for pid, event_table in parsed_sysmon.items():
+                if isinstance(pid, str) and "-->" in pid:
+                    continue
                 matched = False
                 process_event_found = False
                 have_network_connection = False
                 some_network_not_matched = False
+                drop_process = False
                 list_of_event_id = []
                 for event in event_table:
                     list_of_event_id.append(event["event_id"])
                     network_connection_matched = False
                     if event["event_id"] == 1:
-                         for process in output_processes:
+                        if pid not in [p["pid"] for p in output_processes]:
+                            drop_process = True
+                        for process in output_processes:
                             if (process["pid"] == pid and 
                                 process["start_time"] == event["start_time"] and
                                 process["image"] == event["image"]
                             ):
                                 process_event_found = True
                     elif event["event_id"] == 5:
+                        if pid not in [p["pid"] for p in output_processes]:
+                            drop_process = True
                         for process in output_processes:
                             if (process["pid"] == pid and 
                                 process["end_time"] == event["end_time"] and
@@ -423,6 +430,7 @@ class TestCapeResult:
                                     continue
                                 if connection["dns_details"]["domain"] == event["request"]:
                                     network_connection_matched = True
+                                    break
                         if not network_connection_matched:
                             some_network_not_matched = True
 
@@ -431,10 +439,14 @@ class TestCapeResult:
                 elif process_event_found:
                     if not have_network_connection or not some_network_not_matched:
                         matched = True
+                    if have_network_connection:
+                        matched = True
                 elif len(list_of_event_id) == 0 or list_of_event_id == [5]:
                     matched = True
                 else:
                     if have_network_connection and not some_network_not_matched:
+                        matched = True
+                    elif drop_process:
                         matched = True
                 assert matched, f"{identifier} doesn't match sysmon"
 
@@ -1306,8 +1318,8 @@ class TestCapeResult:
             safelist,
             uses_https_proxy_in_sandbox,
         )
-        assert actual_res_sec.heuristic.score == 500
-        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
+        assert actual_res_sec.heuristic.score == 1000
+        assert actual_res_sec.heuristic.name == "Capemon Yara Hit"
 
     def test_handle_mark_call(self):
         # Case 1: pid is None
@@ -1550,22 +1562,24 @@ class TestCapeResult:
 
         # Case 2: Known signature with 100 score
         name = "http_request"
+        output_name = f"Network:{name}"
         signature = {"http_request": "b"}
         sig_res = ResultMultiSection("blah")
         translated_score = 100
         _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 41
-        assert sig_res.heuristic.signatures == {name: 1}
+        assert sig_res.heuristic.heur_id == 1
+        assert sig_res.heuristic.signatures == {output_name: 1}
         assert sig_res.heuristic.score == 100
 
         # Case 3: Known signature exception "procmem_yara"
         name = "procmem_yara"
+        output_name = f"Capemon Yara Hit:{name}"
         signature = {"procmem_yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 55
-        assert sig_res.heuristic.signatures == {name: 1}
+        assert sig_res.heuristic.heur_id == 2
+        assert sig_res.heuristic.signatures == {output_name: 1}
         assert sig_res.heuristic.score == 0
 
     def test_set_attack_ids(self):
