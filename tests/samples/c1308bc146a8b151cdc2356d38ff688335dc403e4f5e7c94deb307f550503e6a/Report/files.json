@@ -1,2 +1,5 @@
+{"path": "ETW/etw_dns.json", "filepath": "C:\\ETW\\dns_provider.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
 {"path": "hollowshunter/hh_hollowshunter_hollows.log", "filepath": "C:\\hollowshunter\\hollows.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
-{"path": "hollowshunter/hh_process_4988_6f0000.rundll32.exe", "filepath": "C:\\\\hollowshunter\\process_4988\\6f0000.rundll32.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "ETW/etw_netevent.json", "filepath": "C:\\ETW\\netevent.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "ETW/etw_proc_spoof.json", "filepath": "C:\\ETW\\proc_spoof.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "ETW/wmi_etw.json", "filepath": "C:\\ETW\\wmi_provider.log", "pids": [], "ppids": [], "metadata": "", "category": ""}

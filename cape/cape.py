@@ -387,7 +387,7 @@ class CAPE(ServiceBase):
             self.artifact_list,
             self.request,
             collapsed=True,
-            injection_heur_id=32,
+            injection_heur_id=1,
             parent_relation=PARENT_RELATION.DYNAMIC,
         )
         if artifact_section:
@@ -928,10 +928,12 @@ class CAPE(ServiceBase):
                 continue
             else:
                 resp_json = resp.json()
+                root_error = ""
                 if "error" in resp_json and resp_json["error"]:
                     self.log.error(
                         f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'."
                     )
+                    root_error = str(resp_json['error_value'])
                     incorrect_tag = False
                     if "errors" in resp_json and resp_json["errors"]:
                         try:
@@ -943,13 +945,15 @@ class CAPE(ServiceBase):
                                             incorrect_tag = (
                                                 "Check Tags help, you have introduced incorrect tag(s)." in v
                                             )
+                                            if root_error == "":
+                                                root_error = str(v)
                         except Exception:
                             pass
 
                     if self.retry_on_no_machine and incorrect_tag:
                         # No need to log here because the log.error above containing further details about the error has happened
                         sleep(self.timeout)
-                        raise RecoverableError("Retrying since the specific image was missing...")
+                        raise RecoverableError(f"Retrying since the specific image was missing: {root_error}")
                     else:
                         if not have_raised_error:
                             parent_section.set_heuristic(404)
@@ -2003,7 +2007,7 @@ class CAPE(ServiceBase):
             inetsim_dns_servers = []
             if self.routing.lower() == INETSIM.lower():
                 inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
-
+            task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
             cape_artifact_pids, main_process_tuples, _ = generate_al_result(
                 cape_task.report,
                 parent_section,
@@ -2018,6 +2022,7 @@ class CAPE(ServiceBase):
                 self.config.get("uses_https_proxy_in_sandbox", False),
                 self.config.get("suspicious_accepted_languages", []),
                 self.signatures_meta,
+                task_dir
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
