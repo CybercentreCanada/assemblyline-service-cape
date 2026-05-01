@@ -879,25 +879,25 @@ class TestCapeMain:
 
         with requests_mock.Mocker() as m:
             # Case 1: Successful call, status code 200, valid response
-            m.post(cape_task.submit_url, json=correct_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=correct_rest_response, status_code=200)
             test_result = cape_class_instance.submit_file(file_content, cape_task, parent_section)
             assert test_result == 1
 
             # Case 2: Successful call, status code 200, error response
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=error_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=error_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
                 cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 3: Successful call, status code 200, error with details response
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=error_with_details_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=error_with_details_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
                 cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 4: Timeout
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=exceptions.Timeout)
+            m.post(cape_task.submit_file_url, exc=exceptions.Timeout)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -914,7 +914,7 @@ class TestCapeMain:
 
             # Case 5: ConnectionError
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=ConnectionError)
+            m.post(cape_task.submit_file_url, exc=ConnectionError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -931,7 +931,7 @@ class TestCapeMain:
 
             # Case 6: Non-200 status code
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, status_code=500)
+            m.post(cape_task.submit_file_url, status_code=500)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -948,7 +948,7 @@ class TestCapeMain:
 
             # Case 7: 200 status code, bad response data, Example 1
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=correct_with_only_data_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=correct_with_only_data_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -965,7 +965,7 @@ class TestCapeMain:
 
             # Case 8: 200 status code, bad response data, Example 2
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=weird_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -982,7 +982,7 @@ class TestCapeMain:
 
             # Case 9: ChunkedEncodingError
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=exceptions.ChunkedEncodingError)
+            m.post(cape_task.submit_file_url, exc=exceptions.ChunkedEncodingError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(

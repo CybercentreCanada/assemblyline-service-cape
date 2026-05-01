@@ -65,6 +65,7 @@ HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_r
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
 
+CAPE_API_SUBMIT_URL = "tasks/create/url/"
 CAPE_API_SUBMIT = "tasks/create/file/"
 CAPE_API_QUERY_TASK = "tasks/view/%s/"
 CAPE_API_DELETE_TASK = "tasks/delete/%s/"
@@ -187,7 +188,8 @@ class CapeTask(dict):
         self.errors: List[str] = []
         self.auth_header = host_details["auth_header"]
         self.base_url = f"http://{host_details['ip']}:{host_details['port']}/{APIv2_BASE_ENDPOINT}"
-        self.submit_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
+        self.submit_url_url = f"{self.base_url}/{CAPE_API_SUBMIT_URL}"
+        self.submit_file_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
         self.query_task_url = f"{self.base_url}/{CAPE_API_QUERY_TASK}"
         self.delete_task_url = f"{self.base_url}/{CAPE_API_DELETE_TASK}"
         self.query_report_url = f"{self.base_url}/{CAPE_API_QUERY_REPORT}"
@@ -290,15 +292,18 @@ class CAPE(ServiceBase):
 
         # Remove leftover files in the /tmp dir from previous executions
         self._cleanup_leftovers()
-
+        if request.file_type.startswith("uri/"):
+            self.file_name = request.task.fileinfo.uri_info.uri
+            file_ext = "url"
+        else:
         # File name related methods
-        self.file_name = os.path.basename(request.task.file_name)
-        self._decode_mime_encoded_file_name()
-        self._remove_illegal_characters_from_file_name()
-        file_ext = self._assign_file_extension()
-        if not file_ext:
+            self.file_name = os.path.basename(request.task.file_name)
+            self._decode_mime_encoded_file_name()
+            self._remove_illegal_characters_from_file_name()
+            file_ext = self._assign_file_extension()
+            if not file_ext:
             # File extension or bust!
-            return
+                return
 
         self.query_machines()
 
@@ -590,7 +595,10 @@ class CAPE(ServiceBase):
             cape_task.id = parent_task_id
 
         try:
-            self.submit(self.request.file_contents, cape_task, parent_section, reboot)
+            if file_ext == "url":
+                self.submit(None, cape_task, parent_section, reboot)
+            else:
+                self.submit(self.request.file_contents, cape_task, parent_section, reboot)
 
             if cape_task.id:
                 self._generate_report(file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
@@ -667,7 +675,10 @@ class CAPE(ServiceBase):
             if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
                     """Submits a new file to CAPE for analysis"""
-                    task_id = self.submit_file(file_content, cape_task, parent_section)
+                    if file_content is None:
+                        task_id = self.submit_url(cape_task, parent_section)
+                    else:
+                        task_id = self.submit_file(file_content, cape_task, parent_section)
                     if not task_id:
                         self.log.error("Failed to get task for submitted file.")
                         return
@@ -873,7 +884,7 @@ class CAPE(ServiceBase):
         :return: an integer representing the task ID
         """
         global have_raised_error
-        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
+        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_file_url}")
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
@@ -882,7 +893,7 @@ class CAPE(ServiceBase):
             try:
                 cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
                 resp = self.session.post(
-                    cape_task.submit_url,
+                    cape_task.submit_file_url,
                     files=files,
                     data=cape_task_data,
                     headers=cape_task.auth_header,
@@ -892,7 +903,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} timed out after {self.timeout}s "
+                        f"Indicator: '{cape_task.submit_file_url} timed out after {self.timeout}s "
                         f"trying to submit a file {cape_task.file}.'"
                     )
                     logged = True
@@ -902,7 +913,7 @@ class CAPE(ServiceBase):
                 if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                        f"Indicator: '{cape_task.submit_file_url} failed to submit a file {cape_task.file} due to {e}.'"
                     )
                     logged = True
                 sleep(5)
@@ -911,7 +922,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                        f"Indicator: '{cape_task.submit_file_url} failed to submit a file {cape_task.file} due to {e}.'"
                     )
                     logged = True
                 sleep(5)
@@ -920,7 +931,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                        f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                         f"trying to submit a file {cape_task.file}.'"
                     )
                     logged = True
@@ -931,7 +942,7 @@ class CAPE(ServiceBase):
                 root_error = ""
                 if "error" in resp_json and resp_json["error"]:
                     self.log.error(
-                        f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'."
+                        f"Failed to submit the file with {cape_task.submit_file_url} due to '{resp_json['error_value']}'."
                     )
                     root_error = str(resp_json['error_value'])
                     incorrect_tag = False
@@ -971,7 +982,7 @@ class CAPE(ServiceBase):
                         if not logged:
                             self.log.error(
                                 "The cape-web.service is most likely down. "
-                                f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                                f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                                 f"trying to submit a file {cape_task.file}. Data returned was: {resp_json['data']}'."
                             )
                             logged = True
@@ -981,8 +992,126 @@ class CAPE(ServiceBase):
                     if not logged:
                         self.log.error(
                             "The cape-web.service is most likely down. "
-                            f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                            f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                             f"trying to submit a file {cape_task.file}. Data returned was: {resp_json}'."
+                        )
+                        logged = True
+                    sleep(5)
+                    continue
+    
+    def submit_url(self, cape_task: CapeTask, parent_section: ResultSection) -> int:
+        """
+        This method submits the url to the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
+        :return: an integer representing the task ID
+        """
+        global have_raised_error
+        self.log.debug(f"Submitting url: {cape_task.file} to server {cape_task.submit_url_url}")
+        urls = {"url": cape_task.file}
+        # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            try:
+                cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
+                resp = self.session.post(
+                    cape_task.submit_url_url,
+                    files=urls,
+                    data=cape_task_data,
+                    headers=cape_task.auth_header,
+                    timeout=self.timeout,
+                )
+            except requests.exceptions.Timeout:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} timed out after {self.timeout}s "
+                        f"trying to submit a url {cape_task.file}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            except requests.exceptions.ChunkedEncodingError as e:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            if resp.status_code != 200:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                        f"trying to submit a url {cape_task.file}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            else:
+                resp_json = resp.json()
+                if "error" in resp_json and resp_json["error"]:
+                    self.log.error(
+                        f"Failed to submit the file with {cape_task.submit_url_url} due to '{resp_json['error_value']}'."
+                    )
+                    incorrect_tag = False
+                    if "errors" in resp_json and resp_json["errors"]:
+                        try:
+                            for error in resp_json["errors"]:
+                                for error_dict in error.values():
+                                    for k, v in error_dict.items():
+                                        if k == "error":
+                                            self.log.error(f"Further details about the error are: {v}")
+                                            incorrect_tag = (
+                                                "Check Tags help, you have introduced incorrect tag(s)." in v
+                                            )
+                        except Exception:
+                            pass
+
+                    if self.retry_on_no_machine and incorrect_tag:
+                        # No need to log here because the log.error above containing further details about the error has happened
+                        sleep(self.timeout)
+                        raise RecoverableError("Retrying since the specific image was missing...")
+                    else:
+                        if not have_raised_error:
+                            parent_section.set_heuristic(404)
+                            have_raised_error = True
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                        raise InvalidCapeRequest(
+                            "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
+                        )
+                elif "data" in resp_json and resp_json["data"]:
+                    task_ids = resp_json["data"].get("task_ids", [])
+                    if isinstance(task_ids, list) and len(task_ids) > 0:
+                        return task_ids[0]
+                    else:
+                        if not logged:
+                            self.log.error(
+                                "The cape-web.service is most likely down. "
+                                f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                                f"trying to submit a url {cape_task.file}. Data returned was: {resp_json['data']}'."
+                            )
+                            logged = True
+                        sleep(5)
+                        continue
+                else:
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                            f"trying to submit a url {cape_task.file}. Data returned was: {resp_json}'."
                         )
                         logged = True
                     sleep(5)
