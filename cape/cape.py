@@ -1012,8 +1012,8 @@ class CAPE(ServiceBase):
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             try:
-                cape_task.url = cape_task.file
                 cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
+                cape_task_data['url'] = cape_task.file
                 resp = self.session.post(
                     cape_task.submit_url_url,
                     data=cape_task_data,
