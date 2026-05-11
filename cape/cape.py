@@ -1007,16 +1007,15 @@ class CAPE(ServiceBase):
         """
         global have_raised_error
         self.log.debug(f"Submitting url: {cape_task.file} to server {cape_task.submit_url_url}")
-        urls = {"url": cape_task.file}
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
             # For timeouts and connection errors, we will try for all eternity.
             try:
+                cape_task.url = cape_task.file
                 cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
                 resp = self.session.post(
                     cape_task.submit_url_url,
-                    files=urls,
                     data=cape_task_data,
                     headers=cape_task.auth_header,
                     timeout=self.timeout,
