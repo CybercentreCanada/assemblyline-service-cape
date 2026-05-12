@@ -2425,6 +2425,39 @@ class CAPE(ServiceBase):
                         }
                     )
 
+    def _extract_browser_logs(self) -> None:
+        if os.path.exists(BROWSER_PATH):
+            for entry in os.scandir(BROWSER_PATH):
+                if entry.is_file():
+                    dom_counter = -1
+                    with open(entry.path, "r") as f:
+                        for line in f:
+                            try:
+                                json_data = loads(line)
+                                if "dom" in json_data.keys():
+                                    dom_counter += 1
+                                    result = f"{entry.name}_dom_{dom_counter}.json"
+                                    with open(result , 'w') as f:
+                                        dump(json_data, f)
+                                    self.artifact_list.append(
+                                        {
+                                            "name": f"{entry.name}_dom_{dom_counter}",
+                                            "path": result,
+                                            "description": "Browser dom",
+                                        "to_be_extracted": True,
+                                        }
+                                    )
+                            except Exception as e:
+                                pass 
+                    self.artifact_list.append(
+                        {
+                            "name": entry.name,
+                            "path": entry.path,
+                            "description": "Browser logs and doms",
+                            "to_be_extracted": False,
+                        }
+                    )
+
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """
         This method provides a safe way to grab a parameter that may or may not exist in the service configuration
