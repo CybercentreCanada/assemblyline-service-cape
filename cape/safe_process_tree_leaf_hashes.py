@@ -138,4 +138,6 @@ SAFE_PROCESS_TREE_LEAF_HASHES = {
     "?win\\systemapps\\microsoftwindows.client.cbs_cw5n1h2txyewy\\inputapp\\textinputhost.exe": "e7a3087aba99f3aa0dd4aa5a44d0be58256b4ef41be49da617026838f5204f5c",
     "<unknown process>": "4eda24bcfaeff701f29cb02ab4630f81d8831ebadd777aaf663841e7facd3c76",
     "system": "bbc5e661e106c6dcd8dc6dd186454c2fcba3c710fb4d8e71a60c93eaf077f073",
+    "PPLinject64.exe": "6787871c4b659c758fc3cdf5632a0f26065ca5d8ff475e238aedee58484d41b7",
+    "PPLinject.exe": "d2491ece672a1bd8456f42e5e1b6609d346c90f65dbae663fff4c1c3d4a1dfed",
 }
