@@ -2040,7 +2040,7 @@ class TestCapeMain:
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
-        assert results == ({}, [])
+        assert results == None
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
