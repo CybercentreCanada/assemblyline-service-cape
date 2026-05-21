@@ -90,6 +90,7 @@ SCORE_TRANSLATION = {
     7: 1000,
     8: 1000,
 }  # dead_host signature
+
 Classification = forge.get_classification()
 API_CALLS = [
     {
