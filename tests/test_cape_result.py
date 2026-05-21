@@ -1319,7 +1319,7 @@ class TestCapeResult:
             uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.heuristic.score == 1500
-        assert actual_res_sec.heuristic.name == "Capemon Yara Hit"
+        assert actual_res_sec.heuristic.name == "Anti-analysis"
 
     def test_handle_mark_call(self):
         # Case 1: pid is None
