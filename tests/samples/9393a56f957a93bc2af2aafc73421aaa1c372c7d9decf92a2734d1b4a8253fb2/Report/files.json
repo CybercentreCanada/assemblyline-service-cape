@@ -1,3 +1,7 @@
+{"path": "ETW/etw_dns.json", "filepath": "C:\\ETW\\dns_provider.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
 {"path": "hollowshunter/hh_hollowshunter_hollows.log", "filepath": "C:\\hollowshunter\\hollows.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
-{"path": "hollowshunter/hh_process_2500_7ff6d5b70000.etw-dns-app.exe", "filepath": "C:\\\\hollowshunter\\process_2500\\7ff6d5b70000.etw-dns-app.exe", "pids": [], "ppids": [], "metadata": "", "category": ""}
-{"path": "files/d15de142ade45df1a7c0548e699ac02f0d23047d257ae1b46c64b9c1493a109c", "filepath": "C:\\Users\\buddy\\AppData\\Local\\Temp\\app.log", "pids": [], "ppids": [], "metadata": "", "category": "files"}
+{"path": "ETW/etw_netevent.json", "filepath": "C:\\ETW\\netevent.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "ETW/etw_proc_spoof.json", "filepath": "C:\\ETW\\proc_spoof.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "ETW/wmi_etw.json", "filepath": "C:\\ETW\\wmi_provider.log", "pids": [], "ppids": [], "metadata": "", "category": ""}
+{"path": "files/704de6b6cf73abca52dd40ce1cd102af34d795952c5cfb300079ba03118bdd0f", "filepath": "C:\\Users\\buddy\\AppData\\Local\\Temp\\audit.log", "pids": [], "ppids": [], "metadata": "", "category": "files"}
+{"path": "files/afc38b8d3dc39f03085dcec7063f644d91a6552425efc132d82a7b48879101e4", "filepath": "C:\\Users\\buddy\\AppData\\Local\\Temp\\app.log", "pids": [], "ppids": [], "metadata": "", "category": "files"}

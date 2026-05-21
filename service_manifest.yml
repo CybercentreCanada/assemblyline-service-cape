@@ -217,10 +217,10 @@ submission_params:
 
 heuristics:
   - heur_id: 1
-    name: Account
+    name: CAPE Yara Hit
     score: 0
     filetype: "*"
-    description: Adds or manipulates an administrative user account.
+    description: "A hit on a yara rule from the CAPE ruleset"
 
   - heur_id: 2
     attack_id: [T1518.001]
@@ -583,13 +583,26 @@ heuristics:
       # The main signature that wraps these Yara rules must have its score set to 0
       procmem_yara: 0
     filetype: "*"
-    description: A Yara rule in CAPE was raised
-  - heur_id: 56
+    description: A hit for a Yara rule in CAPE was raised
+
+  - heur_id: 3
     name: Suspicious_tree_id
     score: 0
     filetype: "*"
     description: Suspicious tree id in the process tree.
 
+  - heur_id: 4
+    name: ETW
+    score: 0
+    filetype: "*"
+    description: Behavior found from ETW logs
+
+  - heur_id: 5
+    name: Config_Extraction
+    score: 1000
+    filetype: "*"
+    description: Config extraction rules hit
+    
   - heur_id: 404
     name: Service raising an error
     score: 0
