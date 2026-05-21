@@ -1318,7 +1318,7 @@ class TestCapeResult:
             safelist,
             uses_https_proxy_in_sandbox,
         )
-        assert actual_res_sec.heuristic.score == 1000
+        assert actual_res_sec.heuristic.score == 1500
         assert actual_res_sec.heuristic.name == "Capemon Yara Hit"
 
     def test_handle_mark_call(self):
