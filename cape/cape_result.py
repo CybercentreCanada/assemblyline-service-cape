@@ -3078,7 +3078,7 @@ def _get_important_fields_from_http_call(
         request = http_call["request"]
         port = http_call["dport"]
     else:
-        request = http_call["data"]
+        request = http_call.get("data", None)  
         port = http_call["port"]
         uri = http_call["uri"]
     return request, port, uri, http_call
