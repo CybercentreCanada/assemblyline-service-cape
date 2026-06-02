@@ -3656,7 +3656,7 @@ def _create_network_connection_for_network_flow(
         session=session,
         time_observed=(
             epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
-            if not isinstance(network_flow["timestamp"], str)
+            if not isinstance(network_flow["timestamp"], str) and network_flow["timestamp"] is not None
             else network_flow["timestamp"]
         ),
     )
