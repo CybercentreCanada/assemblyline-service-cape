@@ -1988,13 +1988,13 @@ def _get_low_level_flows(
                 if src:
                     src_port = network_call.get("sport")
                 network_flow = {
-                    "timestamp": network_call["time"],
+                    "timestamp": network_call.get("time"),
                     "protocol": protocol,
                     "src_ip": src,
                     "src_port": src_port,
                     "domain": None,
                     "dest_ip": dst,
-                    "dest_port": network_call["dport"],
+                    "dest_port": network_call.get("dport"),
                     "image": network_call.get("image"),
                     "pid": network_call.get("pid"),
                     "guid": network_call.get("guid"),
