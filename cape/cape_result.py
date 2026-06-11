@@ -1190,7 +1190,8 @@ def load_ontology_and_result_section(
             _ = add_tag(netflows_sec, "network.dynamic.ip", flow["src_ip"], safelist)
             _ = add_tag(netflows_sec, "network.port", flow["dest_port"])
             _ = add_tag(netflows_sec, "network.port", flow["src_port"])
-            flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
+            if flow["timestamp"] is not None:
+                flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
             nc = _create_network_connection_for_network_flow(flow, session, ontres)
             if nc:
                 if not nc.process and flow["pid"]:
@@ -1988,13 +1989,13 @@ def _get_low_level_flows(
                 if src:
                     src_port = network_call.get("sport")
                 network_flow = {
-                    "timestamp": network_call["time"],
+                    "timestamp": network_call.get("time"),
                     "protocol": protocol,
                     "src_ip": src,
                     "src_port": src_port,
                     "domain": None,
                     "dest_ip": dst,
-                    "dest_port": network_call["dport"],
+                    "dest_port": network_call.get("dport"),
                     "image": network_call.get("image"),
                     "pid": network_call.get("pid"),
                     "guid": network_call.get("guid"),
@@ -3655,7 +3656,7 @@ def _create_network_connection_for_network_flow(
         session=session,
         time_observed=(
             epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
-            if not isinstance(network_flow["timestamp"], str)
+            if not isinstance(network_flow["timestamp"], str) and network_flow["timestamp"] is not None
             else network_flow["timestamp"]
         ),
     )
@@ -3697,7 +3698,7 @@ def _create_network_connection_for_network_flow(
             image=network_flow.get("image"),
             start_time=(
                 epoch_to_local_with_ms(network_flow["timestamp"])
-                if not isinstance(network_flow["timestamp"], str)
+                if not isinstance(network_flow["timestamp"], str) and network_flow["timestamp"] is not None
                 else network_flow["timestamp"]
             ),
         )
