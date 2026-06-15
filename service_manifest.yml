@@ -71,6 +71,7 @@ config:
 
   # CAPE analysis configurations
   default_analysis_timeout_in_seconds: 150
+  delete_cape_runs: true
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
   reboot_supported: false
@@ -602,7 +603,7 @@ heuristics:
     score: 1000
     filetype: "*"
     description: Config extraction rules hit
-    
+
   - heur_id: 404
     name: Service raising an error
     score: 0
