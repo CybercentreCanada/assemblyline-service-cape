@@ -255,7 +255,7 @@ class TestCapeResult:
         else:
             process_map = []
         return process_map
-    
+
     @staticmethod
     def _process_process_sysmon(sample, safelist):
         api_report = sample.get("Report")
@@ -265,17 +265,17 @@ class TestCapeResult:
         else:
             parsed_sysmon = []
         return parsed_sysmon
-    
+
     @staticmethod
     def _process_get_dns_map(dns, process_map, parsed_sysmon, routing, dns_servers):
         return _get_dns_map(
                 dns,
-                process_map, 
-                parsed_sysmon, 
-                routing, 
+                process_map,
+                parsed_sysmon,
+                routing,
                 dns_servers
             )
-    
+
     @staticmethod
     def _process_get_network_map(network, validated_random_ip_range, routing, process_map, safelist, inetsim_dns_servers, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_sysmon):
         return get_network_map(
@@ -289,12 +289,12 @@ class TestCapeResult:
                 suspicious_accepted_languages,
                 parsed_sysmon
             )
-    
+
     @staticmethod
     def _process_process_signatures(sigs):
         return process_signatures(sigs)
 # Main function for functionality requiring real results
-    
+
     @pytest.mark.dependency(name="info_section")
     def test_process_info(self, loaded_samples):
         for sample in loaded_samples:
@@ -369,7 +369,7 @@ class TestCapeResult:
                 matched = False
                 for process in output_processes:
                     if (process["pid"] == pid and
-                        process["image"] == process_map[pid]["image"] and 
+                        process["image"] == process_map[pid]["image"] and
                         (process["command_line"] == process_map[pid]["command_line"].rstrip() or process["command_line"] is None)  #To remove trailing spaces
                     ):
                         matched = True
@@ -400,7 +400,7 @@ class TestCapeResult:
                         if pid not in [p["pid"] for p in output_processes]:
                             drop_process = True
                         for process in output_processes:
-                            if (process["pid"] == pid and 
+                            if (process["pid"] == pid and
                                 process["start_time"] == event["start_time"] and
                                 process["image"] == event["image"]
                             ):
@@ -409,7 +409,7 @@ class TestCapeResult:
                         if pid not in [p["pid"] for p in output_processes]:
                             drop_process = True
                         for process in output_processes:
-                            if (process["pid"] == pid and 
+                            if (process["pid"] == pid and
                                 process["end_time"] == event["end_time"] and
                                 process["image"] == event["image"]
                             ):
@@ -486,8 +486,8 @@ class TestCapeResult:
             for output_connection in output_connections:
                 matched = False
                 for low_level_flow in low_level_flows:
-                    if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and 
-                        output_connection["destination_port"] == low_level_flow["dest_port"] and 
+                    if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and
+                        output_connection["destination_port"] == low_level_flow["dest_port"] and
                         output_connection["transport_layer_protocol"] == low_level_flow["protocol"] and
                         (output_connection["source_ip"] == low_level_flow["src_ip"] and
                         output_connection["source_port"] == low_level_flow["src_port"] or output_connection["destination_port"] == 53)):
@@ -560,8 +560,8 @@ class TestCapeResult:
                 else:
                     matched = False
                     for low_level_flow in low_level_flows:
-                        if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and 
-                            output_connection["destination_port"] == low_level_flow["dest_port"] and 
+                        if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and
+                            output_connection["destination_port"] == low_level_flow["dest_port"] and
                             output_connection["transport_layer_protocol"] == low_level_flow["protocol"] and
                             output_connection["source_ip"] == low_level_flow["src_ip"] and
                             output_connection["source_port"] == low_level_flow["src_port"]):
@@ -628,7 +628,7 @@ class TestCapeResult:
             cape = api_report.get("CAPE", {})
             _ = process_cape(cape, al_result)
             section = [section for section in sample["Result"]["result"]["sections"] if section["title_text"] == "Configs Extracted By CAPE"]
-            cape_section = section[0] if len(section) > 0 else None 
+            cape_section = section[0] if len(section) > 0 else None
             if len(al_result.subsections) > 0 or cape_section is not None:
                 assert check_section_equality(al_result.subsections[0], cape_section)
 
@@ -686,6 +686,7 @@ class TestCapeResult:
                 submission_params["custom_tree_id_safelist"],
                 submission_params["routing"],
                 submission_params["inetsim_dns_servers"],
+                ([], []),
             )
             sandbox_section = sample["Sandbox"]
             assert same_dictionaries(process_events, sandbox_section), f"{identifier} sandbox section is different"
@@ -743,7 +744,7 @@ class TestCapeResult:
             for i in range(0, len(output["result"]["sections"])):
                 section_name = output["result"]["sections"][i]["title_text"]
                 assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different"
-            assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different" 
+            assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different"
             #Need to remove the session and guid from the ontology as they are unique random IDs
             result_ontology = ontres.as_primitives()
             for section in result_ontology.keys():
@@ -904,7 +905,7 @@ class TestCapeResult:
     )
     def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
         assert _massage_http_ex_data(host, dns_servers, resolved_ips, http_call) == (expected_uri, expected_http_call)
-    
+
     @staticmethod
     @pytest.mark.parametrize(
         "protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call",

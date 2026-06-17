@@ -2002,18 +2002,13 @@ class CAPE(ServiceBase):
             if parent_section.heuristic is not None:
                 parent_section.heuristic.add_signature_id("Missing Json", 0)
         if report_json_path:
-            cape_artifact_pids, main_process_tuples = self._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
-            )
+            self._build_report(zip_obj, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
         else:
             cape_artifact_pids: List[Dict[str, str]] = list()
             main_process_tuples: List[Tuple[int, str]] = []
 
         # Check for any extra files in full report to add as extracted files
         try:
-            file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
-            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
-            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
             self._extract_buffers()
         except Exception as e:
@@ -2084,13 +2079,14 @@ class CAPE(ServiceBase):
 
     def _build_report(
         self,
+        zip_obj: ZipFile,
         report_json_path: str,
         file_ext: str,
         cape_task: CapeTask,
         parent_section: ResultSection,
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
-    ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
+    ) -> None:
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -2136,7 +2132,11 @@ class CAPE(ServiceBase):
             if self.routing.lower() == INETSIM.lower():
                 inetsim_dns_servers = self.config.get("inetsim_dns_servers", [])
             task_dir = os.path.join(self.working_directory, f"{cape_task.id}")
-            cape_artifact_pids, main_process_tuples, _ = generate_al_result(
+            CAPE = self
+            generate_al_result(
+                CAPE,
+                zip_obj,
+                cape_task.id,
                 cape_task.report,
                 parent_section,
                 file_ext,
@@ -2152,7 +2152,6 @@ class CAPE(ServiceBase):
                 self.signatures_meta,
                 task_dir
             )
-            return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
             if cape_task and cape_task.id is not None:
@@ -2256,7 +2255,7 @@ class CAPE(ServiceBase):
         parent_section: ResultSection,
         ontres: OntologyResults,
         file_name_map: Dict[str, str],
-    ) -> None:
+    ) -> List:
         """
         This method extracts certain artifacts from that zipfile
         :param zip_obj: The zipfile object, containing the analysis artifacts for the task
@@ -2297,6 +2296,7 @@ class CAPE(ServiceBase):
             "ETW/etw_proc_spoof.json": "ETW monitor process creation logs",
             "ETW/wmi_etw.json": "ETW monitor WMI logs",
         }
+        extracted_memory_dumps = []
         if self.request.deep_scan:
             zip_file_map["macros"] = "Macros found during analysis"
 
@@ -2377,6 +2377,7 @@ class CAPE(ServiceBase):
                     )
                     if pid:
                         file_name = f"{task_id}_{pid}_{file_name_map.get(f, f)}"
+                        extracted_memory_dumps.append({file_name})
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
                 elif key in ["files/"]:
                     file_type_details = self.identify.fileinfo(destination_file_path, generate_hashes=False)
@@ -2434,6 +2435,8 @@ class CAPE(ServiceBase):
             image_section.add_section_part(image_section_body)
             parent_section.add_subsection(image_section)
 
+        return extracted_memory_dumps
+
     def _extract_hollowshunter(
         self,
         zip_obj: ZipFile,
@@ -2441,7 +2444,7 @@ class CAPE(ServiceBase):
         main_process_tuples: List[Tuple[int, str]],
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
-    ) -> None:
+    ) -> List:
         """
         This method extracts HollowsHunter dumps from the tarball
         :param zip_obj: The tarball object, containing the analysis artifacts for the task
@@ -2457,6 +2460,8 @@ class CAPE(ServiceBase):
         dump_pattern = compile(HOLLOWSHUNTER_DUMP_REGEX)
         report_list = list(filter(report_pattern.match, zip_obj.namelist()))
         dump_list = list(filter(dump_pattern.match, zip_obj.namelist()))
+
+        extracted_memory_dumps = []
 
         hh_tuples = [
             (report_list, "HollowsHunter report (json)", False),
@@ -2521,8 +2526,14 @@ class CAPE(ServiceBase):
                     "description": desc,
                     "to_be_extracted": to_be_extracted,
                 }
+
+                if to_be_extracted:
+                    extracted_memory_dumps.append(file_name)
+
                 self.artifact_list.append(artifact)
                 self.log.debug(f"Adding HollowsHunter file {file_name} for task {task_id}")
+
+        return extracted_memory_dumps
 
     def _extract_commands(self) -> None:
         if os.path.exists(PS1_COMMANDS_PATH) and os.path.getsize(PS1_COMMANDS_PATH):
