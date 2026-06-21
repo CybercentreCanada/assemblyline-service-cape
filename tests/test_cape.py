@@ -16,9 +16,10 @@ from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
 from assemblyline_v4_service.common.task import Task
-from cape.cape import *
 from requests import ConnectionError, Session, exceptions
 from retrying import RetryError
+
+from cape.cape import *
 
 # Getting absolute paths, names and regexes
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -156,6 +157,7 @@ def dummy_zip_class():
                 "shots/0010.jpg",
                 "shots/0001_small.jpg",
                 "shots/0001.jpg",
+                "shots/0001_duplicate.jpg",
                 "network/blahblah",
                 "CAPE/ohmy.exe",
                 "CAPE/yarahit.exe",
@@ -551,6 +553,7 @@ class TestCapeMain:
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
         from assemblyline.common.exceptions import RecoverableError
+
         from cape.cape import CAPE
 
         ontres = OntologyResults(service_name="blah")
@@ -2212,6 +2215,14 @@ class TestCapeMain:
             cape_class_instance.identify,
             "fileinfo",
             side_effect=[
+                #"shots/0001.jpg",
+                {"type": "image/jpg", "sha256": "0001"},
+                #"shots/0001_duplicate.jpg", shouldn't be added to the Screenshot section since it's a duplicate frame
+                {"type": "image/jpg", "sha256": "0001"},
+                #"shots/0005.jpg",
+                {"type": "image/jpg", "sha256": "0005"},
+                #"shots/0010.jpg",
+                {"type": "image/jpg", "sha256": "0010"},
                 {"type": "text/plain", "mime": "text/plain", "magic": "ASCII text, with CRLF line terminators"},
                 {"type": "unknown", "mime": "application/octet-stream", "magic": "SQLite Rollback Journal"},
             ],
