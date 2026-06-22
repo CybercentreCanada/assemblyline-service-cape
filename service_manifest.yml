@@ -71,6 +71,7 @@ config:
 
   # CAPE analysis configurations
   default_analysis_timeout_in_seconds: 150
+  delete_cape_runs: true
   max_dll_exports_exec: 5
   machinery_supports_memory_dumps: false
   reboot_supported: false
