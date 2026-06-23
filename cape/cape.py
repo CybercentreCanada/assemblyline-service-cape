@@ -2623,10 +2623,12 @@ class CAPE(ServiceBase):
             for entry in os.scandir(CLIPBOARD_PATH):
                 if entry.is_file():
                     self.artifact_list.append(
-                        "name": f"{entry.name}-clipboard",
-                        "path": entry.path,
-                        "description": "Clipboard events for processes",
-                        "to_be_extracted": True,
+                        {
+                            "name": f"{entry.name}-clipboard",
+                            "path": entry.path,
+                            "description": "Clipboard events for processes",
+                            "to_be_extracted": True,
+                        }
                     )
 
     def _safely_get_param(self, param: str) -> Optional[Any]:
