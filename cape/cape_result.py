@@ -646,6 +646,7 @@ ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
+BROWSER_PATH = os.path.join("/tmp", "browser")
 ETW_PATH = "ETW"
 ETW_DNS_PATH = os.path.join(ETW_PATH, "etw_dns.json")
 ETW_NET_PATH = os.path.join(ETW_PATH, "etw_netevent.json")
