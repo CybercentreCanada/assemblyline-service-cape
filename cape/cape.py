@@ -37,6 +37,7 @@ from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
     BUFFER_PATH,
+    BROWSER_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
