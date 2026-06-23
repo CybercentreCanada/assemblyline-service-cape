@@ -516,6 +516,18 @@ API_CALLS = [
         "object": "Event",
         "apis": ["NtOpenEvent"],
         "arguments": [("Name", "eventname")],
+    },
+    {
+        "event": "Read",
+        "object": "Clipboard",
+        "apis": ["GetClipboardData"],
+        "arguments": [("Format", "uFormat")],
+    },
+    {
+        "event": "Write",
+        "object": "Clipboard",
+        "apis": ["SetClipboardData"],
+        "arguments": [("Format", "uFormat"), ("Content", "hMem")],
     }
 ]
  #Value uses by Sysmon which are essentially the ones from the Win32 API https://learn.microsoft.com/en-us/windows/win32/dns/dns-constants
@@ -647,6 +659,7 @@ BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
 BROWSER_PATH = os.path.join("/tmp", "browser")
+CLIPBOARD_PATH = os.path.join("/tmp", "clipboard")
 ETW_PATH = "ETW"
 ETW_DNS_PATH = os.path.join(ETW_PATH, "etw_dns.json")
 ETW_NET_PATH = os.path.join(ETW_PATH, "etw_netevent.json")
@@ -808,6 +821,19 @@ def generate_al_result(
         with open(BAT_COMMANDS_PATH, "wb") as f:
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
+            
+    for pid in process_map.keys():
+        clipboard_events = []
+        if len(process_map[pid]["clipboard_events"]) > 0:
+            for event in process_map[pid]["clipboard_events"]:
+                if event not in clipboard_events:
+                    clipboard_events.append(event)
+            if len(clipboard_events) > 0:
+                if not os.path.exists(CLIPBOARD_PATH):
+                    os.makedirs(CLIPBOARD_PATH)
+                with open(os.path.join(CLIPBOARD_PATH, pid), "wb") as f:
+                    for event in clipboard_events:
+                        f.writelines(event)
 
     process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, signature_map, parsed_etw)
 
@@ -2454,6 +2480,7 @@ def get_process_map(
         misc_events = []
         hooking_events = []
         process_events = []
+        clipboard_events = []
         interprocess_comm = []
         calls = process["calls"]
         for call in calls:
@@ -2502,6 +2529,8 @@ def get_process_map(
                             process_events.append(interesting_event)
                         elif interesting_event["object"] in ["NamedPipe", "Event"] and interesting_event not in interprocess_comm:
                             interprocess_comm.append(interesting_event)
+                        elif interesting_event["object"] == "Clipboard" and interesting_event not in clipboard_events:
+                            clipboard_events.append(interesting_event)
         first_seen = process.get("first_seen")
         if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
             first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
@@ -2523,6 +2552,7 @@ def get_process_map(
             "misc_events": misc_events,# event-->Misc
             "hooking_events": hooking_events,# event-->Hooking event-->Unhooking
             "process_events": process_events,# object-->process
+            "clipboard_events": clipboard_events, #object-->clipboard
             "interprocess_comm": interprocess_comm,# object-->NamedPipe object-->Event
         }
     return process_map
