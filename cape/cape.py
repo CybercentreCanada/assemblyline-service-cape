@@ -49,6 +49,7 @@ from cape.cape_result import (
     BAT_COMMANDS_PATH,
     BUFFER_PATH,
     BROWSER_PATH,
+    CLIPBOARD_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
@@ -2032,6 +2033,8 @@ class CAPE(ServiceBase):
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
             self._extract_buffers()
+            self._extract_browser_logs()
+            self.__extract_clipboard()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
         zip_obj.close()
@@ -2614,6 +2617,16 @@ class CAPE(ServiceBase):
                             "description": "Browser logs and doms",
                             "to_be_extracted": False,
                         }
+                    )
+    def _extract_clipboard(self) -> None:
+        if os.path.exists(CLIPBOARD_PATH):
+            for entry in os.scandir(CLIPBOARD_PATH):
+                if entry.is_file():
+                    self.artifact_list.append(
+                        "name": f"{entry.name}-clipboard",
+                        "path": entry.path,
+                        "description": "Clipboard events for processes",
+                        "to_be_extracted": True,
                     )
 
     def _safely_get_param(self, param: str) -> Optional[Any]:
