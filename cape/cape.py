@@ -14,11 +14,18 @@ from zipfile import ZipFile
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
-from assemblyline.common.forge import get_identify, get_classification
-from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
+from assemblyline.common.forge import get_classification, get_identify
+from assemblyline.common.identify_defaults import (
+    magic_patterns,
+    trusted_mimes,
+    type_to_extension,
+)
 from assemblyline.common.isotime import epoch_to_local
 from assemblyline.common.str_utils import safe_str
-from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults, attach_dynamic_ontology
+from assemblyline_service_utilities.common.dynamic_service_helper import (
+    OntologyResults,
+    attach_dynamic_ontology,
+)
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
@@ -33,21 +40,26 @@ from assemblyline_v4_service.common.result import (
     TextSectionBody,
 )
 from assemblyline_v4_service.common.task import PARENT_RELATION
+from pefile import PE, PEFormatError
+from retrying import RetryError, retry
+from SetSimilaritySearch import SearchIndex
+
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
     BUFFER_PATH,
+    BROWSER_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
+    OFFLINE_IMAGE_PREFIX,
+    ONLINE_IMAGE_PREFIX,
     PE_INDICATORS,
     PS1_COMMANDS_PATH,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
-    OFFLINE_IMAGE_PREFIX,
-    ONLINE_IMAGE_PREFIX,
     convert_processtree_id_to_tree_id,
     generate_al_result,
     x64_IMAGE_SUFFIX,
@@ -55,9 +67,6 @@ from cape.cape_result import (
 )
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 from cape.yara_modules import *
-from pefile import PE, PEFormatError
-from retrying import RetryError, retry
-from SetSimilaritySearch import SearchIndex
 
 APIv2_BASE_ENDPOINT = "apiv2"
 
@@ -1001,7 +1010,7 @@ class CAPE(ServiceBase):
                         logged = True
                     sleep(5)
                     continue
-    
+
     def submit_url(self, cape_task: CapeTask, parent_section: ResultSection) -> int:
         """
         This method submits the url to the CAPE server
@@ -1279,7 +1288,7 @@ class CAPE(ServiceBase):
         if not self.delete_cape_runs:
             self.log.debug(f"Skipping deletion of task {cape_task.id}; delete_cape_runs is disabled.")
             return
-
+        
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -2276,6 +2285,7 @@ class CAPE(ServiceBase):
         """
         image_section = ResultMultiSection(f"Screenshots taken during Task {task_id}")
         image_section_body = ImageSectionBody(self.request)
+        screenshot_sha256s = []
         if self.config.get("use_antivm_packages", False) and self.request.file_type in [
             "code/javascript",
             "code/jscript",
@@ -2420,6 +2430,14 @@ class CAPE(ServiceBase):
                     to_be_extracted = False
                     # AL generates thumbnails already
                     if "_small" not in f:
+                        # Check to see if screenshot was already added to section
+                        sha256 = self.identify.fileinfo(destination_file_path,
+                                                        skip_fuzzy_hashes=True, calculate_entropy=False)['sha256']
+                        if sha256 in screenshot_sha256s:
+                            # If duplicate screenshot, skip
+                            continue
+                        screenshot_sha256s.append(sha256)
+
                         try:
                             image_section_body.add_image(destination_file_path, file_name, value)
                         except OSError as e:
@@ -2588,7 +2606,7 @@ class CAPE(ServiceBase):
                                         }
                                     )
                             except Exception as e:
-                                pass 
+                                pass
                     self.artifact_list.append(
                         {
                             "name": entry.name,
