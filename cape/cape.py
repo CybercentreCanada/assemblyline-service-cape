@@ -2034,7 +2034,7 @@ class CAPE(ServiceBase):
             self._extract_commands()
             self._extract_buffers()
             self._extract_browser_logs()
-            self.__extract_clipboard()
+            self._extract_clipboard()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
         zip_obj.close()
