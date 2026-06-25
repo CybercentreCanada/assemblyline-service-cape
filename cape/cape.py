@@ -2214,6 +2214,13 @@ class CAPE(ServiceBase):
             try:
                 task_dir = os.path.join(self.working_directory, f"{task_id}")
                 zip_obj.extract(member_name, path=task_dir)
+                artifact = {
+                    "name": member_name,
+                    "path": os.path.join(task_dir, member_name),
+                    "description": "CAPE files mapping",
+                    "to_be_extracted": False,
+                }
+                self.artifact_list.append(artifact)
                 with open(os.path.join(task_dir, member_name)) as f:
                     file_jsons = f.readlines()
 
