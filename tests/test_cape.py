@@ -2092,6 +2092,7 @@ class TestCapeMain:
         task_id = 1
         zip_obj = dummy_zip_class()
         # No such file
+        cape_class_instance.artifact_list = []
         output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
         assert output == {}
         directory = os.path.join(cape_class_instance.working_directory, f"{task_id}")
