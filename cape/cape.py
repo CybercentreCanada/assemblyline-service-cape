@@ -2214,13 +2214,6 @@ class CAPE(ServiceBase):
             try:
                 task_dir = os.path.join(self.working_directory, f"{task_id}")
                 zip_obj.extract(member_name, path=task_dir)
-                artifact = {
-                    "name": member_name,
-                    "path": os.path.join(task_dir, member_name),
-                    "description": "CAPE files mapping",
-                    "to_be_extracted": False,
-                }
-                self.artifact_list.append(artifact)
                 with open(os.path.join(task_dir, member_name)) as f:
                     file_jsons = f.readlines()
 
@@ -2229,6 +2222,13 @@ class CAPE(ServiceBase):
                         file_name_map[file_json["path"]] = file_json["filepath"].split("\\")[-1]
             except Exception as e:
                 self.log.exception(f"Unable to parse files.json for task {task_id}. Exception: {e}")
+        artifact = {
+                    "name": member_name,
+                    "path": os.path.join(task_dir, member_name),
+                    "description": "CAPE files mapping",
+                    "to_be_extracted": False,
+        }
+        self.artifact_list.append(artifact)
         return file_name_map
 
     def _extract_console_output(self, task_id: int) -> None:
