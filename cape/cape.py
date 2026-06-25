@@ -2223,10 +2223,10 @@ class CAPE(ServiceBase):
             except Exception as e:
                 self.log.exception(f"Unable to parse files.json for task {task_id}. Exception: {e}")
         artifact = {
-                    "name": member_name,
-                    "path": os.path.join(task_dir, member_name),
-                    "description": "CAPE files mapping",
-                    "to_be_extracted": False,
+            "name": member_name,
+            "path": os.path.join(task_dir, member_name),
+            "description": "CAPE files mapping",
+            "to_be_extracted": False,
         }
         self.artifact_list.append(artifact)
         return file_name_map
