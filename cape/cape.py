@@ -74,6 +74,7 @@ APIv2_BASE_ENDPOINT = "apiv2"
 HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
+EXTRACTED_FILES_REGEX = r"^\d+_[\w,\s-]+-[A-Fa-f0-9]{64}$"
 
 CAPE_API_SUBMIT_URL = "tasks/create/url/"
 CAPE_API_SUBMIT = "tasks/create/file/"
