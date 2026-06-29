@@ -323,6 +323,7 @@ class TestModule:
         MACHINE_INFORMATION_SECTION_TITLE == "Machine Information"
         PE_INDICATORS == [b"MZ", b"This program cannot be run in DOS mode"]
         DEFAULT_TOKEN_KEY == "Token"
+        assert DEFAULT_DELETE_CAPE_RUNS is True
         CONNECTION_ERRORS == ["RemoteDisconnected", "ConnectionResetError"]
 
     @staticmethod
@@ -445,6 +446,7 @@ class TestCapeMain:
         # assert cape_class_instance.identify == ""
         assert cape_class_instance.retry_on_no_machine is False
         assert cape_class_instance.uwsgi_with_recycle is False
+        assert cape_class_instance.delete_cape_runs is True
 
     @staticmethod
     def test_start(cape_class_instance, dummy_api_interface_class, mocker):
@@ -459,6 +461,7 @@ class TestCapeMain:
         assert cape_class_instance.allowed_images == cape_class_instance.config.get("allowed_images", [])
         assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
         assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
+        assert cape_class_instance.delete_cape_runs == cape_class_instance.config.get("delete_cape_runs", True)
         assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
         assert cape_class_instance.routes == cape_class_instance.config.get("routing_list", ROUTING_LIST)
         assert cape_class_instance.enforce_routing == cape_class_instance.config.get("enforce_routing", False)
@@ -1219,6 +1222,13 @@ class TestCapeMain:
             p1.join(timeout=2)
             p1.terminate()
             assert p1.exitcode is None
+
+            cape_class_instance.delete_cape_runs = False
+            cape_task.id = task_id
+            get_mock = mocker.patch.object(cape_class_instance.session, "get")
+            cape_class_instance.delete_task(cape_task)
+            assert cape_task.id == task_id
+            get_mock.assert_not_called()
 
     @staticmethod
     def test_query_machines(cape_class_instance, dummy_request_class):
@@ -2082,6 +2092,7 @@ class TestCapeMain:
         task_id = 1
         zip_obj = dummy_zip_class()
         # No such file
+        cape_class_instance.artifact_list = []
         output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
         assert output == {}
         directory = os.path.join(cape_class_instance.working_directory, f"{task_id}")

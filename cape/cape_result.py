@@ -821,6 +821,19 @@ def generate_al_result(
         with open(BAT_COMMANDS_PATH, "wb") as f:
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
+            
+    for pid in process_map.keys():
+        clipboard_events = []
+        if len(process_map[pid]["clipboard_events"]) > 0:
+            for event in process_map[pid]["clipboard_events"]:
+                if event not in clipboard_events:
+                    clipboard_events.append(event)
+            if len(clipboard_events) > 0:
+                if not os.path.exists(CLIPBOARD_PATH):
+                    os.makedirs(CLIPBOARD_PATH)
+                with open(os.path.join(CLIPBOARD_PATH, pid), "wb") as f:
+                    for event in clipboard_events:
+                        f.writelines(event)
 
     for pid in process_map.keys():
         clipboard_events = []

@@ -93,6 +93,7 @@ DEFAULT_REST_TIMEOUT = 120
 DEFAULT_CONNECTION_TIMEOUT = 120
 DEFAULT_CONNECTION_ATTEMPTS = 3
 DEFAULT_UPDATE_PERIOD = 24
+DEFAULT_DELETE_CAPE_RUNS = True
 
 RELEVANT_IMAGE_TAG = "auto"
 ALL_IMAGES_TAG = "all"
@@ -246,6 +247,7 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
+        self.delete_cape_runs = DEFAULT_DELETE_CAPE_RUNS
         self.classification = get_classification()
 
         # Properies pertaining to using YARA rules with CAPE
@@ -266,6 +268,7 @@ class CAPE(ServiceBase):
         self.allowed_images = self.config.get("allowed_images", [])
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
+        self.delete_cape_runs = self.config.get("delete_cape_runs", DEFAULT_DELETE_CAPE_RUNS)
         self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
         self.routes = self.config.get("routing_list", ROUTING_LIST)
         self.enforce_routing = self.config.get("enforce_routing", False)
@@ -1283,6 +1286,10 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
+        if not self.delete_cape_runs:
+            self.log.debug(f"Skipping deletion of task {cape_task.id}; delete_cape_runs is disabled.")
+            return
+        
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -2215,6 +2222,13 @@ class CAPE(ServiceBase):
                         file_name_map[file_json["path"]] = file_json["filepath"].split("\\")[-1]
             except Exception as e:
                 self.log.exception(f"Unable to parse files.json for task {task_id}. Exception: {e}")
+        artifact = {
+            "name": member_name,
+            "path": os.path.join(task_dir, member_name),
+            "description": "CAPE files mapping",
+            "to_be_extracted": False,
+        }
+        self.artifact_list.append(artifact)
         return file_name_map
 
     def _extract_console_output(self, task_id: int) -> None:
@@ -2609,6 +2623,18 @@ class CAPE(ServiceBase):
                             "path": entry.path,
                             "description": "Browser logs and doms",
                             "to_be_extracted": False,
+                        }
+                    )
+    def _extract_clipboard(self) -> None:
+        if os.path.exists(CLIPBOARD_PATH):
+            for entry in os.scandir(CLIPBOARD_PATH):
+                if entry.is_file():
+                    self.artifact_list.append(
+                        {
+                            "name": f"{entry.name}-clipboard",
+                            "path": entry.path,
+                            "description": "Clipboard events for processes",
+                            "to_be_extracted": True,
                         }
                     )
 
