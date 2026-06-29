@@ -835,6 +835,19 @@ def generate_al_result(
                     for event in clipboard_events:
                         f.writelines(event)
 
+    for pid in process_map.keys():
+        clipboard_events = []
+        if len(process_map[pid]["clipboard_events"]) > 0:
+            for event in process_map[pid]["clipboard_events"]:
+                if event not in clipboard_events:
+                    clipboard_events.append(event)
+            if len(clipboard_events) > 0:
+                if not os.path.exists(CLIPBOARD_PATH):
+                    os.makedirs(CLIPBOARD_PATH)
+                with open(os.path.join(CLIPBOARD_PATH, pid), "wb") as f:
+                    for event in clipboard_events:
+                        f.writelines(event)
+
     process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, signature_map, parsed_etw)
 
     #Process all the info from auxiliaries
