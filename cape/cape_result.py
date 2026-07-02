@@ -2056,8 +2056,7 @@ def _get_low_level_flows(
                                             if not network_flow.get("pid"):
                                                 network_flow["pid"] = process
                                             if "API" not in network_flow["sources"]:
-                                                network_flow["sources"].append("API")
-                                            break                       
+                                                network_flow["sources"].append("API")                     
                  # Attempt mapping process_name to the netflow using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
@@ -2071,18 +2070,16 @@ def _get_low_level_flows(
                                             network_flow["pid"] = process
                                         if "sysmon" not in network_flow["sources"]:
                                             network_flow["sources"].append("sysmon")
-                                        break
                                 #Attempt mapping process_name to the netflow using ETW
                 if parsed_etw is not None and parsed_etw:
                     for process_id, etw_netcalls in parsed_etw["network"].items():
                         for call in etw_netcalls:
                             if (network_flow["dest_ip"] == call["dst"]  or network_flow["domain"] == call["dst"]) and network_flow["src_ip"] == call["src"]:
-                                    if network_flow["dest_port"] == call["dport"] and network_flow["src_port"] == call["sport"]:
-                                        if not network_flow.get("pid"):
-                                            network_flow["pid"] = process_id
-                                        if "etw" not in network_flow["sources"]:
-                                            network_flow["sources"].append("etw")
-                                        break
+                                if network_flow["dest_port"] == call["dport"] and network_flow["src_port"] == call["sport"]:
+                                    if not network_flow.get("pid"):
+                                        network_flow["pid"] = process_id
+                                    if "etw" not in network_flow["sources"]:
+                                        network_flow["sources"].append("etw")
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2206,8 +2203,7 @@ def _process_http_calls(
                                                 if not http_request.get("pid"):
                                                     http_request["pid"] = process
                                                 if "API" not in http_request["sources"]:
-                                                    http_request["sources"].append("API")
-                                                break                       
+                                                    http_request["sources"].append("API")                      
                  # Attempt mapping process_name to the http_call using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
@@ -2224,7 +2220,6 @@ def _process_http_calls(
                                             http_request["pid"] = process
                                         if "sysmon" not in http_request["sources"]:
                                             http_request["sources"].append("sysmon")
-                                        break
                 http_requests.append(http_request)
     return http_requests    
 
