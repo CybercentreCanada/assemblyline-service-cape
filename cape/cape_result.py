@@ -1863,7 +1863,7 @@ def get_network_map(
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows)
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw)
     low_level_flow = []
     for network_flow in network_flows_table:
         if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
