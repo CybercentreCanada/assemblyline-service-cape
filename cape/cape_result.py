@@ -22,7 +22,7 @@ from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms, LOCAL_FMT_WITH_MS, ensure_time_format, iso_to_epoch
 from assemblyline.common.net import is_valid_ip, is_valid_domain
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH, IPV6_REGEX, PORT_REGEX
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH, IPV6_REGEX
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
@@ -630,13 +630,14 @@ PROCESS_TREE_AND_EVENTS_SECTION_TITLE = "Processes"
 ANALYSIS_ERRORS = "Analysis Errors"
 
 #Regexes and data types
+PORT_REGEX = r"((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([0-5]{0,5})|([0-9]{1,4}))"
 HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
 DNS_TYPE_REGEX = r"^type:  (\d{1,2}) "
 REVERSE_DNS_REGEX = r"^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}in-addr\.arpa$"
 ETW_SOCK_ADDR_REGEX = f"^\[::ffff:({IP_REGEX}|0:0).*:({PORT_REGEX})"
-ETW_ADDR_REGEX = f"^({IP_REGEX}:({PORT_REGEX}))"
+ETW_ADDR_REGEX = f"^({IP_REGEX}):({PORT_REGEX})"
 
 #Machine related tags
 x86_IMAGE_SUFFIX = "x86"
@@ -1863,7 +1864,7 @@ def get_network_map(
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows)
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw)
     low_level_flow = []
     for network_flow in network_flows_table:
         if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
@@ -2057,7 +2058,7 @@ def _get_low_level_flows(
                                                 network_flow["pid"] = process
                                             if "API" not in network_flow["sources"]:
                                                 network_flow["sources"].append("API")
-                                            break                       
+                                            break
                  # Attempt mapping process_name to the netflow using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
@@ -2077,12 +2078,12 @@ def _get_low_level_flows(
                     for process_id, etw_netcalls in parsed_etw["network"].items():
                         for call in etw_netcalls:
                             if (network_flow["dest_ip"] == call["dst"]  or network_flow["domain"] == call["dst"]) and network_flow["src_ip"] == call["src"]:
-                                    if network_flow["dest_port"] == call["dport"] and network_flow["src_port"] == call["sport"]:
-                                        if not network_flow.get("pid"):
-                                            network_flow["pid"] = process_id
-                                        if "etw" not in network_flow["sources"]:
-                                            network_flow["sources"].append("etw")
-                                        break
+                                if network_flow["dest_port"] == int(call["dst_port"]) and network_flow["src_port"] == int(call["src_port"]):
+                                    if not network_flow.get("pid"):
+                                        network_flow["pid"] = process_id
+                                    if "etw" not in network_flow["sources"]:
+                                        network_flow["sources"].append("etw")
+                                    break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2207,7 +2208,7 @@ def _process_http_calls(
                                                     http_request["pid"] = process
                                                 if "API" not in http_request["sources"]:
                                                     http_request["sources"].append("API")
-                                                break                       
+                                                break
                  # Attempt mapping process_name to the http_call using sysmon
                 if parsed_sysmon is not None:
                     for process, process_details in parsed_sysmon.items():
