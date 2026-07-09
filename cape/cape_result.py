@@ -2051,7 +2051,7 @@ def _get_low_level_flows(
                                 call = net_call["arguments"]
                                 if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL")):
                                     if network_flow["dest_ip"] in [call.get("HostName"), call.get("IP"), call.get("URL")] or network_flow["domain"] in [call.get("HostName"), call.get("IP"), call.get("URL")]:
-                                        if str(network_flow["dest_port"]) == call.get("Port") or call.get("Port") is None:
+                                        if str(network_flow["dest_port"]) == int(call.get("Port")) or call.get("Port") is None:
                                             if not network_flow.get("image"):
                                                 network_flow["image"] = process_details["name"]
                                             if not network_flow.get("pid"):
@@ -2201,7 +2201,7 @@ def _process_http_calls(
                                         or http_request["request"] == call.get("Buffer")
                                         or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
                                         ):
-                                            if str(http_request["port"]) == call.get("Port") or call.get("Port") is None:
+                                            if str(http_request["port"]) == int(call.get("Port")) or call.get("Port") is None:
                                                 if not http_request.get("image"):
                                                     http_request["image"] = process_details["name"]
                                                 if not http_request.get("pid"):
