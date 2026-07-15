@@ -2638,19 +2638,6 @@ class CAPE(ServiceBase):
                         }
                     )
 
-    def _extract_clipboard(self) -> None:
-        if os.path.exists(CLIPBOARD_PATH):
-            for entry in os.scandir(CLIPBOARD_PATH):
-                if entry.is_file():
-                    self.artifact_list.append(
-                        {
-                            "name": f"{entry.name}-clipboard",
-                            "path": entry.path,
-                            "description": "Clipboard events for processes",
-                            "to_be_extracted": True,
-                        }
-                    )
-
     def _safely_get_param(self, param: str) -> Optional[Any]:
         """
         This method provides a safe way to grab a parameter that may or may not exist in the service configuration
