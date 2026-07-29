@@ -1302,10 +1302,11 @@ def load_ontology_and_result_section(
             for _, value in http_call["request_headers"].items():
                 extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
             if http_call["download"]:
+                uri = http_call["uri"]
                 if not remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
-                elif f'\t{{http_call["uri"]}}' not in remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
+                    remote_file_access_sec.add_line(f'\t{uri}')
+                elif f'\t{uri}' not in remote_file_access_sec.body:
+                    remote_file_access_sec.add_line(f'\t{uri}')
                 if not remote_file_access_sec.heuristic:
                     remote_file_access_sec.set_heuristic(1003)
                     _ = add_tag(
@@ -1324,7 +1325,8 @@ def load_ontology_and_result_section(
                         http_call["user-agent"],
                         safelist,
                     )
-                    suspicious_user_agent_sec.add_line(f'\t{{http_call["user-agent"]}}')
+                    user_agent = http_call["user-agent"]
+                    suspicious_user_agent_sec.add_line(f'\t{user_agent}')
                     sus_user_agents_used.append(http_call["user-agent"])
                 for lang in http_call["Flagged_language"]:
                     http_header_anomaly_sec.heuristic.add_signature_id(
@@ -1375,10 +1377,11 @@ def load_ontology_and_result_section(
                         process_events["network_connections"].append(validity)
                     else:
                         log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
-
+                image = http_call["image"]
+                pid = http_call["pid"]
                 http_sec.add_row(
                     TableRow(
-                        process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
+                        process_name=f'{image} ({pid})' if http_call["pid"] or http_call["image"] else "None (None)",
                         method=http_call["method"],
                         request=http_call["request_headers"],
                         uri=http_call["uri"],
@@ -2334,9 +2337,10 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments["api"]
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2354,9 +2358,10 @@ def process_buffers(
             arguments = call["arguments"]   
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments["api"]
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2401,9 +2406,10 @@ def process_buffers(
                     buffer_body.append(table_row)
                     count_per_source_per_process += 1
                     b_buffer = bytes(buffer, "utf-8")
+                    api = arguments["api"]
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
-                        network_buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                        network_buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
