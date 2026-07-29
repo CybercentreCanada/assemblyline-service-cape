@@ -2406,6 +2406,7 @@ def process_buffers(
                     buffer_body.append(table_row)
                     count_per_source_per_process += 1
                     b_buffer = bytes(buffer, "utf-8")
+                    api = arguments["api"]
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
                         network_buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
