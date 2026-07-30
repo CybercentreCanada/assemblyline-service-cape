@@ -2177,7 +2177,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
-                "name": f"extracted_{task_id}_files/README.txt",
+                "name": f"{task_id}_files/README.txt",
                 "description": "File extracted during analysis",
                 "to_be_extracted": False,
             }
