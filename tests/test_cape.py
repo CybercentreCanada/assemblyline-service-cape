@@ -2195,7 +2195,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/yarahit.exe",
-                "name": f"{task_id}_3_yarahit.exe",
+                "name": f"dump_{task_id}_3_yarahit.exe",
                 "description": "Memory Dump",
                 "to_be_extracted": True,
             }
