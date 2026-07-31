@@ -1319,7 +1319,7 @@ class TestCapeResult:
             uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.heuristic.score == 1500
-        assert actual_res_sec.heuristic.name == "Anti-analysis"
+        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
 
     def test_handle_mark_call(self):
         # Case 1: pid is None
@@ -1572,9 +1572,9 @@ class TestCapeResult:
         assert sig_res.heuristic.score == 100
 
         # Case 3: Known signature exception "procmem_yara"
-        name = "procmem_yara"
+        name = "Procmem_Yara"
         output_name = f"Capemon Yara Hit:{name}"
-        signature = {"procmem_yara": "anything"}
+        signature = {"Procmem_Yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
