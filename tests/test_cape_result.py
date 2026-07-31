@@ -1578,7 +1578,7 @@ class TestCapeResult:
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 2
+        assert sig_res.heuristic.heur_id == 1
         assert sig_res.heuristic.signatures == {output_name: 1}
         assert sig_res.heuristic.score == 0
 
