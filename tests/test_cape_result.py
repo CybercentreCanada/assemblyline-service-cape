@@ -742,7 +742,8 @@ class TestCapeResult:
             #They should be equal at this point
             for i in range(0, len(output["result"]["sections"])):
                 section_name = output["result"]["sections"][i]["title_text"]
-                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different"
+                diff = set(json.dumps(output["result"]["sections"][i]).split()).symmetric_difference(set(json.dumps(sample["Result"]["result"]["sections"][i]).split()))
+                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different: {diff}"
             assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different" 
             #Need to remove the session and guid from the ontology as they are unique random IDs
             result_ontology = ontres.as_primitives()
