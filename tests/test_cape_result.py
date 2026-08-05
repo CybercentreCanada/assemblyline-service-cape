@@ -114,6 +114,7 @@ class TestCapeResult:
                     "Sample_identifier": sample_path,
                     "Report_path": f"tests/samples/{sample_path}/Report/reports/lite.json",
                     "Files_path": f"tests/samples/{sample_path}/Report/files.json",
+                    "Report_folder": f"tests/samples/{sample_path}/Report/",
                     "Ontology_path": f"tests/samples/{sample_path}/Results/result_ontology.json",
                     "Result_path": f"tests/samples/{sample_path}/Results/result.json",
                     "Sandbox_section": f"tests/samples/{sample_path}/Results/Section.json"
@@ -161,7 +162,8 @@ class TestCapeResult:
                 "Report": REPORT_SECTIONS,
                 "Ontology": ONTOLOGY_SECTIONS,
                 "Result": RESULT_SECTIONS,
-                "Sandbox": SANDBOX_SECTION
+                "Sandbox": SANDBOX_SECTION,
+                "Report_path": sample["Report_folder"]
             }
             LOADED_SAMPLES.append(fully_loaded_sample)
         yield LOADED_SAMPLES
@@ -713,6 +715,8 @@ class TestCapeResult:
                 submission_params["inetsim_dns_servers"],
                 submission_params["uses_https_proxy_in_sandbox"],
                 submission_params["suspicious_accepted_languages"],
+                {},
+                sample["Report_path"]
             )
             service = ServiceBase()
             ontres.preprocess_ontology(submission_params["custom_tree_id_safelist"])
