@@ -1574,7 +1574,7 @@ class TestCapeResult:
 
         # Case 3: Known signature exception "procmem_yara"
         name = "Procmem_Yara"
-        output_name = f"Capemon Yara Hit:{name}"
+        output_name = f"malware:{name}"
         signature = {"Procmem_Yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
