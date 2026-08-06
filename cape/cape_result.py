@@ -4095,7 +4095,7 @@ def calculate_score(sig):
         final_score = SCORE_TRANSLATION[round(score)]
     else:
         final_score = SCORE_TRANSLATION[round(score)] - (score % 1)*(SCORE_TRANSLATION[round(score)]-SCORE_TRANSLATION[round(score)-1]) if round(score) > score else SCORE_TRANSLATION[round(score)] + (score % 1)*(SCORE_TRANSLATION[round(score)+1]-SCORE_TRANSLATION[round(score)])
-    return final_score
+    return round(final_score)
 
 def same_dictionaries(d1, d2):
     if not isinstance(d1, dict) or not isinstance(d2, dict):
