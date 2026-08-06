@@ -257,13 +257,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 0,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "stealth_network",
+                            "name": "stealth:stealth_network",
                             "frequency": 1,
                             "safe": false
                         }
@@ -297,13 +297,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 0,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "queries_locale_api",
+                            "name": "location_discovery:queries_locale_api",
                             "frequency": 1,
                             "safe": false
                         }
@@ -322,13 +322,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 0,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "language_check_registry",
+                            "name": "location_discovery:language_check_registry",
                             "frequency": 1,
                             "safe": false
                         }
@@ -354,13 +354,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 10,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "uses_windows_utilities",
+                            "name": "command:uses_windows_utilities",
                             "frequency": 1,
                             "safe": false
                         }
@@ -387,13 +387,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 30,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "persistence_autorun",
+                            "name": "persistence:persistence_autorun",
                             "frequency": 1,
                             "safe": false
                         }

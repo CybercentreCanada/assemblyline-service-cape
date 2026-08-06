@@ -257,13 +257,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 10,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "packer_unknown_pe_section_name",
+                            "name": "packer:packer_unknown_pe_section_name",
                             "frequency": 1,
                             "safe": false
                         }
@@ -282,13 +282,13 @@
                 "body_config": {},
                 "depth": 2,
                 "heuristic": {
-                    "heur_id": 9999,
+                    "heur_id": 1,
                     "score": 30,
-                    "name": "Unknown",
+                    "name": "CAPE Yara Hit",
                     "attack": [],
                     "signature": [
                         {
-                            "name": "network_bind",
+                            "name": "network:network_bind",
                             "frequency": 1,
                             "safe": false
                         }

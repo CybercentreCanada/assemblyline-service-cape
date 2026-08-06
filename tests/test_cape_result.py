@@ -1299,9 +1299,9 @@ class TestCapeResult:
         )
 
         # Case 6: Procmem_yara signature special case
-        name = "Procmem_Yara"
+        name = "procmem_yara"
         signature = {
-            'name': 'Procmem_Yara',
+            'name': 'procmem_yara',
             'description': 'Yara detections observed in process dumps, payloads or dropped files',
             'severity': 4,
             'weight': 1,
@@ -1566,7 +1566,7 @@ class TestCapeResult:
         assert sig_res.heuristic.score == 0
 
         # Case 2: Known signature with 100 score
-        name = "HTTP_Request"
+        name = "http_request"
         output_name = f"network:{name}"
         signature = {"http_request": "b"}
         sig_res = ResultMultiSection("blah")
@@ -1577,9 +1577,9 @@ class TestCapeResult:
         assert sig_res.heuristic.score == 100
 
         # Case 3: Known signature exception "procmem_yara"
-        name = "Procmem_Yara"
+        name = "procmem_yara"
         output_name = f"malware:{name}"
-        signature = {"Procmem_Yara": "anything"}
+        signature = {"procmem_yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
