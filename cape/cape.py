@@ -2027,6 +2027,9 @@ class CAPE(ServiceBase):
 
         # Check for any extra files in full report to add as extracted files
         try:
+            file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
+            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
+            self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
             self._extract_buffers()
             self._extract_browser_logs()
