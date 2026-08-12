@@ -1,5 +1,5 @@
 assemblyline
-git+https://github.com/CybercentreCanada/assemblyline-v4-service@dev
+git+https://github.com/CybercentreCanada/assemblyline-v4-service@master
 assemblyline-service-utilities >= 4.6.0.12
 pefile
 retrying

@@ -7,6 +7,7 @@ from zipfile import ZipFile
 
 from assemblyline.common import forge
 from assemblyline.common.isotime import epoch_to_iso
+from assemblyline.common.safe_archive import safe_extract_zip
 from assemblyline_v4_service.updater.updater import UPDATER_DIR, ServiceUpdater
 
 from cape.yara_modules import *
@@ -153,7 +154,7 @@ class CapeYaraUpdateServer(ServiceUpdater):
             ):
                 # Pull the set of YARA signatures related to prescript CAPE
                 with ZipFile(BytesIO(self.client.signature.download(prescript_query)), "r") as zip_f:
-                    zip_f.extractall(output_directory)
+                    safe_extract_zip(zip_f, output_directory)
                     self.log.info("New ruleset successfully downloaded and ready to use")
             else:
                 self.log.info("No prescript CAPE rules to download")

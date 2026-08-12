@@ -23,7 +23,7 @@ from assemblyline.common.identify import CUSTOM_BATCH_ID, CUSTOM_PS1_ID
 from assemblyline.common.isotime import epoch_to_local_with_ms, format_time, local_to_local_with_ms, LOCAL_FMT_WITH_MS, ensure_time_format, iso_to_epoch
 from assemblyline.common.net import is_valid_ip, is_valid_domain
 from assemblyline.common.str_utils import safe_str, truncate
-from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH, IPV6_REGEX, PORT_REGEX
+from assemblyline.odm.base import FULL_URI, DOMAIN_REGEX, IP_REGEX, IPV4_REGEX, URI_PATH, IPV6_REGEX
 from assemblyline.odm.models.ontology.results import Process as ProcessModel
 from assemblyline.odm.models.ontology.results import Sandbox as SandboxModel
 from assemblyline.odm.models.ontology.results import Signature as SignatureModel
@@ -89,6 +89,8 @@ SCORE_TRANSLATION = {
     6: 1000,
     7: 1000,
     8: 1000,
+    9: 1000,
+    10: 1000
 }  # dead_host signature
 
 Classification = forge.get_classification()
@@ -518,6 +520,18 @@ API_CALLS = [
         "object": "Event",
         "apis": ["NtOpenEvent"],
         "arguments": [("Name", "eventname")],
+    },
+    {
+        "event": "Read",
+        "object": "Clipboard",
+        "apis": ["GetClipboardData"],
+        "arguments": [("Format", "uFormat")],
+    },
+    {
+        "event": "Write",
+        "object": "Clipboard",
+        "apis": ["SetClipboardData"],
+        "arguments": [("Format", "uFormat"), ("Content", "hMem")],
     }
 ]
  #Value uses by Sysmon which are essentially the ones from the Win32 API https://learn.microsoft.com/en-us/windows/win32/dns/dns-constants
@@ -620,13 +634,14 @@ PROCESS_TREE_AND_EVENTS_SECTION_TITLE = "Processes"
 ANALYSIS_ERRORS = "Analysis Errors"
 
 #Regexes and data types
+PORT_REGEX = r"((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([0-5]{0,5})|([0-9]{1,4}))"
 HTTP_REQUEST_REGEX = f"Host: ({DOMAIN_REGEX})\\r"
 YARA_RULE_EXTRACTOR = r"(?:(?:PID )?([0-9]{2,4}))?.*'(.\w+)'"
 BYTE_CHAR = "x[a-z0-9]{2}"
 DNS_TYPE_REGEX = r"^type:  (\d{1,2}) "
 REVERSE_DNS_REGEX = r"^(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}in-addr\.arpa$"
 ETW_SOCK_ADDR_REGEX = f"^\[::ffff:({IP_REGEX}|0:0).*:({PORT_REGEX})"
-ETW_ADDR_REGEX = f"^({IP_REGEX}:({PORT_REGEX}))"
+ETW_ADDR_REGEX = f"^({IP_REGEX}):({PORT_REGEX})"
 
 #Machine related tags
 x86_IMAGE_SUFFIX = "x86"
@@ -648,6 +663,8 @@ ROUTING_LIST = ["none", "inetsim", "drop", "internet", "tor", "vpn"]
 BAT_COMMANDS_PATH = os.path.join("/tmp", "commands.bat")
 PS1_COMMANDS_PATH = os.path.join("/tmp", "commands.ps1")
 BUFFER_PATH = os.path.join("/tmp", "buffers")
+BROWSER_PATH = os.path.join("browser", "requests.log")
+CLIPBOARD_PATH = os.path.join("/tmp", "clipboard")
 ETW_PATH = "ETW"
 ETW_DNS_PATH = os.path.join(ETW_PATH, "etw_dns.json")
 ETW_NET_PATH = os.path.join(ETW_PATH, "etw_netevent.json")
@@ -812,6 +829,7 @@ def generate_al_result(
         with open(BAT_COMMANDS_PATH, "wb") as f:
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
+
     if zip_obj is not None:
         file_name_map = CAPE._get_files_json_contents(zip_obj, task_id)
         extracted_memory_dumps = CAPE._extract_artifacts(zip_obj, task_id, cape_artifact_pids, al_result, ontres, file_name_map)
@@ -819,6 +837,19 @@ def generate_al_result(
         memory_dumps = (extracted_memory_dumps, hh_extracted_memory_dumps)
     else:
         memory_dumps = (None, None)
+
+    for pid in process_map.keys():
+        clipboard_events = []
+        if len(process_map[pid]["clipboard_events"]) > 0:
+            for event in process_map[pid]["clipboard_events"]:
+                if event not in clipboard_events:
+                    clipboard_events.append(event)
+            if len(clipboard_events) > 0:
+                if not os.path.exists(CLIPBOARD_PATH):
+                    os.makedirs(CLIPBOARD_PATH)
+                with open(os.path.join(CLIPBOARD_PATH, pid), "wb") as f:
+                    for event in clipboard_events:
+                        f.writelines(event)
 
     process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, memory_dumps, signature_map)
     #Process all the info from auxiliaries
@@ -1202,7 +1233,8 @@ def load_ontology_and_result_section(
             _ = add_tag(netflows_sec, "network.dynamic.ip", flow["src_ip"], safelist)
             _ = add_tag(netflows_sec, "network.port", flow["dest_port"])
             _ = add_tag(netflows_sec, "network.port", flow["src_port"])
-            flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
+            if flow["timestamp"] is not None:
+                flow["timestamp"] =  (datetime.strptime(process_events["analysis_information"]["analysis_metadata"]["start_time"], LOCAL_FMT_WITH_MS) + timedelta(seconds=flow["timestamp"])).strftime(LOCAL_FMT_WITH_MS)
             nc = _create_network_connection_for_network_flow(flow, session, ontres)
             if nc:
                 if not nc.process and flow["pid"]:
@@ -1272,10 +1304,11 @@ def load_ontology_and_result_section(
             for _, value in http_call["request_headers"].items():
                 extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
             if http_call["download"]:
+                uri = http_call["uri"]
                 if not remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
-                elif f'\t{{http_call["uri"]}}' not in remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
+                    remote_file_access_sec.add_line(f'\t{uri}')
+                elif f'\t{uri}' not in remote_file_access_sec.body:
+                    remote_file_access_sec.add_line(f'\t{uri}')
                 if not remote_file_access_sec.heuristic:
                     remote_file_access_sec.set_heuristic(1003)
                     _ = add_tag(
@@ -1294,7 +1327,8 @@ def load_ontology_and_result_section(
                         http_call["user-agent"],
                         safelist,
                     )
-                    suspicious_user_agent_sec.add_line(f'\t{{http_call["user-agent"]}}')
+                    user_agent = http_call["user-agent"]
+                    suspicious_user_agent_sec.add_line(f'\t{user_agent}')
                     sus_user_agents_used.append(http_call["user-agent"])
                 for lang in http_call["Flagged_language"]:
                     http_header_anomaly_sec.heuristic.add_signature_id(
@@ -1345,10 +1379,11 @@ def load_ontology_and_result_section(
                         process_events["network_connections"].append(validity)
                     else:
                         log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
-
+                image = http_call["image"]
+                pid = http_call["pid"]
                 http_sec.add_row(
                     TableRow(
-                        process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
+                        process_name=f'{image} ({pid})' if http_call["pid"] or http_call["image"] else "None (None)",
                         method=http_call["method"],
                         request=http_call["request_headers"],
                         uri=http_call["uri"],
@@ -1760,7 +1795,7 @@ def process_signatures(
         if sig_name in CAPE_DROPPED_SIGNATURES:
             continue
 
-        translated_score = SCORE_TRANSLATION[sig["severity"]]
+        translated_score = calculate_score(sig)
         # Get the evidence that supports why the signature was raised
         mark_count = 0
         call_count = 0
@@ -1843,7 +1878,7 @@ def get_network_map(
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows)
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw)
     low_level_flow = []
     for network_flow in network_flows_table:
         if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
@@ -2009,13 +2044,13 @@ def _get_low_level_flows(
                 if src:
                     src_port = network_call.get("sport")
                 network_flow = {
-                    "timestamp": network_call["time"],
+                    "timestamp": network_call.get("time"),
                     "protocol": protocol,
                     "src_ip": src,
                     "src_port": src_port,
                     "domain": None,
                     "dest_ip": dst,
-                    "dest_port": network_call["dport"],
+                    "dest_port": network_call.get("dport"),
                     "image": network_call.get("image"),
                     "pid": network_call.get("pid"),
                     "guid": network_call.get("guid"),
@@ -2030,7 +2065,7 @@ def _get_low_level_flows(
                                 call = net_call["arguments"]
                                 if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL")):
                                     if network_flow["dest_ip"] in [call.get("HostName"), call.get("IP"), call.get("URL")] or network_flow["domain"] in [call.get("HostName"), call.get("IP"), call.get("URL")]:
-                                        if str(network_flow["dest_port"]) == call.get("Port") or call.get("Port") is None:
+                                        if call.get("Port") is None or str(network_flow["dest_port"]) == int(call.get("Port", -1)):
                                             if not network_flow.get("image"):
                                                 network_flow["image"] = process_details["name"]
                                             if not network_flow.get("pid"):
@@ -2057,12 +2092,12 @@ def _get_low_level_flows(
                     for process_id, etw_netcalls in parsed_etw["network"].items():
                         for call in etw_netcalls:
                             if (network_flow["dest_ip"] == call["dst"]  or network_flow["domain"] == call["dst"]) and network_flow["src_ip"] == call["src"]:
-                                    if network_flow["dest_port"] == call["dport"] and network_flow["src_port"] == call["sport"]:
-                                        if not network_flow.get("pid"):
-                                            network_flow["pid"] = process_id
-                                        if "etw" not in network_flow["sources"]:
-                                            network_flow["sources"].append("etw")
-                                        break
+                                if network_flow["dest_port"] == int(call["dst_port"]) and network_flow["src_port"] == int(call["src_port"]):
+                                    if not network_flow.get("pid"):
+                                        network_flow["pid"] = process_id
+                                    if "etw" not in network_flow["sources"]:
+                                        network_flow["sources"].append("etw")
+                                    break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2180,7 +2215,7 @@ def _process_http_calls(
                                         or http_request["request"] == call.get("Buffer")
                                         or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
                                         ):
-                                            if str(http_request["port"]) == call.get("Port") or call.get("Port") is None:
+                                            if call.get("Port") is None or str(http_request["port"]) == int(call.get("Port", -1)):
                                                 if not http_request.get("image"):
                                                     http_request["image"] = process_details["name"]
                                                 if not http_request.get("pid"):
@@ -2313,9 +2348,10 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2333,9 +2369,10 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments["api"]
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2380,9 +2417,10 @@ def process_buffers(
                     buffer_body.append(table_row)
                     count_per_source_per_process += 1
                     b_buffer = bytes(buffer, "utf-8")
+                    api = arguments["api"]
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
-                        network_buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                        network_buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
@@ -2473,6 +2511,7 @@ def get_process_map(
         misc_events = []
         hooking_events = []
         process_events = []
+        clipboard_events = []
         interprocess_comm = []
         calls = process["calls"]
         for call in calls:
@@ -2521,6 +2560,8 @@ def get_process_map(
                             process_events.append(interesting_event)
                         elif interesting_event["object"] in ["NamedPipe", "Event"] and interesting_event not in interprocess_comm:
                             interprocess_comm.append(interesting_event)
+                        elif interesting_event["object"] == "Clipboard" and interesting_event not in clipboard_events:
+                            clipboard_events.append(interesting_event)
         first_seen = process.get("first_seen")
         if first_seen and (isinstance(first_seen, float) or isinstance(first_seen, int)):
             first_seen = epoch_to_local_with_ms(first_seen, trunc=3)
@@ -2542,6 +2583,7 @@ def get_process_map(
             "misc_events": misc_events,# event-->Misc
             "hooking_events": hooking_events,# event-->Hooking event-->Unhooking
             "process_events": process_events,# object-->process
+            "clipboard_events": clipboard_events, #object-->clipboard
             "interprocess_comm": interprocess_comm,# object-->NamedPipe object-->Event
         }
     return process_map
@@ -3676,7 +3718,7 @@ def _create_network_connection_for_network_flow(
         session=session,
         time_observed=(
             epoch_to_local_with_ms(network_flow["timestamp"], trunc=3)
-            if not isinstance(network_flow["timestamp"], str)
+            if not isinstance(network_flow["timestamp"], str) and network_flow["timestamp"] is not None
             else network_flow["timestamp"]
         ),
     )
@@ -3718,7 +3760,7 @@ def _create_network_connection_for_network_flow(
             image=network_flow.get("image"),
             start_time=(
                 epoch_to_local_with_ms(network_flow["timestamp"])
-                if not isinstance(network_flow["timestamp"], str)
+                if not isinstance(network_flow["timestamp"], str) and network_flow["timestamp"] is not None
                 else network_flow["timestamp"]
             ),
         )
@@ -3993,6 +4035,76 @@ def _massage_api_urls(api_url: str) -> str:
     if altered_api_url:
         return altered_api_url
     return api_url
+
+def calculate_score(sig):
+    categories = sig.get("categories", "Unknown")
+    severity = sig.get("severity", 1)
+    confidence = sig.get("confidence", 100)
+    weight = sig.get("weight", 1)
+    altered_weight = weight
+    maliciousCategories = [
+            "malware",
+            "ransomware",
+            "infostealer",
+            "rat",
+            "trojan",
+            "rootkit",
+            "bootkit",
+            "wiper",
+            "banker",
+            "bypass",
+            "anti-sandbox",
+            "keylogger",
+            "privilege_escalation"
+        ]
+
+    suspiciousCategories = [
+            "network",
+            "encryption",
+            "anti-vm",
+            "anti-analysis",
+            "anti-av",
+            "anti-debug",
+            "anti-emulation",
+            "persistence",
+            "stealth",
+            "discovery",
+            "injection",
+            "generic",
+            "account",
+            "bot",
+            "browser",
+            "allocation",
+            "command",
+            "execution",
+        ]
+    score = 0
+    if set(categories) & set(maliciousCategories):
+        if confidence > 70:
+            altered_weight = 4
+            if severity == 1:
+                score =  altered_weight * 0.5 * (confidence / 100.0)
+            else:
+                score = altered_weight * (severity - 1) * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity -1) * (confidence / 100.0)
+    elif set(categories) & set(suspiciousCategories):
+        if severity == 1:
+            score = altered_weight * 0.5 * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    else:
+        if severity == 1:
+            score = altered_weight * 0.5 * confidence / 100.0
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    if score >= 10:
+        final_score = SCORE_TRANSLATION[10]
+    elif score < 1:
+        final_score = SCORE_TRANSLATION[round(score)]
+    else:
+        final_score = SCORE_TRANSLATION[round(score)] - (score % 1)*(SCORE_TRANSLATION[round(score)]-SCORE_TRANSLATION[round(score)-1]) if round(score) > score else SCORE_TRANSLATION[round(score)] + (score % 1)*(SCORE_TRANSLATION[round(score)+1]-SCORE_TRANSLATION[round(score)])
+    return round(final_score)
 
 def same_dictionaries(d1, d2):
     if not isinstance(d1, dict) or not isinstance(d2, dict):

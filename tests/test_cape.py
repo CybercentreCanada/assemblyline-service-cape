@@ -16,9 +16,10 @@ from assemblyline_service_utilities.testing.helper import check_section_equality
 from assemblyline_v4_service.common.request import ServiceRequest
 from assemblyline_v4_service.common.result import BODY_FORMAT, ResultSection
 from assemblyline_v4_service.common.task import Task
-from cape.cape import *
 from requests import ConnectionError, Session, exceptions
 from retrying import RetryError
+
+from cape.cape import *
 
 # Getting absolute paths, names and regexes
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -156,6 +157,7 @@ def dummy_zip_class():
                 "shots/0010.jpg",
                 "shots/0001_small.jpg",
                 "shots/0001.jpg",
+                "shots/0001_duplicate.jpg",
                 "network/blahblah",
                 "CAPE/ohmy.exe",
                 "CAPE/yarahit.exe",
@@ -321,6 +323,7 @@ class TestModule:
         MACHINE_INFORMATION_SECTION_TITLE == "Machine Information"
         PE_INDICATORS == [b"MZ", b"This program cannot be run in DOS mode"]
         DEFAULT_TOKEN_KEY == "Token"
+        assert DEFAULT_DELETE_CAPE_RUNS is True
         CONNECTION_ERRORS == ["RemoteDisconnected", "ConnectionResetError"]
 
     @staticmethod
@@ -443,6 +446,7 @@ class TestCapeMain:
         # assert cape_class_instance.identify == ""
         assert cape_class_instance.retry_on_no_machine is False
         assert cape_class_instance.uwsgi_with_recycle is False
+        assert cape_class_instance.delete_cape_runs is True
 
     @staticmethod
     def test_start(cape_class_instance, dummy_api_interface_class, mocker):
@@ -457,6 +461,7 @@ class TestCapeMain:
         assert cape_class_instance.allowed_images == cape_class_instance.config.get("allowed_images", [])
         assert cape_class_instance.retry_on_no_machine == cape_class_instance.config.get("retry_on_no_machine", False)
         assert cape_class_instance.uwsgi_with_recycle == cape_class_instance.config.get("uwsgi_with_recycle", False)
+        assert cape_class_instance.delete_cape_runs == cape_class_instance.config.get("delete_cape_runs", True)
         assert cape_class_instance.use_process_tree_inspection == cape_class_instance.config.get("use_process_tree_inspection", False)
         assert cape_class_instance.routes == cape_class_instance.config.get("routing_list", ROUTING_LIST)
         assert cape_class_instance.enforce_routing == cape_class_instance.config.get("enforce_routing", False)
@@ -551,6 +556,7 @@ class TestCapeMain:
     @staticmethod
     def test_general_flow(cape_class_instance, dummy_request_class, dummy_result_class_instance, mocker):
         from assemblyline.common.exceptions import RecoverableError
+
         from cape.cape import CAPE
 
         ontres = OntologyResults(service_name="blah")
@@ -879,25 +885,25 @@ class TestCapeMain:
 
         with requests_mock.Mocker() as m:
             # Case 1: Successful call, status code 200, valid response
-            m.post(cape_task.submit_url, json=correct_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=correct_rest_response, status_code=200)
             test_result = cape_class_instance.submit_file(file_content, cape_task, parent_section)
             assert test_result == 1
 
             # Case 2: Successful call, status code 200, error response
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=error_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=error_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
                 cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 3: Successful call, status code 200, error with details response
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=error_with_details_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=error_with_details_rest_response, status_code=200)
             with pytest.raises(InvalidCapeRequest):
                 cape_class_instance.submit_file(file_content, cape_task, parent_section)
 
             # Case 4: Timeout
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=exceptions.Timeout)
+            m.post(cape_task.submit_file_url, exc=exceptions.Timeout)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -914,7 +920,7 @@ class TestCapeMain:
 
             # Case 5: ConnectionError
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=ConnectionError)
+            m.post(cape_task.submit_file_url, exc=ConnectionError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -931,7 +937,7 @@ class TestCapeMain:
 
             # Case 6: Non-200 status code
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, status_code=500)
+            m.post(cape_task.submit_file_url, status_code=500)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -948,7 +954,7 @@ class TestCapeMain:
 
             # Case 7: 200 status code, bad response data, Example 1
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=correct_with_only_data_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=correct_with_only_data_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -965,7 +971,7 @@ class TestCapeMain:
 
             # Case 8: 200 status code, bad response data, Example 2
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, json=weird_rest_response, status_code=200)
+            m.post(cape_task.submit_file_url, json=weird_rest_response, status_code=200)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -982,7 +988,7 @@ class TestCapeMain:
 
             # Case 9: ChunkedEncodingError
             parent_section = ResultSection("blah")
-            m.post(cape_task.submit_url, exc=exceptions.ChunkedEncodingError)
+            m.post(cape_task.submit_file_url, exc=exceptions.ChunkedEncodingError)
             p1 = Process(
                 target=cape_class_instance.submit_file,
                 args=(
@@ -1216,6 +1222,13 @@ class TestCapeMain:
             p1.join(timeout=2)
             p1.terminate()
             assert p1.exitcode is None
+
+            cape_class_instance.delete_cape_runs = False
+            cape_task.id = task_id
+            get_mock = mocker.patch.object(cape_class_instance.session, "get")
+            cape_class_instance.delete_task(cape_task)
+            assert cape_task.id == task_id
+            get_mock.assert_not_called()
 
     @staticmethod
     def test_query_machines(cape_class_instance, dummy_request_class):
@@ -2079,6 +2092,7 @@ class TestCapeMain:
         task_id = 1
         zip_obj = dummy_zip_class()
         # No such file
+        cape_class_instance.artifact_list = []
         output = cape_class_instance._get_files_json_contents(zip_obj, task_id)
         assert output == {}
         directory = os.path.join(cape_class_instance.working_directory, f"{task_id}")
@@ -2163,7 +2177,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
-                "name": f"{task_id}_files/README.txt",
+                "name": f"{task_id}_extracted_files/README.txt",
                 "description": "File extracted during analysis",
                 "to_be_extracted": False,
             }
@@ -2181,7 +2195,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/yarahit.exe",
-                "name": f"{task_id}_3_yarahit.exe",
+                "name": f"dump_{task_id}_3_yarahit.exe",
                 "description": "Memory Dump",
                 "to_be_extracted": True,
             }
@@ -2212,6 +2226,14 @@ class TestCapeMain:
             cape_class_instance.identify,
             "fileinfo",
             side_effect=[
+                #"shots/0001.jpg",
+                {"type": "image/jpg", "sha256": "0001"},
+                #"shots/0001_duplicate.jpg", shouldn't be added to the Screenshot section since it's a duplicate frame
+                {"type": "image/jpg", "sha256": "0001"},
+                #"shots/0005.jpg",
+                {"type": "image/jpg", "sha256": "0005"},
+                #"shots/0010.jpg",
+                {"type": "image/jpg", "sha256": "0010"},
                 {"type": "text/plain", "mime": "text/plain", "magic": "ASCII text, with CRLF line terminators"},
                 {"type": "unknown", "mime": "application/octet-stream", "magic": "SQLite Rollback Journal"},
             ],

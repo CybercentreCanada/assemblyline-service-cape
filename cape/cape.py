@@ -14,11 +14,18 @@ from zipfile import ZipFile
 
 import requests
 from assemblyline.common.exceptions import NonRecoverableError, RecoverableError
-from assemblyline.common.forge import get_identify, get_classification
-from assemblyline.common.identify_defaults import magic_patterns, trusted_mimes, type_to_extension
+from assemblyline.common.forge import get_classification, get_identify
+from assemblyline.common.identify_defaults import (
+    magic_patterns,
+    trusted_mimes,
+    type_to_extension,
+)
 from assemblyline.common.isotime import epoch_to_local
 from assemblyline.common.str_utils import safe_str
-from assemblyline_service_utilities.common.dynamic_service_helper import OntologyResults, attach_dynamic_ontology
+from assemblyline_service_utilities.common.dynamic_service_helper import (
+    OntologyResults,
+    attach_dynamic_ontology,
+)
 from assemblyline_service_utilities.common.tag_helper import add_tag
 from assemblyline_v4_service.common.api import ServiceAPIError
 from assemblyline_v4_service.common.base import ServiceBase
@@ -33,21 +40,27 @@ from assemblyline_v4_service.common.result import (
     TextSectionBody,
 )
 from assemblyline_v4_service.common.task import PARENT_RELATION
+from pefile import PE, PEFormatError
+from retrying import RetryError, retry
+from SetSimilaritySearch import SearchIndex
+
 from cape.cape_result import (
     ANALYSIS_ERRORS,
     BAT_COMMANDS_PATH,
     BUFFER_PATH,
+    BROWSER_PATH,
+    CLIPBOARD_PATH,
     GUEST_CANNOT_REACH_HOST,
     INETSIM,
     LINUX_IMAGE_PREFIX,
     MACHINE_NAME_REGEX,
+    OFFLINE_IMAGE_PREFIX,
+    ONLINE_IMAGE_PREFIX,
     PE_INDICATORS,
     PS1_COMMANDS_PATH,
     SIGNATURES_SECTION_TITLE,
     SUPPORTED_EXTENSIONS,
     WINDOWS_IMAGE_PREFIX,
-    OFFLINE_IMAGE_PREFIX,
-    ONLINE_IMAGE_PREFIX,
     convert_processtree_id_to_tree_id,
     generate_al_result,
     x64_IMAGE_SUFFIX,
@@ -55,16 +68,15 @@ from cape.cape_result import (
 )
 from cape.safe_process_tree_leaf_hashes import SAFE_PROCESS_TREE_LEAF_HASHES
 from cape.yara_modules import *
-from pefile import PE, PEFormatError
-from retrying import RetryError, retry
-from SetSimilaritySearch import SearchIndex
 
 APIv2_BASE_ENDPOINT = "apiv2"
 
 HOLLOWSHUNTER_REPORT_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_(dump|scan)_report\.json$"
 HOLLOWSHUNTER_DUMP_REGEX = r"hollowshunter\/hh_process_[0-9]{3,}_[a-zA-Z0-9]*(\.*[a-zA-Z0-9]+)+\.(exe|shc|dll)$"
 INJECTED_EXE_REGEX = r"^\/tmp\/%s_injected_memory_[0-9]{1,2}\.exe$"
+EXTRACTED_FILES_REGEX = r"^extracted_[\w,\s-]+-[A-Fa-f0-9]{64}$"
 
+CAPE_API_SUBMIT_URL = "tasks/create/url/"
 CAPE_API_SUBMIT = "tasks/create/file/"
 CAPE_API_QUERY_TASK = "tasks/view/%s/"
 CAPE_API_DELETE_TASK = "tasks/delete/%s/"
@@ -82,6 +94,7 @@ DEFAULT_REST_TIMEOUT = 120
 DEFAULT_CONNECTION_TIMEOUT = 120
 DEFAULT_CONNECTION_ATTEMPTS = 3
 DEFAULT_UPDATE_PERIOD = 24
+DEFAULT_DELETE_CAPE_RUNS = True
 
 RELEVANT_IMAGE_TAG = "auto"
 ALL_IMAGES_TAG = "all"
@@ -187,7 +200,8 @@ class CapeTask(dict):
         self.errors: List[str] = []
         self.auth_header = host_details["auth_header"]
         self.base_url = f"http://{host_details['ip']}:{host_details['port']}/{APIv2_BASE_ENDPOINT}"
-        self.submit_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
+        self.submit_url_url = f"{self.base_url}/{CAPE_API_SUBMIT_URL}"
+        self.submit_file_url = f"{self.base_url}/{CAPE_API_SUBMIT}"
         self.query_task_url = f"{self.base_url}/{CAPE_API_QUERY_TASK}"
         self.delete_task_url = f"{self.base_url}/{CAPE_API_DELETE_TASK}"
         self.query_report_url = f"{self.base_url}/{CAPE_API_QUERY_REPORT}"
@@ -234,6 +248,7 @@ class CAPE(ServiceBase):
         self.identify = get_identify(use_cache=os.environ.get("PRIVILEGED", "false").lower() == "true")
         self.retry_on_no_machine = False
         self.uwsgi_with_recycle = False
+        self.delete_cape_runs = DEFAULT_DELETE_CAPE_RUNS
         self.classification = get_classification()
 
         # Properies pertaining to using YARA rules with CAPE
@@ -254,6 +269,7 @@ class CAPE(ServiceBase):
         self.allowed_images = self.config.get("allowed_images", [])
         self.retry_on_no_machine = self.config.get("retry_on_no_machine", False)
         self.uwsgi_with_recycle = self.config.get("uwsgi_with_recycle", False)
+        self.delete_cape_runs = self.config.get("delete_cape_runs", DEFAULT_DELETE_CAPE_RUNS)
         self.use_process_tree_inspection = self.config.get("use_process_tree_inspection", False)
         self.routes = self.config.get("routing_list", ROUTING_LIST)
         self.enforce_routing = self.config.get("enforce_routing", False)
@@ -290,15 +306,18 @@ class CAPE(ServiceBase):
 
         # Remove leftover files in the /tmp dir from previous executions
         self._cleanup_leftovers()
-
+        if request.file_type.startswith("uri/"):
+            self.file_name = request.task.fileinfo.uri_info.uri
+            file_ext = "url"
+        else:
         # File name related methods
-        self.file_name = os.path.basename(request.task.file_name)
-        self._decode_mime_encoded_file_name()
-        self._remove_illegal_characters_from_file_name()
-        file_ext = self._assign_file_extension()
-        if not file_ext:
+            self.file_name = os.path.basename(request.task.file_name)
+            self._decode_mime_encoded_file_name()
+            self._remove_illegal_characters_from_file_name()
+            file_ext = self._assign_file_extension()
+            if not file_ext:
             # File extension or bust!
-            return
+                return
 
         self.query_machines()
 
@@ -590,7 +609,10 @@ class CAPE(ServiceBase):
             cape_task.id = parent_task_id
 
         try:
-            self.submit(self.request.file_contents, cape_task, parent_section, reboot)
+            if file_ext == "url":
+                self.submit(None, cape_task, parent_section, reboot)
+            else:
+                self.submit(self.request.file_contents, cape_task, parent_section, reboot)
 
             if cape_task.id:
                 self._generate_report(file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
@@ -667,7 +689,10 @@ class CAPE(ServiceBase):
             if self._safely_get_param("ignore_cape_cache") or not self.sha256_check(self.request.sha256, cape_task):
                 try:
                     """Submits a new file to CAPE for analysis"""
-                    task_id = self.submit_file(file_content, cape_task, parent_section)
+                    if file_content is None:
+                        task_id = self.submit_url(cape_task, parent_section)
+                    else:
+                        task_id = self.submit_file(file_content, cape_task, parent_section)
                     if not task_id:
                         self.log.error("Failed to get task for submitted file.")
                         return
@@ -873,7 +898,7 @@ class CAPE(ServiceBase):
         :return: an integer representing the task ID
         """
         global have_raised_error
-        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_url}")
+        self.log.debug(f"Submitting file: {cape_task.file} to server {cape_task.submit_file_url}")
         files = {"file": (cape_task.file, file_content)}
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
@@ -882,7 +907,7 @@ class CAPE(ServiceBase):
             try:
                 cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
                 resp = self.session.post(
-                    cape_task.submit_url,
+                    cape_task.submit_file_url,
                     files=files,
                     data=cape_task_data,
                     headers=cape_task.auth_header,
@@ -892,7 +917,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} timed out after {self.timeout}s "
+                        f"Indicator: '{cape_task.submit_file_url} timed out after {self.timeout}s "
                         f"trying to submit a file {cape_task.file}.'"
                     )
                     logged = True
@@ -902,7 +927,7 @@ class CAPE(ServiceBase):
                 if self.is_connection_error_worth_logging(repr(e)) and not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                        f"Indicator: '{cape_task.submit_file_url} failed to submit a file {cape_task.file} due to {e}.'"
                     )
                     logged = True
                 sleep(5)
@@ -911,7 +936,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed to submit a file {cape_task.file} due to {e}.'"
+                        f"Indicator: '{cape_task.submit_file_url} failed to submit a file {cape_task.file} due to {e}.'"
                     )
                     logged = True
                 sleep(5)
@@ -920,7 +945,7 @@ class CAPE(ServiceBase):
                 if not logged:
                     self.log.error(
                         "The cape-web.service is most likely down. "
-                        f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                        f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                         f"trying to submit a file {cape_task.file}.'"
                     )
                     logged = True
@@ -931,7 +956,7 @@ class CAPE(ServiceBase):
                 root_error = ""
                 if "error" in resp_json and resp_json["error"]:
                     self.log.error(
-                        f"Failed to submit the file with {cape_task.submit_url} due to '{resp_json['error_value']}'."
+                        f"Failed to submit the file with {cape_task.submit_file_url} due to '{resp_json['error_value']}'."
                     )
                     root_error = str(resp_json['error_value'])
                     incorrect_tag = False
@@ -971,7 +996,7 @@ class CAPE(ServiceBase):
                         if not logged:
                             self.log.error(
                                 "The cape-web.service is most likely down. "
-                                f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                                f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                                 f"trying to submit a file {cape_task.file}. Data returned was: {resp_json['data']}'."
                             )
                             logged = True
@@ -981,8 +1006,125 @@ class CAPE(ServiceBase):
                     if not logged:
                         self.log.error(
                             "The cape-web.service is most likely down. "
-                            f"Indicator: '{cape_task.submit_url} failed with status code {resp.status_code} "
+                            f"Indicator: '{cape_task.submit_file_url} failed with status code {resp.status_code} "
                             f"trying to submit a file {cape_task.file}. Data returned was: {resp_json}'."
+                        )
+                        logged = True
+                    sleep(5)
+                    continue
+
+    def submit_url(self, cape_task: CapeTask, parent_section: ResultSection) -> int:
+        """
+        This method submits the url to the CAPE server
+        :param cape_task: The CapeTask class instance, which contains details about the specific task
+        :return: an integer representing the task ID
+        """
+        global have_raised_error
+        self.log.debug(f"Submitting url: {cape_task.file} to server {cape_task.submit_url_url}")
+        # We will try to connect with the REST API... NO MATTER WHAT
+        logged = False
+        while True:
+            # For timeouts and connection errors, we will try for all eternity.
+            try:
+                cape_task_data = {k: cape_task[k] for k in cape_task.keys()}
+                cape_task_data['url'] = cape_task.file
+                resp = self.session.post(
+                    cape_task.submit_url_url,
+                    data=cape_task_data,
+                    headers=cape_task.auth_header,
+                    timeout=self.timeout,
+                )
+            except requests.exceptions.Timeout:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} timed out after {self.timeout}s "
+                        f"trying to submit a url {cape_task.file}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            except requests.ConnectionError as e:
+                if self.is_connection_error_worth_logging(repr(e)) and not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            except requests.exceptions.ChunkedEncodingError as e:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed to submit a file {cape_task.file} due to {e}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            if resp.status_code != 200:
+                if not logged:
+                    self.log.error(
+                        "The cape-web.service is most likely down. "
+                        f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                        f"trying to submit a url {cape_task.file}.'"
+                    )
+                    logged = True
+                sleep(5)
+                continue
+            else:
+                resp_json = resp.json()
+                if "error" in resp_json and resp_json["error"]:
+                    self.log.error(
+                        f"Failed to submit the file with {cape_task.submit_url_url} due to '{resp_json['error_value']}'."
+                    )
+                    incorrect_tag = False
+                    if "errors" in resp_json and resp_json["errors"]:
+                        try:
+                            for error in resp_json["errors"]:
+                                for error_dict in error.values():
+                                    for k, v in error_dict.items():
+                                        if k == "error":
+                                            self.log.error(f"Further details about the error are: {v}")
+                                            incorrect_tag = (
+                                                "Check Tags help, you have introduced incorrect tag(s)." in v
+                                            )
+                        except Exception:
+                            pass
+
+                    if self.retry_on_no_machine and incorrect_tag:
+                        # No need to log here because the log.error above containing further details about the error has happened
+                        sleep(self.timeout)
+                        raise RecoverableError("Retrying since the specific image was missing...")
+                    else:
+                        if not have_raised_error:
+                            parent_section.set_heuristic(404)
+                            have_raised_error = True
+                        if parent_section.heuristic is not None:
+                            parent_section.heuristic.add_signature_id("CAPE API down", 0)
+                        raise InvalidCapeRequest(
+                            "There is most likely an issue with how the service is configured to interact with CAPE's REST API. Check the service logs for more details."
+                        )
+                elif "data" in resp_json and resp_json["data"]:
+                    task_ids = resp_json["data"].get("task_ids", [])
+                    if isinstance(task_ids, list) and len(task_ids) > 0:
+                        return task_ids[0]
+                    else:
+                        if not logged:
+                            self.log.error(
+                                "The cape-web.service is most likely down. "
+                                f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                                f"trying to submit a url {cape_task.file}. Data returned was: {resp_json['data']}'."
+                            )
+                            logged = True
+                        sleep(5)
+                        continue
+                else:
+                    if not logged:
+                        self.log.error(
+                            "The cape-web.service is most likely down. "
+                            f"Indicator: '{cape_task.submit_url_url} failed with status code {resp.status_code} "
+                            f"trying to submit a url {cape_task.file}. Data returned was: {resp_json}'."
                         )
                         logged = True
                     sleep(5)
@@ -1145,6 +1287,10 @@ class CAPE(ServiceBase):
         :param cape_task: The CapeTask class instance, which contains details about the specific task
         :return: None
         """
+        if not self.delete_cape_runs:
+            self.log.debug(f"Skipping deletion of task {cape_task.id}; delete_cape_runs is disabled.")
+            return
+        
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -1883,6 +2029,8 @@ class CAPE(ServiceBase):
         try:
             self._extract_commands()
             self._extract_buffers()
+            self._extract_browser_logs()
+            self._extract_clipboard()
         except Exception as e:
             self.log.exception(f"Unable to add extra file(s) for " f"task {cape_task.id}. Exception: {e}")
         zip_obj.close()
@@ -2074,6 +2222,13 @@ class CAPE(ServiceBase):
                         file_name_map[file_json["path"]] = file_json["filepath"].split("\\")[-1]
             except Exception as e:
                 self.log.exception(f"Unable to parse files.json for task {task_id}. Exception: {e}")
+        artifact = {
+            "name": member_name,
+            "path": os.path.join(task_dir, member_name),
+            "description": "CAPE files mapping",
+            "to_be_extracted": False,
+        }
+        self.artifact_list.append(artifact)
         return file_name_map
 
     def _extract_console_output(self, task_id: int) -> None:
@@ -2140,6 +2295,7 @@ class CAPE(ServiceBase):
         """
         image_section = ResultMultiSection(f"Screenshots taken during Task {task_id}")
         image_section_body = ImageSectionBody(self.request)
+        screenshot_sha256s = []
         if self.config.get("use_antivm_packages", False) and self.request.file_type in [
             "code/javascript",
             "code/jscript",
@@ -2226,7 +2382,7 @@ class CAPE(ServiceBase):
                 to_be_extracted = True
 
                 # If we are here, we really want to make sure we want these dumps
-                if key in ["CAPE", "procdump"]:
+                if key in ["CAPE", "procdump", "memory"]:
                     if self.config["extract_cape_dumps"] and not self.request.deep_scan:
                         yara_hit = False
                         # If we don't want them all, we only want those with yara hits
@@ -2248,8 +2404,9 @@ class CAPE(ServiceBase):
                         None,
                     )
                     if pid:
-                        file_name = f"{task_id}_{pid}_{file_name_map.get(f, f)}"
-                        extracted_memory_dumps.append({file_name})
+                        file_name = f"dump_{task_id}_{pid}_{file_name_map.get(f, f)}"
+                    else:
+                        file_name = f"dump_{task_id}{file_name_map.get(f, f)}"
                 # The majority of files extracted by CAPE are junk and follow a similar file type pattern
                 elif key in ["files/"]:
                     file_type_details = self.identify.fileinfo(destination_file_path, generate_hashes=False)
@@ -2270,14 +2427,20 @@ class CAPE(ServiceBase):
                             "because we suspect it is garbage generated by Internet Explorer."
                         )
                         continue
-
+                    #If the file is extracted by an archive analysis extract it
+                    elif compile(EXTRACTED_FILES_REGEX).search(file_name_map.get(f, f)):
+                        file_name = f"{task_id}_{file_name_map.get(f, f)}"
+                        
                     elif file_type_details["type"] == "text/plain":
                         self.log.debug(
                             f"We are not extracting {destination_file_path} for task {task_id} "
                             "because it will most likely not provide further benefit to analysis. "
                             "Adding as supplementary."
                         )
+                        file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
                         to_be_extracted = False
+                    else:
+                        file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
 
                 if not file_name:
                     file_name = f"{task_id}_{file_name_map.get(f, f)}"
@@ -2286,6 +2449,14 @@ class CAPE(ServiceBase):
                     to_be_extracted = False
                     # AL generates thumbnails already
                     if "_small" not in f:
+                        # Check to see if screenshot was already added to section
+                        sha256 = self.identify.fileinfo(destination_file_path,
+                                                        skip_fuzzy_hashes=True, calculate_entropy=False)['sha256']
+                        if sha256 in screenshot_sha256s:
+                            # If duplicate screenshot, skip
+                            continue
+                        screenshot_sha256s.append(sha256)
+
                         try:
                             image_section_body.add_image(destination_file_path, file_name, value)
                         except OSError as e:
@@ -2437,6 +2608,51 @@ class CAPE(ServiceBase):
                             "name": entry.name,
                             "path": entry.path,
                             "description": "PEs extracted from Windows API buffers",
+                            "to_be_extracted": True,
+                        }
+                    )
+
+    def _extract_browser_logs(self) -> None:
+        if os.path.exists(BROWSER_PATH):
+            for entry in os.scandir(BROWSER_PATH):
+                if entry.is_file():
+                    dom_counter = -1
+                    with open(entry.path, "r") as f:
+                        for line in f:
+                            try:
+                                json_data = loads(line)
+                                if "dom" in json_data.keys():
+                                    dom_counter += 1
+                                    result = f"{entry.name}_dom_{dom_counter}.json"
+                                    with open(result , 'w') as f:
+                                        dump(json_data, f)
+                                    self.artifact_list.append(
+                                        {
+                                            "name": f"{entry.name}_dom_{dom_counter}",
+                                            "path": result,
+                                            "description": "Browser dom",
+                                        "to_be_extracted": True,
+                                        }
+                                    )
+                            except Exception as e:
+                                pass
+                    self.artifact_list.append(
+                        {
+                            "name": entry.name,
+                            "path": entry.path,
+                            "description": "Browser logs and doms",
+                            "to_be_extracted": False,
+                        }
+                    )
+    def _extract_clipboard(self) -> None:
+        if os.path.exists(CLIPBOARD_PATH):
+            for entry in os.scandir(CLIPBOARD_PATH):
+                if entry.is_file():
+                    self.artifact_list.append(
+                        {
+                            "name": f"{entry.name}-clipboard",
+                            "path": entry.path,
+                            "description": "Clipboard events for processes",
                             "to_be_extracted": True,
                         }
                     )

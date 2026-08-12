@@ -23,7 +23,7 @@ class TestCuckooTask:
         assert cape_task_class_instance.errors == []
         assert cape_task_class_instance == {"blah": "blah"}
         assert cape_task_class_instance.base_url == f"http://{host_details['ip']}:{host_details['port']}/apiv2"
-        assert cape_task_class_instance.submit_url == f"{cape_task_class_instance.base_url}/{CAPE_API_SUBMIT}"
+        assert cape_task_class_instance.submit_file_url == f"{cape_task_class_instance.base_url}/{CAPE_API_SUBMIT}"
         assert cape_task_class_instance.query_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_QUERY_TASK}"
         assert cape_task_class_instance.delete_task_url == f"{cape_task_class_instance.base_url}/{CAPE_API_DELETE_TASK}"
         assert (
