@@ -851,7 +851,7 @@ def generate_al_result(
                     for event in clipboard_events:
                         f.writelines(event)
 
-    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, memory_dumps, signature_map)
+    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, memory_dumps, signature_map, parsed_etw)
     #Process all the info from auxiliaries
         # Powershell logger
     if curtain:
