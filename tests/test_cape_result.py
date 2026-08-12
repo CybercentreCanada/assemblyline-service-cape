@@ -114,6 +114,7 @@ class TestCapeResult:
                     "Sample_identifier": sample_path,
                     "Report_path": f"tests/samples/{sample_path}/Report/reports/lite.json",
                     "Files_path": f"tests/samples/{sample_path}/Report/files.json",
+                    "Report_folder": f"tests/samples/{sample_path}/Report/",
                     "Ontology_path": f"tests/samples/{sample_path}/Results/result_ontology.json",
                     "Result_path": f"tests/samples/{sample_path}/Results/result.json",
                     "Sandbox_section": f"tests/samples/{sample_path}/Results/Section.json"
@@ -161,7 +162,8 @@ class TestCapeResult:
                 "Report": REPORT_SECTIONS,
                 "Ontology": ONTOLOGY_SECTIONS,
                 "Result": RESULT_SECTIONS,
-                "Sandbox": SANDBOX_SECTION
+                "Sandbox": SANDBOX_SECTION,
+                "Report_path": sample["Report_folder"]
             }
             LOADED_SAMPLES.append(fully_loaded_sample)
         yield LOADED_SAMPLES
@@ -255,7 +257,7 @@ class TestCapeResult:
         else:
             process_map = []
         return process_map
-    
+
     @staticmethod
     def _process_process_sysmon(sample, safelist):
         api_report = sample.get("Report")
@@ -265,17 +267,17 @@ class TestCapeResult:
         else:
             parsed_sysmon = []
         return parsed_sysmon
-    
+
     @staticmethod
     def _process_get_dns_map(dns, process_map, parsed_sysmon, routing, dns_servers):
         return _get_dns_map(
                 dns,
-                process_map, 
-                parsed_sysmon, 
-                routing, 
+                process_map,
+                parsed_sysmon,
+                routing,
                 dns_servers
             )
-    
+
     @staticmethod
     def _process_get_network_map(network, validated_random_ip_range, routing, process_map, safelist, inetsim_dns_servers, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_sysmon):
         return get_network_map(
@@ -289,12 +291,12 @@ class TestCapeResult:
                 suspicious_accepted_languages,
                 parsed_sysmon
             )
-    
+
     @staticmethod
     def _process_process_signatures(sigs):
         return process_signatures(sigs)
 # Main function for functionality requiring real results
-    
+
     @pytest.mark.dependency(name="info_section")
     def test_process_info(self, loaded_samples):
         for sample in loaded_samples:
@@ -369,7 +371,7 @@ class TestCapeResult:
                 matched = False
                 for process in output_processes:
                     if (process["pid"] == pid and
-                        process["image"] == process_map[pid]["image"] and 
+                        process["image"] == process_map[pid]["image"] and
                         (process["command_line"] == process_map[pid]["command_line"].rstrip() or process["command_line"] is None)  #To remove trailing spaces
                     ):
                         matched = True
@@ -400,7 +402,7 @@ class TestCapeResult:
                         if pid not in [p["pid"] for p in output_processes]:
                             drop_process = True
                         for process in output_processes:
-                            if (process["pid"] == pid and 
+                            if (process["pid"] == pid and
                                 process["start_time"] == event["start_time"] and
                                 process["image"] == event["image"]
                             ):
@@ -409,7 +411,7 @@ class TestCapeResult:
                         if pid not in [p["pid"] for p in output_processes]:
                             drop_process = True
                         for process in output_processes:
-                            if (process["pid"] == pid and 
+                            if (process["pid"] == pid and
                                 process["end_time"] == event["end_time"] and
                                 process["image"] == event["image"]
                             ):
@@ -486,8 +488,8 @@ class TestCapeResult:
             for output_connection in output_connections:
                 matched = False
                 for low_level_flow in low_level_flows:
-                    if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and 
-                        output_connection["destination_port"] == low_level_flow["dest_port"] and 
+                    if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and
+                        output_connection["destination_port"] == low_level_flow["dest_port"] and
                         output_connection["transport_layer_protocol"] == low_level_flow["protocol"] and
                         (output_connection["source_ip"] == low_level_flow["src_ip"] and
                         output_connection["source_port"] == low_level_flow["src_port"] or output_connection["destination_port"] == 53)):
@@ -560,8 +562,8 @@ class TestCapeResult:
                 else:
                     matched = False
                     for low_level_flow in low_level_flows:
-                        if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and 
-                            output_connection["destination_port"] == low_level_flow["dest_port"] and 
+                        if (output_connection["destination_ip"] == low_level_flow["dest_ip"] and
+                            output_connection["destination_port"] == low_level_flow["dest_port"] and
                             output_connection["transport_layer_protocol"] == low_level_flow["protocol"] and
                             output_connection["source_ip"] == low_level_flow["src_ip"] and
                             output_connection["source_port"] == low_level_flow["src_port"]):
@@ -628,7 +630,7 @@ class TestCapeResult:
             cape = api_report.get("CAPE", {})
             _ = process_cape(cape, al_result)
             section = [section for section in sample["Result"]["result"]["sections"] if section["title_text"] == "Configs Extracted By CAPE"]
-            cape_section = section[0] if len(section) > 0 else None 
+            cape_section = section[0] if len(section) > 0 else None
             if len(al_result.subsections) > 0 or cape_section is not None:
                 assert check_section_equality(al_result.subsections[0], cape_section)
 
@@ -686,6 +688,7 @@ class TestCapeResult:
                 submission_params["custom_tree_id_safelist"],
                 submission_params["routing"],
                 submission_params["inetsim_dns_servers"],
+                ([], []),
             )
             sandbox_section = sample["Sandbox"]
             assert same_dictionaries(process_events, sandbox_section), f"{identifier} sandbox section is different"
@@ -713,6 +716,8 @@ class TestCapeResult:
                 submission_params["inetsim_dns_servers"],
                 submission_params["uses_https_proxy_in_sandbox"],
                 submission_params["suspicious_accepted_languages"],
+                {},
+                sample["Report_path"]
             )
             service = ServiceBase()
             ontres.preprocess_ontology(submission_params["custom_tree_id_safelist"])
@@ -742,7 +747,8 @@ class TestCapeResult:
             #They should be equal at this point
             for i in range(0, len(output["result"]["sections"])):
                 section_name = output["result"]["sections"][i]["title_text"]
-                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different"
+                diff = set(json.dumps(output["result"]["sections"][i]).split()).symmetric_difference(set(json.dumps(sample["Result"]["result"]["sections"][i]).split()))
+                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different: {diff}"
             assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different" 
             #Need to remove the session and guid from the ontology as they are unique random IDs
             result_ontology = ontres.as_primitives()
@@ -904,7 +910,7 @@ class TestCapeResult:
     )
     def test_massage_http_ex_data(host, dns_servers, resolved_ips, http_call, expected_uri, expected_http_call):
         assert _massage_http_ex_data(host, dns_servers, resolved_ips, http_call) == (expected_uri, expected_http_call)
-    
+
     @staticmethod
     @pytest.mark.parametrize(
         "protocol, host, dns_servers, resolved_ips, http_call, expected_request, expected_port, expected_uri, expected_http_call",
@@ -1319,7 +1325,7 @@ class TestCapeResult:
             uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.heuristic.score == 1500
-        assert actual_res_sec.heuristic.name == "Anti-analysis"
+        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
 
     def test_handle_mark_call(self):
         # Case 1: pid is None
@@ -1562,7 +1568,7 @@ class TestCapeResult:
 
         # Case 2: Known signature with 100 score
         name = "http_request"
-        output_name = f"Network:{name}"
+        output_name = f"network:{name}"
         signature = {"http_request": "b"}
         sig_res = ResultMultiSection("blah")
         translated_score = 100
@@ -1573,12 +1579,12 @@ class TestCapeResult:
 
         # Case 3: Known signature exception "procmem_yara"
         name = "procmem_yara"
-        output_name = f"Capemon Yara Hit:{name}"
+        output_name = f"malware:{name}"
         signature = {"procmem_yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 2
+        assert sig_res.heuristic.heur_id == 1
         assert sig_res.heuristic.signatures == {output_name: 1}
         assert sig_res.heuristic.score == 0
 
