@@ -4072,7 +4072,7 @@ def calculate_score(sig):
     score = 0
     if set(categories) & set(maliciousCategories):
         if confidence > 70:
-            altered_weight = 4
+            altered_weight = weight + 1
             if severity == 1:
                 score =  altered_weight * 0.5 * (confidence / 100.0)
             else:
