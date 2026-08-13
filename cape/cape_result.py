@@ -83,13 +83,13 @@ SCORE_TRANSLATION = {
     1: 10,
     2: 30,
     3: 50,
-    4: 500,
-    5: 750,
-    6: 1000,
+    4: 250,
+    5: 500,
+    6: 750,
     7: 1000,
     8: 1000,
     9: 1000,
-    10: 1000
+    10: 1000,
 }  # dead_host signature
 Classification = forge.get_classification()
 API_CALLS = [
@@ -4072,7 +4072,7 @@ def calculate_score(sig):
     score = 0
     if set(categories) & set(maliciousCategories):
         if confidence > 70:
-            altered_weight = 4
+            altered_weight = weight + 1
             if severity == 1:
                 score =  altered_weight * 0.5 * (confidence / 100.0)
             else:
