@@ -2358,7 +2358,7 @@ def process_buffers(
             arguments = call["arguments"]   
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
-            api = arguments["api"]
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
                 buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
