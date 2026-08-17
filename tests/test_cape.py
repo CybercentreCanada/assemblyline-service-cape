@@ -2246,6 +2246,7 @@ class TestCapeMain:
         for f in cape_class_instance.artifact_list:
             if f not in correct_artifact_list:
                 print(f"Orphan artifact: {f}")
+                print(f"{correct_artifact_list}")
                 all_files = False
                 break
         assert all_files
