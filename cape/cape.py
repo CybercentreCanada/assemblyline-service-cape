@@ -2429,16 +2429,19 @@ class CAPE(ServiceBase):
                         continue
                     #If the file is extracted by an archive analysis extract it
                     elif compile(EXTRACTED_FILES_REGEX).search(file_name_map.get(f, f)):
-                        file_name = f"{task_id}_{file_name_map.get(f, f)}"
-                        
+                        file_name = f"src_{task_id}_{file_name_map.get(f, f)}"
+
                     elif file_type_details["type"] == "text/plain":
-                        self.log.debug(
-                            f"We are not extracting {destination_file_path} for task {task_id} "
-                            "because it will most likely not provide further benefit to analysis. "
-                            "Adding as supplementary."
-                        )
-                        file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
-                        to_be_extracted = False
+                        if file_name_map.get(f, f).split(".")[-1] in ["bat", "vbs", "py", "pyw", "sh", "ps1", "psc1", "psm1"] or not file_type_details["mime"].startswith("text/"):
+                            self.log.debug(f"Plain text file with potential interpreted code, so extracting anyway: {destination_file_path} for task {task_id}")
+                        else:
+                            self.log.debug(
+                                f"We are not extracting {destination_file_path} for task {task_id} "
+                                "because it will most likely not provide further benefit to analysis. "
+                                "Adding as supplementary."
+                            )
+                            to_be_extracted = False
+                            file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
                     else:
                         file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
 
