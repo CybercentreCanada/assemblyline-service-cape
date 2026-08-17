@@ -2441,6 +2441,9 @@ class CAPE(ServiceBase):
                                 "Adding as supplementary."
                             )
                             to_be_extracted = False
+                            file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
+                    else:
+                        file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
 
                 if not file_name:
                     file_name = f"{task_id}_{file_name_map.get(f, f)}"
