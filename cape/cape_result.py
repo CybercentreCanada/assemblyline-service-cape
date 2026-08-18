@@ -83,11 +83,13 @@ SCORE_TRANSLATION = {
     1: 10,
     2: 30,
     3: 50,
-    4: 500,
-    5: 750,
-    6: 1000,
+    4: 250,
+    5: 500,
+    6: 750,
     7: 1000,
     8: 1000,
+    9: 1000,
+    10: 1000,
 }  # dead_host signature
 Classification = forge.get_classification()
 API_CALLS = [
@@ -1784,7 +1786,7 @@ def process_signatures(
         if sig_name in CAPE_DROPPED_SIGNATURES:
             continue
 
-        translated_score = SCORE_TRANSLATION[sig["severity"]]
+        translated_score = calculate_score(sig)
         # Get the evidence that supports why the signature was raised
         mark_count = 0
         call_count = 0
@@ -4024,6 +4026,76 @@ def _massage_api_urls(api_url: str) -> str:
     if altered_api_url:
         return altered_api_url
     return api_url
+
+def calculate_score(sig):
+    categories = sig.get("categories", "Unknown")
+    severity = sig.get("severity", 1)
+    confidence = sig.get("confidence", 100)
+    weight = sig.get("weight", 1)
+    altered_weight = weight
+    maliciousCategories = [
+            "malware",
+            "ransomware",
+            "infostealer",
+            "rat",
+            "trojan",
+            "rootkit",
+            "bootkit",
+            "wiper",
+            "banker",
+            "bypass",
+            "anti-sandbox",
+            "keylogger",
+            "privilege_escalation"
+        ]
+
+    suspiciousCategories = [
+            "network",
+            "encryption",
+            "anti-vm",
+            "anti-analysis",
+            "anti-av",
+            "anti-debug",
+            "anti-emulation",
+            "persistence",
+            "stealth",
+            "discovery",
+            "injection",
+            "generic",
+            "account",
+            "bot",
+            "browser",
+            "allocation",
+            "command",
+            "execution",
+        ]
+    score = 0
+    if set(categories) & set(maliciousCategories):
+        if confidence > 70:
+            altered_weight = weight + 1
+            if severity == 1:
+                score =  altered_weight * 0.5 * (confidence / 100.0)
+            else:
+                score = altered_weight * (severity - 1) * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity -1) * (confidence / 100.0)
+    elif set(categories) & set(suspiciousCategories):
+        if severity == 1:
+            score = altered_weight * 0.5 * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    else:
+        if severity == 1:
+            score = altered_weight * 0.5 * confidence / 100.0
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    if score >= 10:
+        final_score = SCORE_TRANSLATION[10]
+    elif score < 1:
+        final_score = SCORE_TRANSLATION[round(score)]
+    else:
+        final_score = SCORE_TRANSLATION[round(score)] - (score % 1)*(SCORE_TRANSLATION[round(score)]-SCORE_TRANSLATION[round(score)-1]) if round(score) > score else SCORE_TRANSLATION[round(score)] + (score % 1)*(SCORE_TRANSLATION[round(score)+1]-SCORE_TRANSLATION[round(score)])
+    return round(final_score)
 
 def same_dictionaries(d1, d2):
     if not isinstance(d1, dict) or not isinstance(d2, dict):
