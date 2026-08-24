@@ -83,11 +83,13 @@ SCORE_TRANSLATION = {
     1: 10,
     2: 30,
     3: 50,
-    4: 500,
-    5: 750,
-    6: 1000,
-    7: 1000,
+    4: 100,
+    5: 250,
+    6: 500,
+    7: 750,
     8: 1000,
+    9: 1000,
+    10: 1000,
 }  # dead_host signature
 Classification = forge.get_classification()
 API_CALLS = [
@@ -1302,10 +1304,11 @@ def load_ontology_and_result_section(
             for _, value in http_call["request_headers"].items():
                 extract_iocs_from_text_blob(value, http_header_sec, is_network_static=True)
             if http_call["download"]:
+                uri = http_call["uri"]
                 if not remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
-                elif f'\t{{http_call["uri"]}}' not in remote_file_access_sec.body:
-                    remote_file_access_sec.add_line(f'\t{{http_call["uri"]}}')
+                    remote_file_access_sec.add_line(f'\t{uri}')
+                elif f'\t{uri}' not in remote_file_access_sec.body:
+                    remote_file_access_sec.add_line(f'\t{uri}')
                 if not remote_file_access_sec.heuristic:
                     remote_file_access_sec.set_heuristic(1003)
                     _ = add_tag(
@@ -1324,7 +1327,8 @@ def load_ontology_and_result_section(
                         http_call["user-agent"],
                         safelist,
                     )
-                    suspicious_user_agent_sec.add_line(f'\t{{http_call["user-agent"]}}')
+                    user_agent = http_call["user-agent"]
+                    suspicious_user_agent_sec.add_line(f'\t{user_agent}')
                     sus_user_agents_used.append(http_call["user-agent"])
                 for lang in http_call["Flagged_language"]:
                     http_header_anomaly_sec.heuristic.add_signature_id(
@@ -1375,10 +1379,11 @@ def load_ontology_and_result_section(
                         process_events["network_connections"].append(validity)
                     else:
                         log.debug(f"Validator misbehaving for network_connection {netflow_dict}")
-
+                image = http_call["image"]
+                pid = http_call["pid"]
                 http_sec.add_row(
                     TableRow(
-                        process_name=f'{{http_call["image"]}} ({{http_call["pid"]}})' if http_call["pid"] or http_call["image"] else "None (None)",
+                        process_name=f'{image} ({pid})' if http_call["pid"] or http_call["image"] else "None (None)",
                         method=http_call["method"],
                         request=http_call["request_headers"],
                         uri=http_call["uri"],
@@ -1781,7 +1786,7 @@ def process_signatures(
         if sig_name in CAPE_DROPPED_SIGNATURES:
             continue
 
-        translated_score = SCORE_TRANSLATION[sig["severity"]]
+        translated_score = calculate_score(sig)
         # Get the evidence that supports why the signature was raised
         mark_count = 0
         call_count = 0
@@ -2334,9 +2339,10 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2354,9 +2360,10 @@ def process_buffers(
             arguments = call["arguments"]   
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
-                buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
             if not buffer:
                 continue
             extract_iocs_from_text_blob(buffer, buffer_ioc_table, enforce_char_min=True, is_network_static=True)
@@ -2401,9 +2408,10 @@ def process_buffers(
                     buffer_body.append(table_row)
                     count_per_source_per_process += 1
                     b_buffer = bytes(buffer, "utf-8")
+                    api = arguments.get("api", "")
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
-                        network_buffers.append((f'{str(process)}-{{arguments["api"]}}-{hash}', b_buffer, buffer))
+                        network_buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
 
     if not os.path.exists(BUFFER_PATH):
         os.mkdir(BUFFER_PATH)
@@ -4018,6 +4026,76 @@ def _massage_api_urls(api_url: str) -> str:
     if altered_api_url:
         return altered_api_url
     return api_url
+
+def calculate_score(sig):
+    categories = sig.get("categories", "Unknown")
+    severity = sig.get("severity", 1)
+    confidence = sig.get("confidence", 100)
+    weight = sig.get("weight", 1)
+    altered_weight = weight
+    maliciousCategories = [
+            "malware",
+            "ransomware",
+            "infostealer",
+            "rat",
+            "trojan",
+            "rootkit",
+            "bootkit",
+            "wiper",
+            "banker",
+            "bypass",
+            "anti-sandbox",
+            "keylogger",
+            "privilege_escalation"
+        ]
+
+    suspiciousCategories = [
+            "network",
+            "encryption",
+            "anti-vm",
+            "anti-analysis",
+            "anti-av",
+            "anti-debug",
+            "anti-emulation",
+            "persistence",
+            "stealth",
+            "discovery",
+            "injection",
+            "generic",
+            "account",
+            "bot",
+            "browser",
+            "allocation",
+            "command",
+            "execution",
+        ]
+    score = 0
+    if set(categories) & set(maliciousCategories):
+        if confidence > 70:
+            altered_weight = weight + 1
+            if severity == 1:
+                score =  altered_weight * 0.5 * (confidence / 100.0)
+            else:
+                score = altered_weight * (severity - 1) * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity -1) * (confidence / 100.0)
+    elif set(categories) & set(suspiciousCategories):
+        if severity == 1:
+            score = altered_weight * 0.5 * (confidence / 100.0)
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    else:
+        if severity == 1:
+            score = altered_weight * 0.5 * confidence / 100.0
+        else:
+            score = altered_weight * (severity - 1) * (confidence / 100.0)
+    if score >= 10:
+        final_score = SCORE_TRANSLATION[10]
+    elif score < 1:
+        final_score = SCORE_TRANSLATION[round(score)]
+    else:
+        final_score = SCORE_TRANSLATION[round(score)] - (score % 1)*(SCORE_TRANSLATION[round(score)]-SCORE_TRANSLATION[round(score)-1]) if round(score) > score else SCORE_TRANSLATION[round(score)] + (score % 1)*(SCORE_TRANSLATION[round(score)+1]-SCORE_TRANSLATION[round(score)])
+    return round(final_score)
 
 def same_dictionaries(d1, d2):
     if not isinstance(d1, dict) or not isinstance(d2, dict):

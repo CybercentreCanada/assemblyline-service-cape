@@ -956,7 +956,6 @@ CAPE_SIGNATURES = {
 "mimics_extension": "stealth",
 "bot_drive": "bot",
 "network_excessive_udp": "c2",
-
 }
 
 # These are too noisy to be considered useful.
