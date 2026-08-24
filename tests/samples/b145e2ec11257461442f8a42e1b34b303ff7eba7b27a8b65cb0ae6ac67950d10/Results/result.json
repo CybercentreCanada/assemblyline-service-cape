@@ -263,7 +263,7 @@
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Stealth:stealth_network",
+                            "name": "stealth:stealth_network",
                             "frequency": 1,
                             "safe": false
                         }

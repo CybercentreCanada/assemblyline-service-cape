@@ -263,7 +263,7 @@
                     "attack": [],
                     "signature": [
                         {
-                            "name": "Network:dead_connect",
+                            "name": "network:dead_connect",
                             "frequency": 1,
                             "safe": false
                         }

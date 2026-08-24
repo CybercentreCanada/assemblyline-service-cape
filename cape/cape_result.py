@@ -83,10 +83,10 @@ SCORE_TRANSLATION = {
     1: 10,
     2: 30,
     3: 50,
-    4: 250,
-    5: 500,
-    6: 750,
-    7: 1000,
+    4: 100,
+    5: 250,
+    6: 500,
+    7: 750,
     8: 1000,
     9: 1000,
     10: 1000,
@@ -2339,7 +2339,7 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
-            api = arguments["api"]
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
                 buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))

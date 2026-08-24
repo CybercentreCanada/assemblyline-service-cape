@@ -2177,7 +2177,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
-                "name": f"{task_id}_files/README.txt",
+                "name": f"{task_id}_extracted_files/README.txt",
                 "description": "File extracted during analysis",
                 "to_be_extracted": False,
             }
@@ -2195,7 +2195,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/CAPE/yarahit.exe",
-                "name": f"{task_id}_3_yarahit.exe",
+                "name": f"dump_{task_id}_3_yarahit.exe",
                 "description": "Memory Dump",
                 "to_be_extracted": True,
             }
@@ -2245,6 +2245,8 @@ class TestCapeMain:
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
         for f in cape_class_instance.artifact_list:
             if f not in correct_artifact_list:
+                print(f"Orphan artifact: {f}")
+                print(f"{correct_artifact_list}")
                 all_files = False
                 break
         assert all_files
