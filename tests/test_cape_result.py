@@ -114,6 +114,7 @@ class TestCapeResult:
                     "Sample_identifier": sample_path,
                     "Report_path": f"tests/samples/{sample_path}/Report/reports/lite.json",
                     "Files_path": f"tests/samples/{sample_path}/Report/files.json",
+                    "Report_folder": f"tests/samples/{sample_path}/Report/",
                     "Ontology_path": f"tests/samples/{sample_path}/Results/result_ontology.json",
                     "Result_path": f"tests/samples/{sample_path}/Results/result.json",
                     "Sandbox_section": f"tests/samples/{sample_path}/Results/Section.json"
@@ -161,7 +162,8 @@ class TestCapeResult:
                 "Report": REPORT_SECTIONS,
                 "Ontology": ONTOLOGY_SECTIONS,
                 "Result": RESULT_SECTIONS,
-                "Sandbox": SANDBOX_SECTION
+                "Sandbox": SANDBOX_SECTION,
+                "Report_path": sample["Report_folder"]
             }
             LOADED_SAMPLES.append(fully_loaded_sample)
         yield LOADED_SAMPLES
@@ -713,6 +715,8 @@ class TestCapeResult:
                 submission_params["inetsim_dns_servers"],
                 submission_params["uses_https_proxy_in_sandbox"],
                 submission_params["suspicious_accepted_languages"],
+                {},
+                sample["Report_path"]
             )
             service = ServiceBase()
             ontres.preprocess_ontology(submission_params["custom_tree_id_safelist"])
@@ -742,7 +746,8 @@ class TestCapeResult:
             #They should be equal at this point
             for i in range(0, len(output["result"]["sections"])):
                 section_name = output["result"]["sections"][i]["title_text"]
-                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different"
+                diff = set(json.dumps(output["result"]["sections"][i]).split()).symmetric_difference(set(json.dumps(sample["Result"]["result"]["sections"][i]).split()))
+                assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different: {diff}"
             assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different" 
             #Need to remove the session and guid from the ontology as they are unique random IDs
             result_ontology = ontres.as_primitives()
@@ -1319,7 +1324,7 @@ class TestCapeResult:
             uses_https_proxy_in_sandbox,
         )
         assert actual_res_sec.heuristic.score == 1500
-        assert actual_res_sec.heuristic.name == "Anti-analysis"
+        assert actual_res_sec.heuristic.name == "CAPE Yara Hit"
 
     def test_handle_mark_call(self):
         # Case 1: pid is None
@@ -1562,7 +1567,7 @@ class TestCapeResult:
 
         # Case 2: Known signature with 100 score
         name = "http_request"
-        output_name = f"Network:{name}"
+        output_name = f"network:{name}"
         signature = {"http_request": "b"}
         sig_res = ResultMultiSection("blah")
         translated_score = 100
@@ -1573,12 +1578,12 @@ class TestCapeResult:
 
         # Case 3: Known signature exception "procmem_yara"
         name = "procmem_yara"
-        output_name = f"Capemon Yara Hit:{name}"
+        output_name = f"malware:{name}"
         signature = {"procmem_yara": "anything"}
         sig_res = ResultMultiSection("blah")
         translated_score = 0
         _set_heuristic_signature(name, signature, sig_res, translated_score)
-        assert sig_res.heuristic.heur_id == 2
+        assert sig_res.heuristic.heur_id == 1
         assert sig_res.heuristic.signatures == {output_name: 1}
         assert sig_res.heuristic.score == 0
 
