@@ -3077,6 +3077,8 @@ def _massage_host_data(host: str) -> str:
     :param host: The parsed "host" value
     :return: The actual host
     """
+    if host is None:
+        return ""
     if ":" in host:  # split on port if port exists
         host = host.split(":")[0]
     return host
