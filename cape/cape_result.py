@@ -3144,8 +3144,8 @@ def _get_important_fields_from_http_call(
         port = http_call["dport"]
     else:
         request = http_call.get("data", None)  
-        port = http_call["port"]
-        uri = http_call["uri"]
+        port = http_call.get("port", 0)
+        uri = http_call.get("uri", "")
     return request, port, uri, http_call
 
 def _is_http_call_safelisted(host: str, safelist: Dict[str, Dict[str, List[str]]], uri: str) -> bool:
