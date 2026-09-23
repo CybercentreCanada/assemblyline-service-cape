@@ -218,10 +218,10 @@ submission_params:
 
 heuristics:
   - heur_id: 1
-    name: CAPE Yara Hit
+    name: CAPE Signatures
     score: 0
     filetype: "*"
-    description: "A hit on a yara rule from the CAPE ruleset"
+    description: "A hit on a rule from the CAPE ruleset"
 
   - heur_id: 2
     attack_id: [T1518.001]
