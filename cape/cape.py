@@ -1290,7 +1290,7 @@ class CAPE(ServiceBase):
         if not self.delete_cape_runs:
             self.log.debug(f"Skipping deletion of task {cape_task.id}; delete_cape_runs is disabled.")
             return
-        
+
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -2170,7 +2170,8 @@ class CAPE(ServiceBase):
                 self.config.get("uses_https_proxy_in_sandbox", False),
                 self.config.get("suspicious_accepted_languages", []),
                 self.signatures_meta,
-                task_dir
+                task_dir,
+                self.config.get("use_cape_network_map", False),
             )
             return cape_artifact_pids, main_process_tuples
         except RecoverableError as e:

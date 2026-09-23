@@ -540,7 +540,7 @@ DNS_TYPE = {
     6: "SOA",
     12: "PTR",
     15: "MX",
-    16: "TEXT", 
+    16: "TEXT",
     28: "AAAA",
 }
 SUSPICIOUS_USER_AGENTS = ["Microsoft BITS", "Excel Service"]
@@ -684,7 +684,8 @@ def generate_al_result(
     uses_https_proxy_in_sandbox: bool,
     suspicious_accepted_languages: List[str],
     signature_map: Dict[str, Dict[str, Any]] = {},
-    task_dir = None
+    task_dir = None,
+    use_cape_network_map = False,
 ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -719,14 +720,15 @@ def generate_al_result(
     sysmon: List[Dict[str, Any]] = api_report.get("sysmon", [])
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
     cape: Dict[str, Any] = api_report.get("CAPE", {})
+    network_map: Dict[str, Any] = api_report.get("network_map", {})
 
     parsed_sysmon = None
     parsed_etw = None
     dns_servers = None
-    dns_requests = None 
+    dns_requests = None
     low_level_flow = None
     http_calls = None
-    signatures = None 
+    signatures = None
      #Info section
     if info:
         process_info(info, al_result, ontres)
@@ -789,12 +791,14 @@ def generate_al_result(
             uses_https_proxy_in_sandbox,
             suspicious_accepted_languages,
             parsed_sysmon,
-            parsed_etw
+            parsed_etw,
+            network_map,
+            use_cape_network_map
         )
     #Process the signature raised in the report
     if sigs:
         signatures = process_signatures(sigs)
-    
+
     #Load the powershell commands and cmd commands
     ps1_commands = []
     bat_commands = []
@@ -802,7 +806,7 @@ def generate_al_result(
         for _, events in parsed_sysmon.items():
             for event in events:
                 if event["event_id"] == 1:
-                    if event.get("command_line"):   
+                    if event.get("command_line"):
                         ps1_matches = find_powershell_strings(event["command_line"].encode())
                         for match in ps1_matches:
                             command = get_powershell_command(match.value)
@@ -813,8 +817,8 @@ def generate_al_result(
                         for match in cmd_matches:
                             command = get_cmd_command(match.value)
                             if command and command + b"\n" not in bat_commands:
-                                bat_commands.append(command + b"\n")   
-                    
+                                bat_commands.append(command + b"\n")
+
     if ps1_commands:
         with open(PS1_COMMANDS_PATH, "wb") as f:
             ps1_commands.insert(0, CUSTOM_PS1_ID)
@@ -824,7 +828,7 @@ def generate_al_result(
         with open(BAT_COMMANDS_PATH, "wb") as f:
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
-            
+
     for pid in process_map.keys():
         clipboard_events = []
         if len(process_map[pid]["clipboard_events"]) > 0:
@@ -863,8 +867,8 @@ def generate_al_result(
     return cape_artifact_pids, main_process_tuples, process_events
 
 def load_ontology_and_result_section(
-    ontres: OntologyResults, 
-    al_result: ResultSection, 
+    ontres: OntologyResults,
+    al_result: ResultSection,
     process_map: Dict[int, Dict[str, Any]],
     parsed_sysmon: Dict,
     dns_servers: List[str],
@@ -897,12 +901,12 @@ def load_ontology_and_result_section(
     analysis_information = sandbox.as_primitives()
     analysis_information.pop("objectid")
     process_events["analysis_information"] = analysis_information
-    #Process ontology building 
+    #Process ontology building
     pids_of_interest = process_map.keys()
     sysmon_enrichment = {}
     processes_still_to_create = list(pids_of_interest)
     possible_spoofing = {}
-    if parsed_etw and isinstance(parsed_etw, Dict) and len(parsed_etw) > 0 and parsed_etw.get("processes", False): 
+    if parsed_etw and isinstance(parsed_etw, Dict) and len(parsed_etw) > 0 and parsed_etw.get("processes", False):
         for pid in pids_of_interest:
             if pid in parsed_etw["processes"].keys():
                 if parsed_etw["processes"][pid]["real_ppid"] != parsed_etw["processes"][pid]["claimed_ppid"]:
@@ -911,7 +915,7 @@ def load_ontology_and_result_section(
                     process_map[pid]["ppid"] = parsed_etw["processes"][pid]["real_ppid"]
                     if pid not in possible_spoofing.keys():
                         possible_spoofing[pid] = {"claimed_ppid": parsed_etw["processes"][pid]["claimed_ppid"], "real_ppid": parsed_etw["processes"][pid]["real_ppid"]}
-            
+
     if parsed_sysmon is not None:
         for process_id, process_details in parsed_sysmon.items():
             created_process = False
@@ -986,11 +990,11 @@ def load_ontology_and_result_section(
                         validity = validate_sandbox_event(process_dict, "process")
                         if validity:
                             if isinstance(validity,bool):
-                                process_events["processes"].append(process_dict)  
+                                process_events["processes"].append(process_dict)
                             elif isinstance(validity,Dict):
                                 process_events["processes"].append(validity)
                             else:
-                                log.debug(f"Validator misbehaving for processes {process_dict}") 
+                                log.debug(f"Validator misbehaving for processes {process_dict}")
                 elif created_process and event["event_id"] == 5:
                     end_time = event.get("end_time", "-")
                     for proc in process_events["processes"]:
@@ -1001,7 +1005,7 @@ def load_ontology_and_result_section(
 
             if created_process and process_id in pids_of_interest:
                 processes_still_to_create.remove(process_id)
-        
+
     for process_id in processes_still_to_create:
         this_process = {
             "pid": process_id,
@@ -1064,7 +1068,7 @@ def load_ontology_and_result_section(
         validity = validate_sandbox_event(process_dict, "process")
         if validity:
             if isinstance(validity,bool):
-                process_events["processes"].append(process_dict)  
+                process_events["processes"].append(process_dict)
             elif isinstance(validity,Dict):
                 process_events["processes"].append(validity)
             else:
@@ -1198,7 +1202,7 @@ def load_ontology_and_result_section(
                     validity = validate_sandbox_event(net_dict, "network_connection")
                     if validity:
                         if isinstance(validity,bool):
-                            process_events["network_connections"].append(net_dict)  
+                            process_events["network_connections"].append(net_dict)
                         elif isinstance(validity,Dict):
                             process_events["network_connections"].append(validity)
                         else:
@@ -1244,7 +1248,7 @@ def load_ontology_and_result_section(
                 validity = validate_sandbox_event(netflow_dict, "network_connection")
                 if validity:
                     if isinstance(validity,bool):
-                        process_events["network_connections"].append(netflow_dict) 
+                        process_events["network_connections"].append(netflow_dict)
                     elif isinstance(validity,Dict):
                         process_events["network_connections"].append(validity)
                     else:
@@ -1353,7 +1357,7 @@ def load_ontology_and_result_section(
                     nc.set_process(p)
                 elif http_call["pid"] and http_call["image"]:
                     nc.update_process(image=http_call["image"], pid=http_call["pid"])
-    
+
                 netflow_dict = nc.as_primitives()
                 netflow_dict["time_observed"] = netflow_dict["objectid"].get("time_observed", "")
                 netflow_dict.pop("objectid")
@@ -1361,7 +1365,7 @@ def load_ontology_and_result_section(
                 validity = validate_sandbox_event(netflow_dict, "network_connection")
                 if validity:
                     if isinstance(validity,bool):
-                        process_events["network_connections"].append(netflow_dict) 
+                        process_events["network_connections"].append(netflow_dict)
                     elif isinstance(validity,Dict):
                         process_events["network_connections"].append(validity)
                     else:
@@ -1389,7 +1393,7 @@ def load_ontology_and_result_section(
     if http_sec.body or http_sec.subsections:
         network_res.add_subsection(http_sec)
     _process_unseen_iocs(network_res, process_map, ontres, safelist)
-        
+
     #Signature section and ontology
     if signatures is not None:
         for signature in signatures:
@@ -1431,8 +1435,8 @@ def load_ontology_and_result_section(
                 interesting_data = []
                 for data in signature["data"]:
                     if "type" not in data.keys() or data["type"]!="call":
-                        interesting_data.append(data) 
-                signature_dict["data"] = interesting_data 
+                        interesting_data.append(data)
+                signature_dict["data"] = interesting_data
                 signature_dict["score"] = signature["score"]
                 if len(pids) > 0:
                     signature_dict["pid"] = pids
@@ -1451,19 +1455,19 @@ def load_ontology_and_result_section(
                 validity = validate_sandbox_event(signature_dict, "signature")
                 if validity:
                     if isinstance(validity,bool):
-                        process_events["signatures"].append(signature_dict) 
+                        process_events["signatures"].append(signature_dict)
                     elif isinstance(validity,Dict):
                         process_events["signatures"].append(validity)
                     else:
                         log.debug(f"Validator misbehaving for signature {signature_dict}")
-            
+
     validity = validate_sandbox_event(process_events, "complete")
     if not validity:
         log.debug("Invalid Sandbox format")
     elif isinstance(validity, Dict):
         process_events = validity
 
-    #Build the process tree 
+    #Build the process tree
     _, signature_list = ontres.get_process_tree(processtree_id_safelist, True)
 
     if len(signature_list) > 0:
@@ -1471,7 +1475,7 @@ def load_ontology_and_result_section(
         signature_dict = Counter(signature_list)
         for signature,occurence in signature_dict.items():
             process_res.heuristic.add_signature_id(signature, 0, occurence)
-    
+
     #if len(possible_spoofing) > 0:
     #    .set_heuristic(4)
     #    .heuristic.add_signature_id("Parent_Process_Spoofing", 0, len(possible_spoofing))
@@ -1525,7 +1529,7 @@ def load_ontology_and_result_section(
                         response_headers = netevent["http_details"]["response_headers"],
                         request_headers = netevent["http_details"]["request_headers"],
                         response_body_path = netevent["http_details"]["response_body_path"],
-                        request_body_path = netevent["http_details"]["request_body_path"] 
+                        request_body_path = netevent["http_details"]["request_body_path"]
                     ),
                     connection_type = "http",
                     sources = netevent["sources"],
@@ -1616,7 +1620,7 @@ def load_ontology_and_result_section(
     if len(sigs_res.subsections) > 0:
         al_result.add_subsection(sigs_res)
     return process_events
-    
+
 def process_info(info: Dict[str, Any], parent_result_section: ResultSection, ontres: OntologyResults) -> None:
     """
     This method processes the info section of the CAPE report, adding anything noteworthy to the Assemblyline report
@@ -1799,7 +1803,7 @@ def process_signatures(
                     else:
                         mark_count +=1
 
-        # If there are more true positive marks than false positive marks, return signature 
+        # If there are more true positive marks than false positive marks, return signature
         if not fp_mark_count or fp_mark_count != len(sig["data"]) - call_count:
             signatures.append({
             "name": sig_name,
@@ -1814,7 +1818,7 @@ def process_signatures(
         })
         else:
             log.debug(f"The signature {sig_name} was marked as a false positive, ignoring...")
-        
+
     return signatures
 
 def get_network_map(
@@ -1828,6 +1832,8 @@ def get_network_map(
     suspicious_accepted_languages: List[str],
     parsed_sysmon: Dict = {},
     parsed_etw: Dict[str, Any] = {},
+    network_map: Dict[str, Any] = {},
+    use_cape_network_map = False,
 ):
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
@@ -1847,21 +1853,47 @@ def get_network_map(
     :return: None
     """
 
+    if use_cape_network_map and network_map is not None:
+        #Parse the network map from the report and help association with the network objects
+        dns_mapping = network_map.get("dns_intents", {})
+        http_requests_mapping = network_map.get("http_requests", {})
+        netapi_mapping = network_map.get("winhttp_sessions", {})
+        comapi_mapping = network_map.get("com_activations", {})
+        endpoint_mapping = network_map.get("endpoint_map", {})
+        http_host_mapping = network_map.get("http_host_map", {})
+    else:
+        dns_mapping = {}
+        http_requests_mapping = {}
+        netapi_mapping = {}
+        comapi_mapping = {}
+        endpoint_mapping = {}
+        http_host_mapping = {}
+
+    tcp_udp_mappings = {
+        "endpoint_mapping": endpoint_mapping,
+    }
+
+    http_mappings = {
+        "http_requests_mapping": http_requests_mapping,
+        "http_host_mapping": http_host_mapping,
+        "netapi_mapping": netapi_mapping,
+    }
+
     # DNS
     dns_servers: List[str] = _determine_dns_servers(network, inetsim_dns_servers)
     dns_requests: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
-        network.get("dns", []), process_map, parsed_sysmon, routing, dns_servers, parsed_etw
+        network.get("dns", []), process_map, parsed_sysmon, routing, dns_servers, parsed_etw, dns_mapping
     )
     #dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw)
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw, tcp_udp_mappings)
     low_level_flow = []
     for network_flow in network_flows_table:
         if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
             low_level_flow.append(network_flow)
-            
+
     # HTTP/HTTPS section
     http_level_flows = {
         "http": network.get("http", []),
@@ -1869,7 +1901,7 @@ def get_network_map(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_etw)
+    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_etw, http_mappings)
 
     return dns_servers, dns_requests, low_level_flow, http_calls
 
@@ -1879,7 +1911,8 @@ def _get_dns_map(
     parsed_sysmon: Dict,
     routing: str,
     dns_servers: List[str],
-    parsed_etw: Dict[str, Any] = {}
+    parsed_etw: Dict[str, Any] = {},
+    dns_mapping: Dict[str, Any] = {},
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     This method creates a map between domain calls and IPs returned
@@ -1997,13 +2030,33 @@ def _get_dns_map(
                                 break
                             else:
                                 continue
+        if dns_mapping is not None and dns_mapping:
+            for domain, details in dns_mapping.items():
+                for request, attempts in dns_requests.items():
+                    for index, attempt in enumerate(attempts):
+                        answers = attempt["answers"]
+                        if answers == None:
+                            continue
+                        for answer in answers:
+                            if answer is not Dict:
+                                continue
+                            if request == domain:
+                                if not dns_requests[request][index].get("process_id"):
+                                    dns_requests[request][index]["process_id"] = details["process"]["process_id"]
+                                    if "CAPE" not in dns_requests[request][index]["sources"]:
+                                        dns_requests[request][index]["sources"].append("CAPE")
+                                    break
+                            else:
+                                continue
+
     return dict(dns_requests)
 
 def _get_low_level_flows(
     process_map: Dict[int, Dict[str, Any]],
     parsed_sysmon: Dict,
     flows: Dict[str, List[Dict[str, Any]]],
-    parsed_etw: Dict[str, Any] = {}
+    parsed_etw: Dict[str, Any] = {},
+    tcp_udp_mappings: Dict[str, Any] = {},
 ) -> List[Dict[str, Any]]:
     """
     This method converts low level network calls to a general format
@@ -2065,7 +2118,7 @@ def _get_low_level_flows(
                                         if "sysmon" not in network_flow["sources"]:
                                             network_flow["sources"].append("sysmon")
                                         break
-                                #Attempt mapping process_name to the netflow using ETW
+                #Attempt mapping process_name to the netflow using ETW
                 if parsed_etw is not None and parsed_etw:
                     for process_id, etw_netcalls in parsed_etw["network"].items():
                         for call in etw_netcalls:
@@ -2076,6 +2129,16 @@ def _get_low_level_flows(
                                     if "etw" not in network_flow["sources"]:
                                         network_flow["sources"].append("etw")
                                     break
+                #Attempt mapping with the CAPE report network_mapping
+                if tcp_udp_mappings is not None and tcp_udp_mappings:
+                    for domain, details in tcp_udp_mappings["endpoint_mapping"].items():
+                        if domain.split(":")[0] == network_flow["domain"] or domain.split(":")[0] == network_flow["dest_ip"]:
+                            if network_flow["dest_port"] == int(domain.split(":")[-1]):
+                                if not network_flow.get("pid"):
+                                    network_flow["pid"] = details["process_id"]
+                                if "CAPE" not in network_flow["sources"]:
+                                    network_flow["sources".append("CAPE")]
+                                break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2089,6 +2152,7 @@ def _process_http_calls(
     uses_https_proxy_in_sandbox,
     suspicious_accepted_languages,
     parsed_etw: Dict[str, Any] = {},
+    http_mappings: Dict[str, Any] = {},
 ):
     """
     This method processes HTTP(S) calls and puts them into a nice table
@@ -2119,7 +2183,7 @@ def _process_http_calls(
                 )
                 if _is_http_call_safelisted(host, safelist, uri):
                     continue
-                
+
                 request_body_path, response_body_path = _massage_body_paths(http_call)
                 request_headers = _handle_http_headers(request)
                 response_headers = _handle_http_headers(http_call.get("response"))
@@ -2189,7 +2253,7 @@ def _process_http_calls(
                                 if call.get("Port") in ["80", "443"] or call.get("Service", 0) in ["http", "https", "HTTP", "HTTPS", "3"]:
                                     if call != {} and (call.get("HostName") or call.get("IP") or call.get("URL") or call.get("Buffer")):
                                         if (
-                                        http_request["dst"] in [call.get("HostName"), call.get("IP"), call.get("URL")] 
+                                        http_request["dst"] in [call.get("HostName"), call.get("IP"), call.get("URL")]
                                         or http_request["host"] in [call.get("HostName"), call.get("IP"), call.get("URL")]
                                         or http_request["request"] == call.get("Buffer")
                                         or any(_uris_are_equal_despite_discrepancies(http_request["host"], call_url) for call_url in [call.get("HostName"), call.get("IP"), call.get("URL")])
@@ -2228,9 +2292,16 @@ def _process_http_calls(
                                         http_request["pid"] = process_id
                                     if "etw" not in http_request["sources"]:
                                         http_request["sources"].append("etw")
-                                    break    
+                                    break
+                if http_mappings is not None and http_mappings:
+                    pass
+                    #"http_requests_mapping"
+                    #"http_host_mapping"
+                    #"netapi_mapping"
+
+
                 http_requests.append(http_request)
-    return http_requests    
+    return http_requests
 
 def process_curtain(
     curtain: Dict[str, Any],
@@ -2355,7 +2426,7 @@ def process_buffers(
 
         for call in process_details.get("misc_events"):
             buffer = ""
-            arguments = call["arguments"]   
+            arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
             api = arguments.get("api", "")
@@ -2578,7 +2649,7 @@ def get_process_map(
     return process_map
 
 def build_process_tree(
-        processtree: List[Dict[str, Any]], 
+        processtree: List[Dict[str, Any]],
         processtree_id_safelist: List[str],
     ):
     root_parent = 0
@@ -2687,7 +2758,7 @@ def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, L
                     if len(split_hash) == 2:
                         _, hash_value = split_hash
                         process["image_hash"] = hash_value
-            
+
             if not process.get("pid") or not process.get("guid") or not process.get("image") or not process.get("start_time"):
                 continue
 
@@ -2782,7 +2853,7 @@ def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, L
                         for record in records:
                             try:
                                 dns_type_value = int(search(DNS_TYPE_REGEX, record).group(1))
-                                dns_type = DNS_TYPE[dns_type_value] 
+                                dns_type = DNS_TYPE[dns_type_value]
                             except IndexError:
                                 dns_type = "A"
                             except AttributeError:
@@ -2807,7 +2878,7 @@ def process_sysmon(sysmon: List[Dict[str, Any]], safelist: Dict[str, Dict[str, L
                     continue
 
                 dns_query["event_id"] = event_id
-                
+
                 if dns_query["pid"] in processes.keys():
                     processes[dns_query["pid"]].append(dns_query)
                 elif f'{dns_query["pid"]}-->{dns_query["guid"]}' in processes.keys():
@@ -2872,7 +2943,7 @@ def process_ETW(artifacts: Dict[str, Any]) -> Dict[str, Any]:
                             "dst": dst,
                             "dst_port": dst_port
                         }
-                        ETW_result[artifact][content["EventHeader"]["ProcessId"]].append(event) 
+                        ETW_result[artifact][content["EventHeader"]["ProcessId"]].append(event)
 
                     if content["EventHeader"]["EventDescriptor"]["Id"] in [1169, 1170]: #UDPENDPOINTSENDMESSAGES and UdpEndpointReceiveMessages
                         if content["EventHeader"]["ProcessId"] not in ETW_result[artifact].keys():
@@ -2903,7 +2974,7 @@ def process_ETW(artifacts: Dict[str, Any]) -> Dict[str, Any]:
                         }
                         ETW_result[artifact][content["EventHeader"]["ProcessId"]].append(event)
 
-                   
+
                     if content["EventHeader"]["EventDescriptor"]["Id"] == 1422: #ICMPSENDRECV
                         if content["EventHeader"]["ProcessId"] not in ETW_result[artifact].keys():
                             ETW_result[artifact][content["EventHeader"]["ProcessId"]] = []
@@ -2929,7 +3000,7 @@ def process_ETW(artifacts: Dict[str, Any]) -> Dict[str, Any]:
                             "transport_protocol" : content["IPTransportProtocol"],
                             "direction": content["PathDirection"],
                             "icmp_type": content["IcmpType"],
-                            "icmp_code": content["IcmpCode"], 
+                            "icmp_code": content["IcmpCode"],
                         }
                         ETW_result[artifact][content["EventHeader"]["ProcessId"]].append(event)
 
@@ -2941,11 +3012,11 @@ def process_ETW(artifacts: Dict[str, Any]) -> Dict[str, Any]:
                             except Exception as e:
                                 timestamp = "-"
                             ETW_result[artifact][content["ProcessID"]] = {"claimed_ppid": content["ParentProcessID"], "real_ppid": content["EventHeader"]["ProcessId"], "image": content["ImageName"], "creation_time": timestamp}
-                
+
                 else:
                     log.debug(f"Invalid ETW content type {artifact}")
-    return ETW_result    
-    
+    return ETW_result
+
 def process_behavior(behaviour):
     processes = behaviour["processes"]
     if len(processes) < 1:
@@ -3007,7 +3078,7 @@ def _remove_network_http_noise(sigs: List[Dict[str, Any]]) -> List[Dict[str, Any
         return [sig for sig in sigs if sig["name"] != "network_http"]
     else:
         return sigs
-    
+
 def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[str]) -> List[str]:
     # An assumption is being made here that the first UDP flow to port 53 is
     # for DNS.
@@ -3022,7 +3093,7 @@ def _determine_dns_servers(network: Dict[str, Any], inetsim_dns_servers: List[st
             dns_servers = []
     else:
         dns_servers = []
-    
+
     for item in inetsim_dns_servers:
         if item not in dns_servers:
             dns_servers.append(item)
@@ -3132,7 +3203,7 @@ def _get_important_fields_from_http_call(
         request = http_call["request"]
         port = http_call["dport"]
     else:
-        request = http_call.get("data", None)  
+        request = http_call.get("data", None)
         port = http_call.get("port", 0)
         uri = http_call.get("uri", "")
     return request, port, uri, http_call
@@ -3581,7 +3652,7 @@ def _set_heuristic_signature(
 
     # Adding signature and score
     if sig_category != "unknown":
-        name = sig_category + ":" + name 
+        name = sig_category + ":" + name
     sig_res.heuristic.add_signature_id(name, score=translated_score)
 
 def _set_attack_ids(attack_ids: Dict[str, Dict[str, str]], sig_res: ResultMultiSection, ontres_sig: Signature) -> None:
@@ -4141,7 +4212,7 @@ def validate_sandbox_event(event_dict, type):
         return False
     needed_normalization = False
     process_schema = {
-            "image": {"type": 'string', "required": True}, 
+            "image": {"type": 'string', "required": True},
             "start_time": {"type": 'string', "required": True, "check_with": "is_time_format_valid"},
             "end_time": {"type": 'string', "nullable": True, "check_with": "is_time_format_valid"},
             "pid": {"type": "integer", "required": True, 'coerce': int, "min": 0, "max": DWORD_MAX},
@@ -4381,7 +4452,7 @@ def main(argv):
     print(json.dumps(output, indent=4))
     with open("result.json", "w") as result:
         json.dump(output, result, indent=4)
-    
+
     with open("Section.json", "w") as f:
         json.dump(process_events ,f)
 
