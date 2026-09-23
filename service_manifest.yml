@@ -78,6 +78,7 @@ config:
   extract_cape_dumps: false
   uses_https_proxy_in_sandbox: false
   suspicious_accepted_languages: []
+  use_cape_network_map: false
 
   # CAPE reporting configurations
   recursion_limit: 10000
@@ -603,7 +604,7 @@ heuristics:
     score: 1000
     filetype: "*"
     description: Config extraction rules hit
-    
+
   - heur_id: 404
     name: Service raising an error
     score: 0
