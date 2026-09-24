@@ -240,7 +240,7 @@ heuristics:
       # The main signature that wraps these Yara rules must have its score set to 0
       procmem_yara: 0
     filetype: "*"
-    description: "A hit on a yara rule from the CAPE ruleset"
+    description: "A hit on a CAPE signature from the CAPE ruleset"
 
   - heur_id: 2
     attack_id: [T1518.001]
