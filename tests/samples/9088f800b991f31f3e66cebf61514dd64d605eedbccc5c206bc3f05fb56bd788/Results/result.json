@@ -271,7 +271,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -312,7 +312,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -337,7 +337,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -362,7 +362,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -394,7 +394,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -419,7 +419,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 10,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -444,7 +444,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 10,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -477,7 +477,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 10,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
@@ -510,7 +510,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 18,
-                    "name": "CAPE Yara Hit",
+                    "name": "CAPE Signatures",
                     "attack": [],
                     "signature": [
                         {
