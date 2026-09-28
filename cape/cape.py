@@ -2110,7 +2110,7 @@ class CAPE(ServiceBase):
         parent_section: ResultSection,
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
-    ) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]], List]:
+    ):
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
