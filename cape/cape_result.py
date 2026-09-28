@@ -2295,10 +2295,11 @@ def _process_http_calls(
                                     break
                 if http_mappings is not None and http_mappings:
                     pass
-                    #"http_requests_mapping"
-                    #"http_host_mapping"
-                    #"netapi_mapping"
-
+                    #"http_requests_mapping" : {"url": , "host": , "process_id": , "process_name":, "time": }
+                    #"http_host_mapping" {host:port : process_info}
+                    #"netapi_mapping" {"process_id" :, "process_name":, "sessions":, "connects":, "requests":  }
+                    #    "handle --> dict  requests-->url is the only useable value
+                    #Should they be iterated one by one ? Scan for useable items first ?
 
                 http_requests.append(http_request)
     return http_requests
