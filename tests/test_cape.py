@@ -2053,7 +2053,7 @@ class TestCapeMain:
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
-        assert results == ({}, [])
+        assert results == ({}, [], [])
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
@@ -2239,7 +2239,7 @@ class TestCapeMain:
             ],
         )
         cape_class_instance._extract_artifacts(
-            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
+            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map, []
         )
         all_files = True
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
