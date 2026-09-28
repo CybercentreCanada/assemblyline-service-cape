@@ -1940,7 +1940,7 @@ class TestCapeMain:
 
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-        mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
+        mocker.patch.object(CAPE, "_build_report", return_value=({}, [], []))
         mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
