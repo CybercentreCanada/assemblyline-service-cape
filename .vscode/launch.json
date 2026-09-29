@@ -6,7 +6,7 @@
     "configurations": [
         {
             "name": "RunServiceOnce CAPE",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "assemblyline_v4_service.dev.run_service_once",
             "cwd": "${workspaceFolder}",
@@ -19,7 +19,7 @@
         },
         {
             "name": "[Service] CAPE - Privileged",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "assemblyline_v4_service.run_privileged_service",
             "env": {
@@ -31,6 +31,14 @@
             "console": "internalConsole",
             "cwd": "${workspaceFolder}",
             "justMyCode": false,
-        }
+        },
+        {
+            "name": "Generate Sample Tests",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "tests.gentests",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+        },
     ]
 }
