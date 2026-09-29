@@ -1506,28 +1506,48 @@ def load_ontology_and_result_section(
     for process in process_events["processes"]:
         pid = process["pid"]
         dumps = []
-        for hh_dump in memory_dumps[1]:
-            if f"hh_process_{pid}_" in hh_dump and process["image"] in hh_dump:
-                dumps.append(hh_dump)
-        for dump in memory_dumps[0]:
-            if f"_{pid}_" in dump and process["image"] in dump:
-                dumps.append(dump)
-        process_res.add_process(
-            SandboxProcessItem(
-                image = process["image"],
-                start_time = process["start_time"],
-                end_time = process["end_time"],
-                pid = process["pid"],
-                ppid = process["ppid"],
-                command_line = process["command_line"],
-                integrity_level = process["integrity_level"],
-                image_hash = process["image_hash"],
-                original_file_name = process["original_file_name"],
-                safelisted = process["safelisted"],
-                sources = process["sources"],
-                dumps = dumps,
+        if memory_dumps is not None:
+            if memory_dumps[1] is not None:
+                for hh_dump in memory_dumps[1]:
+                    if f"hh_process_{pid}_" in hh_dump and process["image"] in hh_dump:
+                        dumps.append(hh_dump)
+            if memory_dumps[0] is not None:
+                for dump in memory_dumps[0]:
+                    if f"_{pid}_" in dump and process["image"] in dump:
+                        dumps.append(dump)
+        if "dumps" in SandboxProcessItem.__init__.__code__.co_varnames:
+            process_res.add_process(
+                SandboxProcessItem(
+                    image = process["image"],
+                    start_time = process["start_time"],
+                    end_time = process["end_time"],
+                    pid = process["pid"],
+                    ppid = process["ppid"],
+                    command_line = process["command_line"],
+                    integrity_level = process["integrity_level"],
+                    image_hash = process["image_hash"],
+                    original_file_name = process["original_file_name"],
+                    safelisted = process["safelisted"],
+                    sources = process["sources"],
+                    dumps = dumps,
+                )
             )
-        )
+        else:
+            process_res.add_process(
+                            SandboxProcessItem(
+                                image = process["image"],
+                                start_time = process["start_time"],
+                                end_time = process["end_time"],
+                                pid = process["pid"],
+                                ppid = process["ppid"],
+                                command_line = process["command_line"],
+                                integrity_level = process["integrity_level"],
+                                image_hash = process["image_hash"],
+                                original_file_name = process["original_file_name"],
+                                safelisted = process["safelisted"],
+                                sources = process["sources"],
+                            )
+                        )
     for netevent in process_events["network_connections"]:
         if netevent["connection_type"] == "http":
             process_res.add_network_connection(
