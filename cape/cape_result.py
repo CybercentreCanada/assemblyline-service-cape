@@ -84,13 +84,13 @@ SCORE_TRANSLATION = {
     1: 10,
     2: 30,
     3: 50,
-    4: 500,
-    5: 750,
-    6: 1000,
-    7: 1000,
+    4: 100,
+    5: 250,
+    6: 500,
+    7: 750,
     8: 1000,
     9: 1000,
-    10: 1000
+    10: 1000,
 }  # dead_host signature
 
 Classification = forge.get_classification()
@@ -1913,7 +1913,7 @@ def get_network_map(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages)
+    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_etw)
 
     return dns_servers, dns_requests, low_level_flow, http_calls
 
@@ -2132,6 +2132,7 @@ def _process_http_calls(
     safelist: Dict[str, Dict[str, List[str]]],
     uses_https_proxy_in_sandbox,
     suspicious_accepted_languages,
+    parsed_etw: Dict[str, Any] = {},
 ):
     """
     This method processes HTTP(S) calls and puts them into a nice table
@@ -2262,6 +2263,16 @@ def _process_http_calls(
                                         if "sysmon" not in http_request["sources"]:
                                             http_request["sources"].append("sysmon")
                                         break
+                if parsed_etw is not None and parsed_etw:
+                    for process_id, etw_netcalls in parsed_etw["network"].items():
+                        for call in etw_netcalls:
+                            if (http_request["dest"] == call["dst"]  or http_request["host"] == call["dst"]) or _uris_are_equal_despite_discrepancies(http_request["host"], call["dst"]):
+                                if http_request["port"] == int(call["dst_port"]):
+                                    if not http_request.get("pid"):
+                                        http_request["pid"] = process_id
+                                    if "etw" not in http_request["sources"]:
+                                        http_request["sources"].append("etw")
+                                    break
                 http_requests.append(http_request)
     return http_requests
 
@@ -2391,7 +2402,7 @@ def process_buffers(
             arguments = call["arguments"]
             buffer = arguments["Buffer"]
             b_buffer = bytes(buffer, "utf-8")
-            api = arguments["api"]
+            api = arguments.get("api", "")
             if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                 hash = sha256(b_buffer).hexdigest()
                 buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
@@ -2439,7 +2450,7 @@ def process_buffers(
                     buffer_body.append(table_row)
                     count_per_source_per_process += 1
                     b_buffer = bytes(buffer, "utf-8")
-                    api = arguments["api"]
+                    api = arguments.get("api", "")
                     if all(PE_indicator in b_buffer for PE_indicator in PE_INDICATORS):
                         hash = sha256(b_buffer).hexdigest()
                         network_buffers.append((f'{str(process)}-{api}-{hash}', b_buffer, buffer))
@@ -3097,6 +3108,8 @@ def _massage_host_data(host: str) -> str:
     :param host: The parsed "host" value
     :return: The actual host
     """
+    if host is None:
+        return ""
     if ":" in host:  # split on port if port exists
         host = host.split(":")[0]
     return host
@@ -4103,7 +4116,7 @@ def calculate_score(sig):
     score = 0
     if set(categories) & set(maliciousCategories):
         if confidence > 70:
-            altered_weight = 4
+            altered_weight = weight + 1
             if severity == 1:
                 score =  altered_weight * 0.5 * (confidence / 100.0)
             else:
