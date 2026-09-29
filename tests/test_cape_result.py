@@ -703,7 +703,7 @@ class TestCapeResult:
             ontres = OntologyResults(service_name='CAPE')
             identifier = sample["Sample_identifier"]
             api_report = sample.get("Report")
-            _,_,_ = generate_al_result(
+            _ = generate_al_result(
                 None,
                 None,
                 None,
