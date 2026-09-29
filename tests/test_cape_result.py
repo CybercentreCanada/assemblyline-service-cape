@@ -704,9 +704,11 @@ class TestCapeResult:
             identifier = sample["Sample_identifier"]
             api_report = sample.get("Report")
             _,_,_ = generate_al_result(
+                None,
+                None,
+                None,
                 api_report,
                 al_result,
-                None,
                 submission_params["file_ext"],
                 submission_params["random_ip_range"],
                 submission_params["routing"],
