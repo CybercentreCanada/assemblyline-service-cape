@@ -2,7 +2,7 @@ import json
 import os
 import re
 import shutil
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 from sys import getrecursionlimit
 
 import pytest
@@ -27,6 +27,10 @@ ROOT_DIR = os.path.dirname(TEST_DIR)
 SERVICE_CONFIG_NAME = "service_manifest.yml"
 SERVICE_CONFIG_PATH = os.path.join(ROOT_DIR, SERVICE_CONFIG_NAME)
 TEMP_SERVICE_CONFIG_PATH = os.path.join("/tmp", SERVICE_CONFIG_NAME)
+
+# Under Python 3.14, the default start method for multiprocessing has changed to "forkserver",
+# so we explicitly set it to "fork" to maintain compatibility with previous behavior.
+set_start_method("fork")
 
 # Samples that we will be sending to the service
 samples = [
