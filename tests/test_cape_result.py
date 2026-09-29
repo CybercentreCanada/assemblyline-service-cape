@@ -706,6 +706,7 @@ class TestCapeResult:
             _,_,_ = generate_al_result(
                 api_report,
                 al_result,
+                None,
                 submission_params["file_ext"],
                 submission_params["random_ip_range"],
                 submission_params["routing"],
@@ -749,7 +750,7 @@ class TestCapeResult:
                 section_name = output["result"]["sections"][i]["title_text"]
                 diff = set(json.dumps(output["result"]["sections"][i]).split()).symmetric_difference(set(json.dumps(sample["Result"]["result"]["sections"][i]).split()))
                 assert same_dictionaries(output["result"]["sections"][i], sample["Result"]["result"]["sections"][i]), f"{identifier} section {section_name} is different: {diff}"
-            assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different" 
+            assert same_dictionaries(output, sample["Result"]), f"{identifier} Result section is different"
             #Need to remove the session and guid from the ontology as they are unique random IDs
             result_ontology = ontres.as_primitives()
             for section in result_ontology.keys():

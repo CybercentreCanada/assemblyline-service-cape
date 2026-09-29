@@ -831,6 +831,8 @@ def generate_al_result(
             f.writelines(bat_commands)
 
     if zip_obj is not None:
+        if task_id is None:
+            task_id = info.get("id", 0)
         file_name_map = CAPE._get_files_json_contents(zip_obj, task_id)
         extracted_memory_dumps = CAPE._extract_artifacts(zip_obj, task_id, cape_artifact_pids, al_result, ontres, file_name_map)
         hh_extracted_memory_dumps = CAPE._extract_hollowshunter(zip_obj, task_id, main_process_tuples, ontres, processtree_id_safelist)
