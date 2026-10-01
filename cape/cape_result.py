@@ -2223,7 +2223,7 @@ def _process_http_calls(
                     try:
                         http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
                     except Exception as e:
-                        self.log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
+                        log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
                 #Fields which differ from protocol types that need normalization
                 request, port, uri, http_call = _get_important_fields_from_http_call(
                     protocol, host, dns_servers, dns_requests, http_call
@@ -2341,12 +2341,21 @@ def _process_http_calls(
                                         http_request["sources"].append("etw")
                                     break
                 if http_mappings is not None and http_mappings:
-                    pass
-                    #"http_requests_mapping" : {"url": , "host": , "process_id": , "process_name":, "time": }
-                    #"http_host_mapping" {host:port : process_info}
-                    #"netapi_mapping" {"process_id" :, "process_name":, "sessions":, "connects":, "requests":  }
-                    #    "handle --> dict  requests-->url is the only useable value
-                    #Should they be iterated one by one ? Scan for useable items first ?
+                    for requests_mapping in http_mappings["http_requests_mapping"]:
+                        if (http_request["host"] == requests_mapping["host"] or _uris_are_equal_despite_discrepancies(http_request["host"], requests_mapping["host"])) and (http_request["dest"] == requests_mapping["url"] or _uris_are_equal_despite_discrepancies(http_request["dest"], requests_mapping["url"])):
+                            if not http_request.get("pid"):
+                                http_request["pid"] = requests_mapping["process_id"]
+                            if "CAPE" not in http_request["sources"]:
+                                http_request["sources"].append("CAPE")
+                            break
+                    if "CAPE" not in http_request["sources"]:
+                        for host_mapping in http_mappings["http_host_mapping"].keys():
+                            if http_request["host"] == host_mapping or _uris_are_equal_despite_discrepancies(http_request["host"], host_mapping):
+                                if not http_request.get("pid"):
+                                    http_request["pid"] = requests_mapping["process_id"]
+                                if "CAPE" not in http_request["sources"]:
+                                    http_request["sources"].append("CAPE")
+                                break
 
                 http_requests.append(http_request)
     return http_requests
