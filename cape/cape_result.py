@@ -2115,7 +2115,7 @@ def _process_http_calls(
                     try:
                         http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
                     except Exception as e:
-                        self.log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
+                        log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
                 #Fields which differ from protocol types that need normalization
                 request, port, uri, http_call = _get_important_fields_from_http_call(
                     protocol, host, dns_servers, dns_requests, http_call
