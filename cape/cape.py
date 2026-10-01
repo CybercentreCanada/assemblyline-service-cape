@@ -1290,7 +1290,7 @@ class CAPE(ServiceBase):
         if not self.delete_cape_runs:
             self.log.debug(f"Skipping deletion of task {cape_task.id}; delete_cape_runs is disabled.")
             return
-        
+
         # We will try to connect with the REST API... NO MATTER WHAT
         logged = False
         while True:
@@ -2020,7 +2020,9 @@ class CAPE(ServiceBase):
             if parent_section.heuristic is not None:
                 parent_section.heuristic.add_signature_id("Missing Json", 0)
         if report_json_path:
-            self._build_report(zip_obj, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist)
+            dropped = self._build_report(
+                zip_obj, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            )
         else:
             cape_artifact_pids: List[Dict[str, str]] = list()
             main_process_tuples: List[Tuple[int, str]] = []
@@ -2028,7 +2030,7 @@ class CAPE(ServiceBase):
         # Check for any extra files in full report to add as extracted files
         try:
             file_name_map = self._get_files_json_contents(zip_obj, cape_task.id)
-            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map)
+            self._extract_artifacts(zip_obj, cape_task.id, cape_artifact_pids, parent_section, ontres, file_name_map, dropped)
             self._extract_hollowshunter(zip_obj, cape_task.id, main_process_tuples, ontres, custom_tree_id_safelist)
             self._extract_commands()
             self._extract_buffers()
@@ -2109,7 +2111,7 @@ class CAPE(ServiceBase):
         parent_section: ResultSection,
         ontres: OntologyResults,
         custom_tree_id_safelist: List[str],
-    ) -> None:
+    ):
         """
         This method loads the JSON report into JSON and generates the Assemblyline result from this JSON
         :param report_json_path: A string representing the path of the report in JSON format
@@ -2173,8 +2175,13 @@ class CAPE(ServiceBase):
                 self.config.get("uses_https_proxy_in_sandbox", False),
                 self.config.get("suspicious_accepted_languages", []),
                 self.signatures_meta,
-                task_dir
+                task_dir,
+                self.config.get("use_cape_network_map", False),
             )
+
+            dropped = cape_task.report.get("dropped", [])
+
+            return dropped
         except RecoverableError as e:
             self.log.error(f"Recoverable error. Error message: {repr(e)}")
             if cape_task and cape_task.id is not None:
@@ -2285,6 +2292,7 @@ class CAPE(ServiceBase):
         parent_section: ResultSection,
         ontres: OntologyResults,
         file_name_map: Dict[str, str],
+        dropped: List,
     ) -> List:
         """
         This method extracts certain artifacts from that zipfile
@@ -2444,9 +2452,12 @@ class CAPE(ServiceBase):
                                 "Adding as supplementary."
                             )
                             to_be_extracted = False
-                            file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
+                            file_name = f"{task_id}_{file_name_map.get(f, f)}"
+                    elif file_name_map.get(f, f) in [drop["name"] for drop in dropped]:
+                        self.log.debug("File is part of the dropped files identified by CAPE, extracting")
+                        file_name = f"dropped_{task_id}_{file_name_map.get(f, f)}"
                     else:
-                        file_name = f"{task_id}_extracted_{file_name_map.get(f, f)}"
+                        file_name = f"{task_id}_{file_name_map.get(f, f)}"
 
                 if not file_name:
                     file_name = f"{task_id}_{file_name_map.get(f, f)}"
