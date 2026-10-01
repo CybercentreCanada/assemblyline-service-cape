@@ -1,5 +1,5 @@
 ARG branch=latest
-FROM cccs/assemblyline-v4-service-base:$branch
+FROM cccs/assemblyline-rust-service-base:$branch
 
 # Python path to the service class from your service directory
 ENV SERVICE_PATH cape.cape.CAPE
