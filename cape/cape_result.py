@@ -2112,7 +2112,10 @@ def _process_http_calls(
                 if is_valid_ip(host) and "dst" not in http_call:
                     http_call["dst"] = host
                 if uses_https_proxy_in_sandbox:
-                    http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
+                    try:
+                        http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
+                    except Exception as e:
+                        self.log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
                 #Fields which differ from protocol types that need normalization
                 request, port, uri, http_call = _get_important_fields_from_http_call(
                     protocol, host, dns_servers, dns_requests, http_call
