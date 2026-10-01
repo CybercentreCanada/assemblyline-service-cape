@@ -1940,7 +1940,7 @@ class TestCapeMain:
 
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-        mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
+        mocker.patch.object(CAPE, "_build_report", return_value=({}, [], []))
         mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
@@ -2048,43 +2048,43 @@ class TestCapeMain:
         custom_tree_id_safelist = list()
 
         results = cape_class_instance._build_report(
-            report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+            None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
         )
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
-        assert results == ({}, [])
+        assert results == []
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
         with pytest.raises(RecoverableError):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.generate_al_result", side_effect=CapeProcessingException("blah"))
         with pytest.raises(CapeProcessingException):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.generate_al_result", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         # Exception tests for json.loads
         mocker.patch("cape.cape.loads", side_effect=JSONDecodeError("blah", dummy_json_doc_class_instance, 1))
         with pytest.raises(JSONDecodeError):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
         mocker.patch("cape.cape.loads", side_effect=Exception("blah"))
         with pytest.raises(Exception):
             _ = cape_class_instance._build_report(
-                report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
+                None, report_json_path, file_ext, cape_task, parent_section, ontres, custom_tree_id_safelist
             )
 
     @staticmethod
@@ -2177,7 +2177,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
-                "name": f"{task_id}_extracted_files/README.txt",
+                "name": f"{task_id}_files/README.txt",
                 "description": "File extracted during analysis",
                 "to_be_extracted": False,
             }
@@ -2239,7 +2239,7 @@ class TestCapeMain:
             ],
         )
         cape_class_instance._extract_artifacts(
-            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
+            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map, []
         )
         all_files = True
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
