@@ -14,6 +14,7 @@ import lief
 from peutils import is_valid
 from time import strptime
 from cerberus import Validator
+from zipfile import ZipFile
 
 from assemblyline.common import forge
 from assemblyline.common import log as al_log
@@ -91,6 +92,7 @@ SCORE_TRANSLATION = {
     9: 1000,
     10: 1000,
 }  # dead_host signature
+
 Classification = forge.get_classification()
 API_CALLS = [
     {
@@ -671,6 +673,9 @@ ETW_WMI_PATH = os.path.join(ETW_PATH, "wmi_etw.json")
 
 # noinspection PyBroadException
 def generate_al_result(
+    CAPE,
+    zip_obj: ZipFile,
+    task_id: int,
     api_report: Dict[str, Any],
     al_result: ResultSection,
     file_ext: str,
@@ -686,7 +691,7 @@ def generate_al_result(
     signature_map: Dict[str, Dict[str, Any]] = {},
     task_dir = None,
     use_cape_network_map = False,
-) -> Tuple[List[Dict[str, str]], List[Tuple[int, str]]]:
+):
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
     :param api_report: The JSON report for the CAPE analysis
@@ -829,6 +834,16 @@ def generate_al_result(
             bat_commands.insert(0, CUSTOM_BATCH_ID)
             f.writelines(bat_commands)
 
+    if zip_obj is not None:
+        if task_id is None:
+            task_id = info.get("id", 0)
+        file_name_map = CAPE._get_files_json_contents(zip_obj, task_id)
+        extracted_memory_dumps = CAPE._extract_artifacts(zip_obj, task_id, cape_artifact_pids, al_result, ontres, file_name_map)
+        hh_extracted_memory_dumps = CAPE._extract_hollowshunter(zip_obj, task_id, main_process_tuples, ontres, processtree_id_safelist)
+        memory_dumps = (extracted_memory_dumps, hh_extracted_memory_dumps)
+    else:
+        memory_dumps = (None, None)
+
     for pid in process_map.keys():
         clipboard_events = []
         if len(process_map[pid]["clipboard_events"]) > 0:
@@ -842,8 +857,7 @@ def generate_al_result(
                     for event in clipboard_events:
                         f.writelines(event)
 
-    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, signature_map, parsed_etw)
-
+    process_events = load_ontology_and_result_section(ontres, al_result, process_map, parsed_sysmon, dns_servers, validated_random_ip_range, dns_requests, low_level_flow, http_calls, uses_https_proxy_in_sandbox, signatures, safelist, processtree_id_safelist, routing, inetsim_dns_servers, memory_dumps, signature_map, parsed_etw)
     #Process all the info from auxiliaries
         # Powershell logger
     if curtain:
@@ -864,7 +878,7 @@ def generate_al_result(
     if machine_info:
         process_machine_info(machine_info, ontres)
 
-    return cape_artifact_pids, main_process_tuples, process_events
+    return process_events
 
 def load_ontology_and_result_section(
     ontres: OntologyResults,
@@ -882,6 +896,7 @@ def load_ontology_and_result_section(
     processtree_id_safelist: List[str],
     routing: str,
     inetsim_dns_servers: List[str],
+    memory_dumps: Tuple[List, List],
     signature_map: Dict[str, Dict[str, Any]] = {},
     parsed_etw: Dict[str, Any] = {}
     ):
@@ -1495,21 +1510,50 @@ def load_ontology_and_result_section(
     )
 
     for process in process_events["processes"]:
-        process_res.add_process(
-            SandboxProcessItem(
-                image = process["image"],
-                start_time = process["start_time"],
-                end_time = process["end_time"],
-                pid = process["pid"],
-                ppid = process["ppid"],
-                command_line = process["command_line"],
-                integrity_level = process["integrity_level"],
-                image_hash = process["image_hash"],
-                original_file_name = process["original_file_name"],
-                safelisted = process["safelisted"],
-                sources = process["sources"],
+        pid = process["pid"]
+        dumps = []
+        if memory_dumps is not None:
+            if memory_dumps[1] is not None:
+                for hh_dump in memory_dumps[1]:
+                    if f"hh_process_{pid}_" in hh_dump and process["image"] in hh_dump:
+                        dumps.append(hh_dump)
+            if memory_dumps[0] is not None:
+                for dump in memory_dumps[0]:
+                    if f"_{pid}_" in dump and process["image"] in dump:
+                        dumps.append(dump)
+        if "dumps" in SandboxProcessItem.__init__.__code__.co_varnames:
+            process_res.add_process(
+                SandboxProcessItem(
+                    image = process["image"],
+                    start_time = process["start_time"],
+                    end_time = process["end_time"],
+                    pid = process["pid"],
+                    ppid = process["ppid"],
+                    command_line = process["command_line"],
+                    integrity_level = process["integrity_level"],
+                    image_hash = process["image_hash"],
+                    original_file_name = process["original_file_name"],
+                    safelisted = process["safelisted"],
+                    sources = process["sources"],
+                    dumps = dumps,
+                )
             )
-        )
+        else:
+            process_res.add_process(
+                            SandboxProcessItem(
+                                image = process["image"],
+                                start_time = process["start_time"],
+                                end_time = process["end_time"],
+                                pid = process["pid"],
+                                ppid = process["ppid"],
+                                command_line = process["command_line"],
+                                integrity_level = process["integrity_level"],
+                                image_hash = process["image_hash"],
+                                original_file_name = process["original_file_name"],
+                                safelisted = process["safelisted"],
+                                sources = process["sources"],
+                            )
+                        )
     for netevent in process_events["network_connections"]:
         if netevent["connection_type"] == "http":
             process_res.add_network_connection(
@@ -2176,7 +2220,10 @@ def _process_http_calls(
                 if is_valid_ip(host) and "dst" not in http_call:
                     http_call["dst"] = host
                 if uses_https_proxy_in_sandbox:
-                    http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
+                    try:
+                        http_call["uri"] = convert_url_to_https(method=http_call["method"], url=http_call["uri"])
+                    except Exception as e:
+                        self.log.debug("Invalid URL given %s with error : %s" % (http_call["uri"] , e))
                 #Fields which differ from protocol types that need normalization
                 request, port, uri, http_call = _get_important_fields_from_http_call(
                     protocol, host, dns_servers, dns_requests, http_call
@@ -4394,8 +4441,14 @@ def main(argv):
             if item not in custom_tree_id_safelist
         ]
     )
+
+    service = ServiceBase()
+
     task_dir = report_path.replace("reports/lite.json", "") if "reports/lite.json" in report_path else None
-    cape_artifact_pids, main_process_tuples, process_events = generate_al_result(
+    process_events = generate_al_result(
+        service,
+        None,
+        None,
         api_report,
         al_result,
         file_ext,
@@ -4412,7 +4465,6 @@ def main(argv):
         task_dir
     )
 
-    service = ServiceBase()
 
     ontres.preprocess_ontology(custom_tree_id_safelist)
     # Print the ontres
