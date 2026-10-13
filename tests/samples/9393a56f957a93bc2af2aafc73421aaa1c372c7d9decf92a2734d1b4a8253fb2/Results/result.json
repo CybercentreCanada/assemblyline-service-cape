@@ -259,7 +259,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Signatures",
+                    "name": "CAPE Signature Hit",
                     "attack": [],
                     "signature": [
                         {
@@ -299,7 +299,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 0,
-                    "name": "CAPE Signatures",
+                    "name": "CAPE Signature Hit",
                     "attack": [],
                     "signature": [
                         {
@@ -331,7 +331,7 @@
                 "heuristic": {
                     "heur_id": 1,
                     "score": 10,
-                    "name": "CAPE Signatures",
+                    "name": "CAPE Signature Hit",
                     "attack": [],
                     "signature": [
                         {
