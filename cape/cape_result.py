@@ -689,7 +689,8 @@ def generate_al_result(
     uses_https_proxy_in_sandbox: bool,
     suspicious_accepted_languages: List[str],
     signature_map: Dict[str, Dict[str, Any]] = {},
-    task_dir = None
+    task_dir = None,
+    use_cape_network_map = False,
 ):
     """
     This method is the main logic that generates the Assemblyline report from the CAPE analysis report
@@ -724,6 +725,7 @@ def generate_al_result(
     sysmon: List[Dict[str, Any]] = api_report.get("sysmon", [])
     hollowshunter: Dict[str, Any] = api_report.get("hollowshunter", {})
     cape: Dict[str, Any] = api_report.get("CAPE", {})
+    network_map: Dict[str, Any] = api_report.get("network_map", {})
 
     parsed_sysmon = None
     parsed_etw = None
@@ -794,7 +796,9 @@ def generate_al_result(
             uses_https_proxy_in_sandbox,
             suspicious_accepted_languages,
             parsed_sysmon,
-            parsed_etw
+            parsed_etw,
+            network_map,
+            use_cape_network_map
         )
     #Process the signature raised in the report
     if sigs:
@@ -1872,6 +1876,8 @@ def get_network_map(
     suspicious_accepted_languages: List[str],
     parsed_sysmon: Dict = {},
     parsed_etw: Dict[str, Any] = {},
+    network_map: Dict[str, Any] = {},
+    use_cape_network_map = False,
 ):
     """
     This method processes the network section of the CAPE report, adding anything noteworthy to the
@@ -1891,16 +1897,42 @@ def get_network_map(
     :return: None
     """
 
+    if use_cape_network_map and network_map is not None:
+        #Parse the network map from the report and help association with the network objects
+        dns_mapping = network_map.get("dns_intents", {})
+        http_requests_mapping = network_map.get("http_requests", {})
+        netapi_mapping = network_map.get("winhttp_sessions", {})
+        comapi_mapping = network_map.get("com_activations", {})
+        endpoint_mapping = network_map.get("endpoint_map", {})
+        http_host_mapping = network_map.get("http_host_map", {})
+    else:
+        dns_mapping = {}
+        http_requests_mapping = {}
+        netapi_mapping = {}
+        comapi_mapping = {}
+        endpoint_mapping = {}
+        http_host_mapping = {}
+
+    tcp_udp_mappings = {
+        "endpoint_mapping": endpoint_mapping,
+    }
+
+    http_mappings = {
+        "http_requests_mapping": http_requests_mapping,
+        "http_host_mapping": http_host_mapping,
+        "netapi_mapping": netapi_mapping,
+    }
+
     # DNS
     dns_servers: List[str] = _determine_dns_servers(network, inetsim_dns_servers)
     dns_requests: Dict[str, List[Dict[str, Any]]] = _get_dns_map(
-        network.get("dns", []), process_map, parsed_sysmon, routing, dns_servers, parsed_etw
+        network.get("dns", []), process_map, parsed_sysmon, routing, dns_servers, parsed_etw, dns_mapping
     )
     #dns_res_sec: Optional[ResultTableSection] = _get_dns_sec(dns_requests, safelist)
 
     # UDP/TCP
     low_level_flows = {"udp": network.get("udp", []), "tcp": network.get("tcp", [])}
-    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw)
+    network_flows_table = _get_low_level_flows(process_map, parsed_sysmon, low_level_flows, parsed_etw, tcp_udp_mappings)
     low_level_flow = []
     for network_flow in network_flows_table:
         if not _remove_network_call(network_flow["domain"], network_flow["dest_ip"], dns_servers, dns_requests, inetsim_network, safelist):
@@ -1913,7 +1945,7 @@ def get_network_map(
         "http_ex": network.get("http_ex", []),
         "https_ex": network.get("https_ex", []),
     }
-    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_etw)
+    http_calls = _process_http_calls(http_level_flows, process_map, parsed_sysmon, dns_servers, dns_requests, safelist, uses_https_proxy_in_sandbox, suspicious_accepted_languages, parsed_etw, http_mappings)
 
     return dns_servers, dns_requests, low_level_flow, http_calls
 
@@ -1923,7 +1955,8 @@ def _get_dns_map(
     parsed_sysmon: Dict,
     routing: str,
     dns_servers: List[str],
-    parsed_etw: Dict[str, Any] = {}
+    parsed_etw: Dict[str, Any] = {},
+    dns_mapping: Dict[str, Any] = {},
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     This method creates a map between domain calls and IPs returned
@@ -2041,13 +2074,33 @@ def _get_dns_map(
                                 break
                             else:
                                 continue
+        if dns_mapping is not None and dns_mapping:
+            for domain, details in dns_mapping.items():
+                for request, attempts in dns_requests.items():
+                    for index, attempt in enumerate(attempts):
+                        answers = attempt["answers"]
+                        if answers == None:
+                            continue
+                        for answer in answers:
+                            if answer is not Dict:
+                                continue
+                            if request == domain:
+                                if not dns_requests[request][index].get("process_id"):
+                                    dns_requests[request][index]["process_id"] = details["process"]["process_id"]
+                                    if "CAPE" not in dns_requests[request][index]["sources"]:
+                                        dns_requests[request][index]["sources"].append("CAPE")
+                                    break
+                            else:
+                                continue
+
     return dict(dns_requests)
 
 def _get_low_level_flows(
     process_map: Dict[int, Dict[str, Any]],
     parsed_sysmon: Dict,
     flows: Dict[str, List[Dict[str, Any]]],
-    parsed_etw: Dict[str, Any] = {}
+    parsed_etw: Dict[str, Any] = {},
+    tcp_udp_mappings: Dict[str, Any] = {},
 ) -> List[Dict[str, Any]]:
     """
     This method converts low level network calls to a general format
@@ -2109,7 +2162,7 @@ def _get_low_level_flows(
                                         if "sysmon" not in network_flow["sources"]:
                                             network_flow["sources"].append("sysmon")
                                         break
-                                #Attempt mapping process_name to the netflow using ETW
+                #Attempt mapping process_name to the netflow using ETW
                 if parsed_etw is not None and parsed_etw:
                     for process_id, etw_netcalls in parsed_etw["network"].items():
                         for call in etw_netcalls:
@@ -2120,6 +2173,16 @@ def _get_low_level_flows(
                                     if "etw" not in network_flow["sources"]:
                                         network_flow["sources"].append("etw")
                                     break
+                #Attempt mapping with the CAPE report network_mapping
+                if tcp_udp_mappings is not None and tcp_udp_mappings:
+                    for domain, details in tcp_udp_mappings["endpoint_mapping"].items():
+                        if domain.split(":")[0] == network_flow["domain"] or domain.split(":")[0] == network_flow["dest_ip"]:
+                            if network_flow["dest_port"] == int(domain.split(":")[-1]):
+                                if not network_flow.get("pid"):
+                                    network_flow["pid"] = details["process_id"]
+                                if "CAPE" not in network_flow["sources"]:
+                                    network_flow["sources".append("CAPE")]
+                                break
                 network_flows_table.append(network_flow)
     return network_flows_table
 
@@ -2133,6 +2196,7 @@ def _process_http_calls(
     uses_https_proxy_in_sandbox,
     suspicious_accepted_languages,
     parsed_etw: Dict[str, Any] = {},
+    http_mappings: Dict[str, Any] = {},
 ):
     """
     This method processes HTTP(S) calls and puts them into a nice table
@@ -2276,6 +2340,23 @@ def _process_http_calls(
                                     if "etw" not in http_request["sources"]:
                                         http_request["sources"].append("etw")
                                     break
+                if http_mappings is not None and http_mappings:
+                    for requests_mapping in http_mappings["http_requests_mapping"]:
+                        if (http_request["host"] == requests_mapping["host"] or _uris_are_equal_despite_discrepancies(http_request["host"], requests_mapping["host"])) and (http_request["dest"] == requests_mapping["url"] or _uris_are_equal_despite_discrepancies(http_request["dest"], requests_mapping["url"])):
+                            if not http_request.get("pid"):
+                                http_request["pid"] = requests_mapping["process_id"]
+                            if "CAPE" not in http_request["sources"]:
+                                http_request["sources"].append("CAPE")
+                            break
+                    if "CAPE" not in http_request["sources"]:
+                        for host_mapping in http_mappings["http_host_mapping"].keys():
+                            if http_request["host"] == host_mapping or _uris_are_equal_despite_discrepancies(http_request["host"], host_mapping):
+                                if not http_request.get("pid"):
+                                    http_request["pid"] = requests_mapping["process_id"]
+                                if "CAPE" not in http_request["sources"]:
+                                    http_request["sources"].append("CAPE")
+                                break
+
                 http_requests.append(http_request)
     return http_requests
 
@@ -3179,7 +3260,7 @@ def _get_important_fields_from_http_call(
         request = http_call["request"]
         port = http_call["dport"]
     else:
-        request = http_call.get("data", None)  
+        request = http_call.get("data", None)
         port = http_call.get("port", 0)
         uri = http_call.get("uri", "")
     return request, port, uri, http_call

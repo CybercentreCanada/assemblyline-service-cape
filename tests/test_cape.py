@@ -1940,7 +1940,7 @@ class TestCapeMain:
 
         mocker.patch.object(CAPE, "_add_zip_as_supplementary_file")
         mocker.patch.object(CAPE, "_add_json_as_supplementary_file", return_value=True)
-        mocker.patch.object(CAPE, "_build_report", return_value=({}, []))
+        mocker.patch.object(CAPE, "_build_report", return_value=({}, [], []))
         mocker.patch.object(CAPE, "_get_files_json_contents", return_value=dict())
         mocker.patch.object(CAPE, "_extract_hollowshunter")
         mocker.patch.object(CAPE, "_extract_artifacts")
@@ -2053,7 +2053,7 @@ class TestCapeMain:
 
         assert getrecursionlimit() == int(cape_class_instance.config["recursion_limit"])
         assert cape_task.report == report_info
-        assert results == None
+        assert results == []
 
         # Exception tests for generate_al_result
         mocker.patch("cape.cape.generate_al_result", side_effect=RecoverableError("blah"))
@@ -2177,7 +2177,7 @@ class TestCapeMain:
         correct_artifact_list.append(
             {
                 "path": f"{cape_class_instance.working_directory}/{task_id}/files/README.txt",
-                "name": f"{task_id}_extracted_files/README.txt",
+                "name": f"{task_id}_files/README.txt",
                 "description": "File extracted during analysis",
                 "to_be_extracted": False,
             }
@@ -2239,7 +2239,7 @@ class TestCapeMain:
             ],
         )
         cape_class_instance._extract_artifacts(
-            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map
+            zip_obj, task_id, cape_artifact_pids, parent_section, ontres, file_name_map, []
         )
         all_files = True
         assert len(cape_class_instance.artifact_list) == len(correct_artifact_list)
