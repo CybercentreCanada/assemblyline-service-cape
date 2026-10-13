@@ -28,4 +28,5 @@ extends:
   template: stages/test-service.yaml@PipelineTemplates
   parameters:
     samples_repo: unittest-samples
+    test_container: "true"
     
