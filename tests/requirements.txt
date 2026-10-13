@@ -1,4 +1,5 @@
 assemblyline
+assemblyline-v4-service
 assemblyline-service-utilities
 pytest
 pytest-dependency
