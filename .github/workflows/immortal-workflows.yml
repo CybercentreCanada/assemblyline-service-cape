@@ -1,0 +1,75 @@
+# /.github/workflows/immortal-workflows.yml
+name: Reset workflows timeout
+on:
+  schedule:
+    - cron: "0 1 1 * *" # Every first of the month at 1am
+jobs:
+  immortal-workflows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking and resetting workflows timeout for repository ${{ github.repository }}"
+
+          # Taken from https://github.com/PhrozenByte/gh-workflow-immortality/blob/main/gh-workflow-immortality.sh
+          # Replacing gh_api function with direct gh api calls for simplicity
+
+          WORKFLOWS_ALIVE=()
+          WORKFLOWS_DEAD=()
+          WORKFLOWS_DISABLED=()
+
+          API_RESULT=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/actions/workflows | jq '.workflows')
+
+          [ -n "$API_RESULT" ] || return 1
+
+          __RESULT_ALIVE="$(jq -r --arg STATE "active" '.[]|select(.state == $STATE).path' <<< "$API_RESULT")"
+          __RESULT_ALIVE="$(sed -ne 's#^\.github/workflows/\(.*\)$#\1#p' <<< "$__RESULT_ALIVE")"
+          [ -z "$__RESULT_ALIVE" ] || readarray -t WORKFLOWS_ALIVE <<< "$__RESULT_ALIVE"
+
+          __RESULT_DEAD="$(jq -r --arg STATE "disabled_inactivity" '.[]|select(.state == $STATE).path' <<< "$API_RESULT")"
+          __RESULT_DEAD="$(sed -ne 's#^\.github/workflows/\(.*\)$#\1#p' <<< "$__RESULT_DEAD")"
+          [ -z "$__RESULT_DEAD" ] || readarray -t WORKFLOWS_DEAD <<< "$__RESULT_DEAD"
+
+          __RESULT_DISABLED="$(jq -r --arg STATE "disabled_manually" '.[]|select(.state == $STATE).path' <<< "$API_RESULT")"
+          __RESULT_DISABLED="$(sed -ne 's#^\.github/workflows/\(.*\)$#\1#p' <<< "$__RESULT_DISABLED")"
+          [ -z "$__RESULT_DISABLED" ] || readarray -t WORKFLOWS_DISABLED <<< "$__RESULT_DISABLED"
+
+          echo "Found ${#WORKFLOWS_ALIVE[@]} active, ${#WORKFLOWS_DEAD[@]} dead, and ${#WORKFLOWS_DISABLED[@]} disabled workflows"
+
+          # enable still active workflows
+          for WORKFLOW in "${WORKFLOWS_ALIVE[@]}"; do
+              echo "- Enabling still active workflow: $WORKFLOW"
+              if [ -z "$DRY_RUN" ]; then
+                  gh api \
+                    --method PUT \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    /repos/${{ github.repository }}/actions/workflows/$WORKFLOW/enable \
+                      || { EXIT_CODE=1; true; }
+              fi
+          done
+
+          # enable dead workflows
+          for WORKFLOW in "${WORKFLOWS_DEAD[@]}"; do
+              echo "- Enabling dead workflow: $WORKFLOW"
+              if [ -z "$DRY_RUN" ]; then
+                  gh api \
+                    --method PUT \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    /repos/${{ github.repository }}/actions/workflows/$WORKFLOW/enable \
+                      || { EXIT_CODE=1; true; }
+              fi
+          done
+
+          # print disabled workflows
+          for WORKFLOW in "${WORKFLOWS_DISABLED[@]}"; do
+              echo "- Found disabled workflow: $WORKFLOW"
+          done
