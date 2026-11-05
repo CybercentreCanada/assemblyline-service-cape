@@ -2245,12 +2245,6 @@ def _process_http_calls(
                     else:
                         http_call["Non_standard_request_headers"] = {}
                         http_call["Non_standard_request_headers"][header] = header_value
-                for header,_ in response_headers.items():
-                    if header in STANDARD_HTTP_HEADERS:
-                        response_headers[header] = header.replace("-", "")
-                    else:
-                        http_call["Non_standard_request_headers"] = {}
-                        http_call["Non_standard_request_headers"][header] = header_value
 
                 destination_ip = _get_destination_ip(http_call, dns_servers)
                 if not destination_ip:
