@@ -3623,7 +3623,12 @@ def _tag_mark_values(
     ]:
         if uses_https_proxy_in_sandbox:
             # Let's try to avoid misparsed data in the signatures
-            value = convert_url_to_https(method="CONNECT", url=value)
+            try:
+                value = convert_url_to_https(method="CONNECT", url=value)
+            except ValueError:
+                return
+            except:
+                pass
         if key.lower() in ["request","suspicious_request","http_request"]:
             try:
                 value = search(HTTP_REQUEST_REGEX, value).group(1)
