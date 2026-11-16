@@ -2209,11 +2209,11 @@ class CAPE(ServiceBase):
         """
         file_name_map: Dict[str, str] = dict()
         member_name = "files.json"
+        task_dir = os.path.join(self.working_directory, f"{task_id}")
         if member_name not in zip_obj.namelist():
             self.log.debug(f"No {member_name} available")
         else:
             try:
-                task_dir = os.path.join(self.working_directory, f"{task_id}")
                 zip_obj.extract(member_name, path=task_dir)
                 with open(os.path.join(task_dir, member_name)) as f:
                     file_jsons = f.readlines()
